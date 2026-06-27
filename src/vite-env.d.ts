@@ -11,6 +11,8 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL: string
   readonly VITE_API_URL: string
   readonly VITE_APP_NAME: string
+  /** Dev: exibir mensagem da API em erros 5xx (não usar em produção). */
+  readonly VITE_SHOW_API_5XX_DETAILS: string
 }
 
 interface ImportMeta {

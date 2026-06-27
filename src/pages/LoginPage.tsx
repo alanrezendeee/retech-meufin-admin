@@ -20,6 +20,7 @@ import {
 import Visibility from '@mui/icons-material/Visibility'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import { useAuth } from '@/auth/context/jwt/auth-provider'
+import { UserFacingError } from '@/lib/errors'
 import LoginIllustration from '@/components/auth/LoginIllustration'
 import { AppLogo } from '@/components/layout/AppLogo'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
@@ -46,8 +47,8 @@ export default function LoginPage() {
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'demo@retechfin.com',
-      password: 'demo123',
+      email: '',
+      password: '',
     },
   })
 
@@ -55,11 +56,17 @@ export default function LoginPage() {
     try {
       setError(null)
       await login(data)
-      await checkUserSession()
-      navigate('/dashboard')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao fazer login')
+      setError(UserFacingError.message(err, 'login'))
+      return
     }
+    try {
+      await checkUserSession()
+    } catch (err) {
+      setError(UserFacingError.message(err, 'session'))
+      return
+    }
+    navigate('/dashboard')
   }
 
   return (
@@ -277,27 +284,6 @@ export default function LoginPage() {
                   </Button>
                 </Stack>
               </form>
-            </Paper>
-
-            <Paper
-              elevation={0}
-              sx={{
-                mt: 3,
-                p: 2,
-                borderRadius: 2,
-                border: 1,
-                borderColor: 'divider',
-                bgcolor: (t) => alpha(t.palette.background.paper, 0.5),
-              }}
-            >
-              <Typography variant="caption" color="text.secondary" display="block" fontWeight={600} gutterBottom>
-                Credenciais de demonstração
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                E-mail: demo@retechfin.com
-                <br />
-                Senha: demo123
-              </Typography>
             </Paper>
           </Container>
         </Box>

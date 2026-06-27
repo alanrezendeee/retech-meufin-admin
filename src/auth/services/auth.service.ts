@@ -2,6 +2,8 @@ import axios, { type AxiosInstance } from 'axios'
 import type { LoginCredentials, User } from '@/types/auth'
 import { RETECH_FIN_APPLICATION_CODE } from '@/constants/app'
 import { mockAbilitiesForEmail, mockUserForEmail } from '@/auth/context/jwt/mock-auth'
+import { setMeufinAccessToken } from '@/lib/api/meufin-client'
+import { toUserMessage } from '@/lib/errors'
 
 /** Formato CASL retornado por GET /v1/me (retechauth-api). */
 export type CASLAbility = {
@@ -34,7 +36,7 @@ export type AuthLoginResult = {
   abilities: CASLAbility[]
 }
 
-const authBaseURL = () => import.meta.env.VITE_AUTH_BASE_URL ?? 'http://localhost:8080'
+const authBaseURL = () => import.meta.env.VITE_AUTH_BASE_URL ?? 'http://localhost:8000'
 const pathAuthenticate = () => import.meta.env.VITE_AUTH_ENDPOINT_AUTHENTICATE ?? '/v1/authenticate'
 const pathMe = () => import.meta.env.VITE_AUTH_ENDPOINT_ME ?? '/v1/me'
 
@@ -53,6 +55,8 @@ export function setAuthAccessToken(token: string | null): void {
   } else {
     delete authClient.defaults.headers.common.Authorization
   }
+  // Propaga o mesmo token para o cliente da meufin-api (mesmo SSO).
+  setMeufinAccessToken(token)
 }
 
 function mapMeUserToUser(u: MeResponse['user']): User {
@@ -64,14 +68,7 @@ function mapMeUserToUser(u: MeResponse['user']): User {
 }
 
 function getErrorMessage(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { message?: string; error?: string } | undefined
-    return data?.message ?? data?.error ?? err.message ?? 'Erro na requisição'
-  }
-  if (err instanceof Error) {
-    return err.message
-  }
-  return 'Erro desconhecido'
+  return toUserMessage(err, 'default')
 }
 
 async function fetchMe(): Promise<MeResponse> {
