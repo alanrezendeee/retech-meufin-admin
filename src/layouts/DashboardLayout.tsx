@@ -8,12 +8,13 @@ import { useUiStore } from '@/store/uiStore'
 export function DashboardLayout() {
   const theme = useTheme()
   const isLg = useMediaQuery(theme.breakpoints.up('lg'))
-  const { sidebarOpen, setSidebarOpen } = useUiStore()
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed } = useUiStore()
 
   useEffect(() => {
     if (isLg) setSidebarOpen(false)
   }, [isLg, setSidebarOpen])
 
+  const desktopExpanded = isLg && !sidebarCollapsed
   const drawer = <SidebarNav onNavigate={() => setSidebarOpen(false)} />
 
   return (
@@ -36,27 +37,29 @@ export function DashboardLayout() {
         {drawer}
       </Drawer>
 
-      <Drawer
-        variant="permanent"
-        sx={{
-          display: { xs: 'none', lg: 'block' },
-          width: LAYOUT_DRAWER_WIDTH,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
+      {!sidebarCollapsed && (
+        <Drawer
+          variant="permanent"
+          sx={{
+            display: { xs: 'none', lg: 'block' },
             width: LAYOUT_DRAWER_WIDTH,
-            boxSizing: 'border-box',
-          },
-        }}
-        open
-      >
-        {drawer}
-      </Drawer>
+            flexShrink: 0,
+            [`& .MuiDrawer-paper`]: {
+              width: LAYOUT_DRAWER_WIDTH,
+              boxSizing: 'border-box',
+            },
+          }}
+          open
+        >
+          {drawer}
+        </Drawer>
+      )}
 
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { lg: `calc(100% - ${LAYOUT_DRAWER_WIDTH}px)` },
+          width: { lg: desktopExpanded ? `calc(100% - ${LAYOUT_DRAWER_WIDTH}px)` : '100%' },
           minHeight: '100vh',
           px: { xs: 2, sm: 3 },
           py: 3,

@@ -16,7 +16,7 @@ import { UserMenu } from './UserMenu'
 import { AppLogo } from './AppLogo'
 import { useUiStore } from '@/store/uiStore'
 
-const DRAWER_WIDTH = 280
+const DRAWER_WIDTH = 300
 
 type Props = {
   title?: string
@@ -26,6 +26,10 @@ export function MainHeader({ title = 'Painel' }: Props) {
   const theme = useTheme()
   const isLg = useMediaQuery(theme.breakpoints.up('lg'))
   const toggleSidebar = useUiStore((s) => s.toggleSidebar)
+  const toggleSidebarCollapsed = useUiStore((s) => s.toggleSidebarCollapsed)
+  const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
+
+  const desktopExpanded = isLg && !sidebarCollapsed
 
   return (
     <AppBar
@@ -33,27 +37,29 @@ export function MainHeader({ title = 'Painel' }: Props) {
       color="default"
       elevation={0}
       sx={{
-        width: { lg: `calc(100% - ${DRAWER_WIDTH}px)` },
-        ml: { lg: `${DRAWER_WIDTH}px` },
+        width: { lg: desktopExpanded ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%' },
+        ml: { lg: desktopExpanded ? `${DRAWER_WIDTH}px` : 0 },
+        transition: (t) =>
+          t.transitions.create(['width', 'margin'], { duration: t.transitions.duration.shorter }),
       }}
     >
       <Toolbar sx={{ gap: 2, minHeight: { xs: 64, sm: 72 } }}>
-        {!isLg && (
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={toggleSidebar}
-            aria-label="Abrir menu"
-            sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}
-          >
-            <MenuRoundedIcon />
-          </IconButton>
-        )}
+        <IconButton
+          color="inherit"
+          edge="start"
+          onClick={isLg ? toggleSidebarCollapsed : toggleSidebar}
+          aria-label={isLg ? (sidebarCollapsed ? 'Abrir menu' : 'Recolher menu') : 'Abrir menu'}
+          sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}
+        >
+          <MenuRoundedIcon />
+        </IconButton>
 
-        {/* Logo no mobile (compacta) */}
-        <Box sx={{ display: { xs: 'flex', lg: 'none' }, alignItems: 'center' }}>
-          <AppLogo compact />
-        </Box>
+        {/* Logo compacta no mobile, e no desktop quando a sidebar está recolhida */}
+        {(!isLg || sidebarCollapsed) && (
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <AppLogo compact />
+          </Box>
+        )}
 
         <Typography
           variant="h6"
