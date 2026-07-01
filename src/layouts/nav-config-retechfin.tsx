@@ -6,6 +6,12 @@ import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
+import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
+import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
+import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
+import BiotechRoundedIcon from '@mui/icons-material/BiotechRounded'
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
+import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
 
 /**
  * Menu RetechFin Admin — subjects alinhados ao manifest / abilities da API de auth (retechauth-api).
@@ -55,6 +61,55 @@ export const retechfinNavSections: NavDataSection[] = [
         icon: FlagRoundedIcon,
         soon: true,
         permission: { action: 'view', subject: 'retechfin.goals' },
+      },
+    ],
+  },
+  {
+    subheader: 'Saúde Familiar',
+    items: [
+      {
+        label: 'Dashboard Saúde',
+        path: '/dashboard/saude',
+        icon: MonitorHeartRoundedIcon,
+        soon: true,
+        permission: { action: 'view', subject: 'health.dashboard' },
+      },
+      {
+        label: 'Membros da Família',
+        path: '/dashboard/saude/membros',
+        icon: GroupsRoundedIcon,
+        soon: true,
+        permission: { action: 'view', subject: 'health.family_members' },
+      },
+      {
+        label: 'Laboratórios',
+        path: '/dashboard/saude/laboratorios',
+        icon: ScienceRoundedIcon,
+        soon: true,
+        permission: { action: 'view', subject: 'health.labs' },
+      },
+      {
+        label: 'Exames (catálogo)',
+        path: '/dashboard/saude/exames',
+        icon: BiotechRoundedIcon,
+        soon: true,
+        permission: { action: 'view', subject: 'health.markers' },
+        info: 'health.markers',
+      },
+      {
+        label: 'Resultados',
+        path: '/dashboard/saude/resultados',
+        icon: DescriptionRoundedIcon,
+        soon: true,
+        permission: { action: 'view', subject: 'health.results' },
+        info: 'health.results',
+      },
+      {
+        label: 'Documentos',
+        path: '/dashboard/saude/documentos',
+        icon: FolderSharedRoundedIcon,
+        soon: true,
+        permission: { action: 'view', subject: 'health.documents' },
       },
     ],
   },
