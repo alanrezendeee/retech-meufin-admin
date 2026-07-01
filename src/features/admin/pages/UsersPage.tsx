@@ -26,7 +26,12 @@ import {
   TextField,
   Tooltip,
   IconButton,
+  InputAdornment,
+  Snackbar,
+  Alert,
 } from '@mui/material'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
@@ -348,20 +353,48 @@ function AssignRolesDialog({
 // Dialog: Resetar senha
 // ---------------------------------------------------------------------------
 
-function ResetPasswordDialog({ user, onClose }: { user: AdminUser; onClose: () => void }) {
+function ResetPasswordDialog({
+  user,
+  onClose,
+  onNotify,
+}: {
+  user: AdminUser
+  onClose: () => void
+  onNotify: (message: string, severity: 'success' | 'error') => void
+}) {
+  const [show, setShow] = useState(false)
   const {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<{ new_password: string }>({ values: { new_password: '' } })
+  } = useForm<{ new_password: string; confirm_password: string }>({
+    values: { new_password: '', confirm_password: '' },
+  })
 
   const mutation = useMutation({
     mutationFn: (values: { new_password: string }) =>
       resetUserPassword(user.id, { new_password: values.new_password, version: user.version }),
-    onSuccess: () => onClose(),
+    onSuccess: () => {
+      onNotify('Senha alterada com sucesso.', 'success')
+      onClose()
+    },
+    onError: (err) => onNotify(errorMessage(err), 'error'),
   })
 
-  const submit = handleSubmit((values) => mutation.mutate(values))
+  const submit = handleSubmit((values) => mutation.mutate({ new_password: values.new_password }))
+
+  const eyeAdornment = (
+    <InputAdornment position="end">
+      <IconButton
+        aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}
+        onClick={() => setShow((v) => !v)}
+        edge="end"
+        size="small"
+      >
+        {show ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
+      </IconButton>
+    </InputAdornment>
+  )
 
   return (
     <Dialog open onClose={mutation.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
@@ -380,12 +413,33 @@ function ResetPasswordDialog({ user, onClose }: { user: AdminUser; onClose: () =
             render={({ field }) => (
               <TextField
                 {...field}
-                type="password"
+                type={show ? 'text' : 'password'}
                 label="Nova senha"
                 fullWidth
                 required
                 error={Boolean(errors.new_password)}
                 helperText={errors.new_password?.message}
+                slotProps={{ input: { endAdornment: eyeAdornment } }}
+              />
+            )}
+          />
+          <Controller
+            name="confirm_password"
+            control={control}
+            rules={{
+              required: 'Confirme a nova senha',
+              validate: (v, values) => v === values.new_password || 'As senhas não coincidem',
+            }}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                type={show ? 'text' : 'password'}
+                label="Confirmar nova senha"
+                fullWidth
+                required
+                error={Boolean(errors.confirm_password)}
+                helperText={errors.confirm_password?.message}
+                slotProps={{ input: { endAdornment: eyeAdornment } }}
               />
             )}
           />
@@ -427,6 +481,7 @@ export default function UsersPage() {
   const [resetUser, setResetUser] = useState<AdminUser | null>(null)
   const [toDelete, setToDelete] = useState<AdminUser | null>(null)
   const [toToggle, setToToggle] = useState<AdminUser | null>(null)
+  const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
   const params: ListUsersParams = useMemo(
     () => ({
@@ -662,7 +717,26 @@ export default function UsersPage() {
       {assignUser && (
         <AssignRolesDialog user={assignUser} roles={roles} onClose={() => setAssignUser(null)} />
       )}
-      {resetUser && <ResetPasswordDialog user={resetUser} onClose={() => setResetUser(null)} />}
+      {resetUser && (
+        <ResetPasswordDialog
+          user={resetUser}
+          onClose={() => setResetUser(null)}
+          onNotify={(message, severity) => setSnack({ message, severity })}
+        />
+      )}
+
+      <Snackbar
+        open={Boolean(snack)}
+        autoHideDuration={4000}
+        onClose={() => setSnack(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {snack ? (
+          <Alert severity={snack.severity} variant="filled" onClose={() => setSnack(null)} sx={{ width: '100%' }}>
+            {snack.message}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
 
       <ConfirmDialog
         open={Boolean(toDelete)}
