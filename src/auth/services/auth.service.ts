@@ -47,7 +47,12 @@ function createAuthClient(): AxiosInstance {
   })
 }
 
-const authClient = createAuthClient()
+/**
+ * Cliente HTTP da retechauth-api. O Bearer (token master) é injetado via
+ * `setAuthAccessToken`. Exportado para uso nas features de administração (IAM),
+ * que consomem os mesmos endpoints de gestão sob VITE_AUTH_BASE_URL.
+ */
+export const authClient = createAuthClient()
 
 export function setAuthAccessToken(token: string | null): void {
   if (token) {

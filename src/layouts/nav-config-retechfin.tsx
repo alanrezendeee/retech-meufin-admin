@@ -15,6 +15,8 @@ import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
 import BiotechRoundedIcon from '@mui/icons-material/BiotechRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
+import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
+import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 
 /**
  * Menu RetechFin Admin — subjects alinhados ao manifest / abilities da API de auth (retechauth-api).
@@ -143,6 +145,23 @@ export const retechfinNavSections: NavDataSection[] = [
         icon: FolderSharedRoundedIcon,
         soon: true,
         permission: { action: 'view', subject: 'health.documents' },
+      },
+    ],
+  },
+  {
+    subheader: 'Administração',
+    items: [
+      {
+        label: 'Usuários',
+        path: '/dashboard/admin/usuarios',
+        icon: GroupRoundedIcon,
+        permission: { action: 'view', subject: 'admin.users' },
+      },
+      {
+        label: 'Permissões & Grupos',
+        path: '/dashboard/admin/permissoes',
+        icon: AdminPanelSettingsRoundedIcon,
+        permission: { action: 'view', subject: 'admin.roles' },
       },
     ],
   },
