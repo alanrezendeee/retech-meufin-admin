@@ -1,0 +1,442 @@
+import { useMemo, useState } from 'react'
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
+  InputAdornment,
+  MenuItem,
+  Step,
+  StepLabel,
+  Stepper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  centsToReais,
+  confirmInvoice,
+  formatCents,
+  getExtractionStatus,
+  reaisToCents,
+  triggerExtraction,
+  uploadInvoiceDocument,
+  type ConfirmInvoiceItem,
+  type CreditCard,
+  type ExtractionStatus,
+  type PurchaseSuggestion,
+} from '../api'
+import {
+  ENTRY_STATUS_LABEL,
+  errorMessage,
+  EXPENSE_CATEGORY_OPTIONS,
+  financeKeys,
+} from '../constants'
+import { LoadingState } from '@/features/health/components/StateViews'
+
+const STEPS = ['Enviar arquivo', 'Ler fatura', 'Revisar', 'Confirmar']
+
+const ACCEPTED = 'application/pdf,image/*'
+
+function todayIso(): string {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Linha editável (estado local) derivada de uma sugestão de compra. */
+type ReviewItem = {
+  accepted: boolean
+  description: string
+  amount: string // REAIS (string editável)
+  date: string // "YYYY-MM-DD"
+  category: string
+  installment_number: number | null
+  installment_total: number | null
+}
+
+function suggestionToReview(p: PurchaseSuggestion): ReviewItem {
+  return {
+    accepted: true,
+    description: p.description ?? '',
+    amount: String(centsToReais(p.amount_cents ?? 0)).replace('.', ','),
+    date: p.date ?? '',
+    category: p.category ?? 'outros',
+    installment_number: p.installment_number ?? null,
+    installment_total: p.installment_total ?? null,
+  }
+}
+
+export function ImportInvoiceDialog({
+  open,
+  cards,
+  defaultCardId,
+  onClose,
+  onConfirmed,
+}: {
+  open: boolean
+  cards: CreditCard[]
+  defaultCardId: string
+  onClose: () => void
+  onConfirmed: (message: string) => void
+}) {
+  const qc = useQueryClient()
+
+  const [step, setStep] = useState(0)
+  const [cardId, setCardId] = useState(defaultCardId || (cards[0]?.id ?? ''))
+  const [file, setFile] = useState<File | null>(null)
+  const [documentId, setDocumentId] = useState<string | null>(null)
+
+  // Campos da fatura (passo revisão)
+  const [dueDate, setDueDate] = useState(todayIso())
+  const [description, setDescription] = useState('')
+  const [invoiceStatus, setInvoiceStatus] = useState<'prevista' | 'realizada'>('prevista')
+
+  // Itens em revisão
+  const [items, setItems] = useState<ReviewItem[]>([])
+
+  const closing = (msg?: string) => {
+    if (msg) onConfirmed(msg)
+    onClose()
+  }
+
+  // ---- Passo 1: upload + trigger extração -------------------------------
+  const uploadMutation = useMutation({
+    mutationFn: async () => {
+      if (!file) throw new Error('Selecione um arquivo.')
+      const doc = await uploadInvoiceDocument(file, cardId || undefined)
+      await triggerExtraction(doc.id)
+      return doc
+    },
+    onSuccess: (doc) => {
+      setDocumentId(doc.id)
+      setStep(1)
+    },
+  })
+
+  // ---- Passo 2: polling do status ---------------------------------------
+  const statusQuery = useQuery<ExtractionStatus>({
+    queryKey: [...financeKeys.all, 'extraction-status', documentId] as const,
+    queryFn: () => getExtractionStatus(documentId as string),
+    enabled: step === 1 && Boolean(documentId),
+    refetchInterval: (query) => {
+      const s = query.state.data?.status
+      return s === 'pending' || s === 'processing' ? 2500 : false
+    },
+  })
+
+  const status = statusQuery.data
+
+  // Quando a extração completa, popula os itens (uma vez) e avança para a revisão.
+  // Padrão do React de "ajustar estado durante o render" ao detectar que os dados
+  // externos (polling) mudaram — sem efeito e sem loop (guardado por populatedFor).
+  const [populatedFor, setPopulatedFor] = useState<string | null>(null)
+  if (
+    step === 1 &&
+    status?.status === 'completed' &&
+    documentId &&
+    populatedFor !== documentId
+  ) {
+    setPopulatedFor(documentId)
+    setItems((status.purchases ?? []).map(suggestionToReview))
+    if (!description) {
+      setDescription(file?.name?.replace(/\.[^.]+$/, '') || 'Fatura importada')
+    }
+    setStep(2)
+  }
+
+  // ---- Passo 3/4: confirmar ---------------------------------------------
+  const acceptedItems = useMemo(() => items.filter((i) => i.accepted), [items])
+  const acceptedTotalCents = useMemo(
+    () => acceptedItems.reduce((acc, i) => acc + reaisToCents(i.amount), 0),
+    [acceptedItems]
+  )
+
+  const confirmMutation = useMutation({
+    mutationFn: async () => {
+      if (!documentId) throw new Error('Documento inválido.')
+      const payloadItems: ConfirmInvoiceItem[] = acceptedItems.map((i) => ({
+        description: i.description.trim(),
+        amount: centsToReais(reaisToCents(i.amount)),
+        date: i.date || undefined,
+        category: i.category || undefined,
+        installment_number: i.installment_number ?? undefined,
+        installment_total: i.installment_total ?? undefined,
+      }))
+      return confirmInvoice(documentId, {
+        card_id: cardId || undefined,
+        due_date: dueDate,
+        description: description.trim() || 'Fatura importada',
+        status: invoiceStatus,
+        items: payloadItems,
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.all })
+      closing(`Fatura importada com ${acceptedItems.length} compra(s).`)
+    },
+  })
+
+  const setItem = (index: number, patch: Partial<ReviewItem>) =>
+    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)))
+
+  const pending = uploadMutation.isPending || confirmMutation.isPending
+  const failed = status?.status === 'failed'
+
+  return (
+    <Dialog open={open} onClose={pending ? undefined : onClose} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>Importar fatura (PDF)</DialogTitle>
+      <DialogContent>
+        <Stepper activeStep={step} sx={{ mt: 1, mb: 3 }}>
+          {STEPS.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+
+        {/* ---------------- Passo 1: upload ---------------- */}
+        {step === 0 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {uploadMutation.isError && (
+              <Alert severity="error">{errorMessage(uploadMutation.error)}</Alert>
+            )}
+            <TextField
+              select
+              label="Cartão"
+              fullWidth
+              value={cardId}
+              onChange={(e) => setCardId(e.target.value)}
+            >
+              <MenuItem value="">Sem cartão</MenuItem>
+              {cards.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<UploadFileRoundedIcon />}
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              {file ? file.name : 'Selecionar PDF ou imagem'}
+              <input
+                type="file"
+                hidden
+                accept={ACCEPTED}
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              />
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              Aceita PDF ou imagem (JPG/PNG). O conteúdo será lido por IA para sugerir as compras.
+            </Typography>
+          </Box>
+        )}
+
+        {/* ---------------- Passo 2: lendo ---------------- */}
+        {step === 1 && (
+          <Box>
+            {failed ? (
+              <Alert severity="error">
+                {status?.error_message ||
+                  'Falha ao ler a fatura. Tente novamente ou lance manualmente.'}
+              </Alert>
+            ) : statusQuery.isError ? (
+              <Alert severity="warning">
+                {errorMessage(
+                  statusQuery.error,
+                  'Extração LLM não configurada; lance manualmente ou configure a env.'
+                )}
+              </Alert>
+            ) : (
+              <LoadingState label="Lendo a fatura…" />
+            )}
+          </Box>
+        )}
+
+        {/* ---------------- Passo 3: revisão ---------------- */}
+        {step === 2 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {confirmMutation.isError && (
+              <Alert severity="error">{errorMessage(confirmMutation.error)}</Alert>
+            )}
+
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              <TextField
+                type="date"
+                label="Vencimento"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 180 }}
+              />
+              <TextField
+                label="Descrição da fatura"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                sx={{ flex: 1, minWidth: 220 }}
+              />
+              <TextField
+                select
+                label="Status"
+                value={invoiceStatus}
+                onChange={(e) => setInvoiceStatus(e.target.value as 'prevista' | 'realizada')}
+                sx={{ minWidth: 160 }}
+              >
+                <MenuItem value="prevista">{ENTRY_STATUS_LABEL.prevista}</MenuItem>
+                <MenuItem value="realizada">{ENTRY_STATUS_LABEL.realizada}</MenuItem>
+              </TextField>
+            </Box>
+
+            {items.length === 0 ? (
+              <Alert severity="info">
+                Nenhuma compra foi identificada na fatura. Você pode fechar e lançar manualmente.
+              </Alert>
+            ) : (
+              <TableContainer sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell padding="checkbox" />
+                      <TableCell>Descrição</TableCell>
+                      <TableCell sx={{ width: 140 }} align="right">
+                        Valor
+                      </TableCell>
+                      <TableCell sx={{ width: 150 }}>Data</TableCell>
+                      <TableCell sx={{ width: 160 }}>Categoria</TableCell>
+                      <TableCell sx={{ width: 90 }}>Parcela</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {items.map((it, idx) => (
+                      <TableRow key={idx} hover selected={it.accepted}>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={it.accepted}
+                            onChange={(e) => setItem(idx, { accepted: e.target.checked })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            variant="standard"
+                            fullWidth
+                            value={it.description}
+                            onChange={(e) => setItem(idx, { description: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <TextField
+                            variant="standard"
+                            value={it.amount}
+                            onChange={(e) => setItem(idx, { amount: e.target.value })}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">R$</InputAdornment>
+                              ),
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            variant="standard"
+                            type="date"
+                            value={it.date}
+                            onChange={(e) => setItem(idx, { date: e.target.value })}
+                            InputLabelProps={{ shrink: true }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TextField
+                            variant="standard"
+                            select
+                            fullWidth
+                            value={it.category}
+                            onChange={(e) => setItem(idx, { category: e.target.value })}
+                          >
+                            {EXPENSE_CATEGORY_OPTIONS.map((o) => (
+                              <MenuItem key={o.value} value={o.value}>
+                                {o.label}
+                              </MenuItem>
+                            ))}
+                          </TextField>
+                        </TableCell>
+                        <TableCell>
+                          {it.installment_total
+                            ? `${it.installment_number ?? '?'}/${it.installment_total}`
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            <Divider />
+            <Typography variant="body2" color="text.secondary">
+              {acceptedItems.length} de {items.length} compra(s) selecionada(s). Soma:{' '}
+              <strong>{formatCents(acceptedTotalCents)}</strong>
+            </Typography>
+          </Box>
+        )}
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={pending}>
+          Cancelar
+        </Button>
+
+        {step === 0 && (
+          <Button
+            variant="contained"
+            onClick={() => uploadMutation.mutate()}
+            disabled={!file || uploadMutation.isPending}
+          >
+            Enviar e ler
+          </Button>
+        )}
+
+        {step === 1 && failed && (
+          <Button
+            variant="contained"
+            onClick={() => {
+              setDocumentId(null)
+              setPopulatedFor(null)
+              setItems([])
+              setStep(0)
+            }}
+          >
+            Tentar novamente
+          </Button>
+        )}
+
+        {step === 2 && (
+          <Button
+            variant="contained"
+            onClick={() => confirmMutation.mutate()}
+            disabled={acceptedItems.length === 0 || !dueDate || confirmMutation.isPending}
+          >
+            Confirmar
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+  )
+}

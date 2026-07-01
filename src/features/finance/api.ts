@@ -43,6 +43,27 @@ export type IncomeSourceInput = {
   notes?: string | null
 }
 
+export type CreditCard = {
+  id: string
+  name: string
+  brand?: string | null
+  closing_day?: number | null
+  due_day?: number | null
+  active: boolean
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export type CreditCardInput = {
+  name: string
+  brand?: string | null
+  closing_day?: number | null
+  due_day?: number | null
+  active: boolean
+  notes?: string | null
+}
+
 export type EntryKind = 'credit' | 'debit'
 export type EntryStatus = 'prevista' | 'realizada' | 'cancelada'
 export type IncomeType =
@@ -65,6 +86,10 @@ export type Entry = {
   due_date: string // "YYYY-MM-DD"
   family_member_id?: string | null
   source_id?: string | null
+  card_id?: string | null
+  parent_id?: string | null
+  installment_number?: number | null
+  installment_total?: number | null
   type?: IncomeType | null
   description: string
   recurrence: Recurrence
@@ -81,6 +106,9 @@ export type EntryInput = {
   due_date: string
   family_member_id?: string | null
   source_id?: string | null
+  card_id?: string | null
+  parent_id?: string | null
+  installments_total?: number | null
   type?: IncomeType | null
   description: string
   recurrence: Recurrence
@@ -93,6 +121,9 @@ export type ListEntriesParams = {
   status?: EntryStatus
   family_member_id?: string
   type?: IncomeType
+  card_id?: string
+  parent_id?: string
+  top_level?: boolean
   year?: number
   month?: number
   limit?: number
@@ -103,6 +134,63 @@ export type ListEntriesParams = {
 export type FamilyMemberLite = {
   id: string
   full_name: string
+}
+
+// ---------------------------------------------------------------------------
+// Documentos / Importação de fatura por PDF + LLM
+// ---------------------------------------------------------------------------
+
+/** Documento (PDF/imagem) enviado para extração de fatura. */
+export type FinanceDocument = {
+  id: string
+  card_id?: string | null
+  filename?: string | null
+  content_type?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+/** Status da extração assíncrona via LLM. */
+export type ExtractionStatusValue = 'pending' | 'processing' | 'completed' | 'failed'
+
+/** Compra sugerida pela extração (valores em CENTAVOS, como vêm do backend). */
+export type PurchaseSuggestion = {
+  description: string
+  amount_cents: number
+  date?: string | null
+  category?: string | null
+  installment_number?: number | null
+  installment_total?: number | null
+  raw_text?: string | null
+}
+
+/** Retorno do endpoint de status de extração. */
+export type ExtractionStatus = {
+  status: ExtractionStatusValue
+  provider?: string | null
+  error_message?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  purchases?: PurchaseSuggestion[]
+}
+
+/** Item da fatura no confirm — `amount` em REAIS (o backend converte para centavos). */
+export type ConfirmInvoiceItem = {
+  description: string
+  amount: number // REAIS
+  date?: string | null // "YYYY-MM-DD"
+  category?: string | null
+  installment_number?: number | null
+  installment_total?: number | null
+}
+
+/** Payload de confirmação da fatura importada. */
+export type ConfirmInvoicePayload = {
+  card_id?: string | null
+  due_date: string // "YYYY-MM-DD"
+  description: string
+  status: 'prevista' | 'realizada'
+  items: ConfirmInvoiceItem[]
 }
 
 // ---------------------------------------------------------------------------
@@ -211,6 +299,34 @@ export async function cancelEntry(id: string): Promise<Entry> {
 }
 
 // ---------------------------------------------------------------------------
+// Cartões de Crédito (cards)
+// ---------------------------------------------------------------------------
+
+export async function listCards(): Promise<CreditCard[]> {
+  const { data } = await meufinClient.get<Paginated<CreditCard>>(`${BASE}/cards`)
+  return data.items
+}
+
+export async function getCard(id: string): Promise<CreditCard> {
+  const { data } = await meufinClient.get<CreditCard>(`${BASE}/cards/${id}`)
+  return data
+}
+
+export async function createCard(input: CreditCardInput): Promise<CreditCard> {
+  const { data } = await meufinClient.post<CreditCard>(`${BASE}/cards`, input)
+  return data
+}
+
+export async function updateCard(id: string, input: CreditCardInput): Promise<CreditCard> {
+  const { data } = await meufinClient.put<CreditCard>(`${BASE}/cards/${id}`, input)
+  return data
+}
+
+export async function deleteCard(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/cards/${id}`)
+}
+
+// ---------------------------------------------------------------------------
 // Membros da família (para atribuir receitas)
 // ---------------------------------------------------------------------------
 
@@ -223,4 +339,53 @@ export async function listFamilyMembers(): Promise<FamilyMemberLite[]> {
     `${HEALTH_BASE}/family-members`
   )
   return data.items ?? []
+}
+
+// ---------------------------------------------------------------------------
+// Importação de fatura por PDF + LLM (documents)
+// ---------------------------------------------------------------------------
+
+/**
+ * Envia o arquivo (PDF/imagem) da fatura. Multipart: `file` + `card_id?`.
+ * Retorna o documento criado (com id).
+ */
+export async function uploadInvoiceDocument(
+  file: File,
+  cardId?: string
+): Promise<FinanceDocument> {
+  const form = new FormData()
+  form.append('file', file)
+  if (cardId) form.append('card_id', cardId)
+  const { data } = await meufinClient.post<FinanceDocument>(`${BASE}/documents`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+/** Dispara a extração assíncrona do documento (202 Accepted). */
+export async function triggerExtraction(documentId: string): Promise<void> {
+  await meufinClient.post(`${BASE}/documents/${documentId}/extract`)
+}
+
+/** Consulta o status/resultado da extração (polling). */
+export async function getExtractionStatus(documentId: string): Promise<ExtractionStatus> {
+  const { data } = await meufinClient.get<ExtractionStatus>(
+    `${BASE}/documents/${documentId}/extraction-status`
+  )
+  return data
+}
+
+/**
+ * Confirma a fatura importada, criando a fatura + compras.
+ * ATENÇÃO: `items[].amount` deve estar em REAIS (o backend converte para centavos).
+ */
+export async function confirmInvoice(
+  documentId: string,
+  payload: ConfirmInvoicePayload
+): Promise<Entry> {
+  const { data } = await meufinClient.post<Entry>(
+    `${BASE}/documents/${documentId}/confirm`,
+    payload
+  )
+  return data
 }
