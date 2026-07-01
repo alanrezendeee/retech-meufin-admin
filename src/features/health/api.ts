@@ -216,8 +216,8 @@ export type HealthDocument = {
 // ---------------------------------------------------------------------------
 
 export async function listFamilyMembers(): Promise<FamilyMember[]> {
-  const { data } = await meufinClient.get<FamilyMember[]>(`${BASE}/family-members`)
-  return data
+  const { data } = await meufinClient.get<Paginated<FamilyMember>>(`${BASE}/family-members`)
+  return data.items
 }
 
 export async function getFamilyMember(id: string): Promise<FamilyMember> {
@@ -244,8 +244,8 @@ export async function deleteFamilyMember(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function listLabs(): Promise<Lab[]> {
-  const { data } = await meufinClient.get<Lab[]>(`${BASE}/labs`)
-  return data
+  const { data } = await meufinClient.get<Paginated<Lab>>(`${BASE}/labs`)
+  return data.items
 }
 
 export async function getLab(id: string): Promise<Lab> {
@@ -318,8 +318,8 @@ export async function resolveMarkers(rawNames: string[]): Promise<MarkerResolveI
 // ---------------------------------------------------------------------------
 
 export async function listExamResults(): Promise<ExamResult[]> {
-  const { data } = await meufinClient.get<ExamResult[]>(`${BASE}/exam-results`)
-  return data
+  const { data } = await meufinClient.get<Paginated<ExamResult>>(`${BASE}/exam-results`)
+  return data.items
 }
 
 export async function getExamResult(id: string): Promise<ExamResult> {
@@ -376,8 +376,8 @@ export async function deleteExamResultItem(resultId: string, itemId: string): Pr
 // ---------------------------------------------------------------------------
 
 export async function listExamRequests(): Promise<ExamRequest[]> {
-  const { data } = await meufinClient.get<ExamRequest[]>(`${BASE}/exam-requests`)
-  return data
+  const { data } = await meufinClient.get<Paginated<ExamRequest>>(`${BASE}/exam-requests`)
+  return data.items
 }
 
 export async function getExamRequest(id: string): Promise<ExamRequest> {
@@ -433,8 +433,8 @@ export async function getMarkerEvolution(
 // ---------------------------------------------------------------------------
 
 export async function listDocuments(): Promise<HealthDocument[]> {
-  const { data } = await meufinClient.get<HealthDocument[]>(`${BASE}/documents`)
-  return data
+  const { data } = await meufinClient.get<Paginated<HealthDocument>>(`${BASE}/documents`)
+  return data.items
 }
 
 export async function uploadDocument(form: FormData): Promise<HealthDocument> {
