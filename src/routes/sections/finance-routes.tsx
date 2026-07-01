@@ -1,19 +1,28 @@
 import type { ReactNode } from 'react'
+import { PermissionGuard } from '@/auth/guard/permission-guard'
 import ReceitasPage from '@/features/finance/pages/ReceitasPage'
 import DespesasPage from '@/features/finance/pages/DespesasPage'
 import IncomeSourcesPage from '@/features/finance/pages/IncomeSourcesPage'
+import CartoesPage from '@/features/finance/pages/CartoesPage'
+import FaturasPage from '@/features/finance/pages/FaturasPage'
+
+function guarded(subject: string, node: ReactNode): ReactNode {
+  return (
+    <PermissionGuard required={{ action: 'view', subject }} hasContent>
+      {node}
+    </PermissionGuard>
+  )
+}
 
 /**
  * Rotas do módulo Financeiro, montadas como filhas de `/dashboard` em App.tsx.
  * Cada `path` é relativo (sem barra inicial) ao layout de dashboard.
- *
- * As telas de Financeiro são navegáveis por padrão (sem PermissionGuard), espelhando
- * a decisão de deixar os itens do menu sempre visíveis. Caso as abilities
- * `retechfin.income` / `retechfin.income_sources` passem a existir no manifest de auth,
- * basta envolver os elementos com <PermissionGuard required={{ action: 'view', subject }} />.
+ * Cada elemento é protegido por PermissionGuard com o subject `finance.*` correspondente.
  */
 export const financeRoutes: { path: string; element: ReactNode }[] = [
-  { path: 'financeiro/receitas', element: <ReceitasPage /> },
-  { path: 'financeiro/despesas', element: <DespesasPage /> },
-  { path: 'financeiro/fontes', element: <IncomeSourcesPage /> },
+  { path: 'financeiro/receitas', element: guarded('finance.income', <ReceitasPage />) },
+  { path: 'financeiro/despesas', element: guarded('finance.expenses', <DespesasPage />) },
+  { path: 'financeiro/fontes', element: guarded('finance.sources', <IncomeSourcesPage />) },
+  { path: 'financeiro/cartoes', element: guarded('finance.cards', <CartoesPage />) },
+  { path: 'financeiro/faturas', element: guarded('finance.invoices', <FaturasPage />) },
 ]

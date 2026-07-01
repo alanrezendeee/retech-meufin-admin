@@ -43,6 +43,27 @@ export type IncomeSourceInput = {
   notes?: string | null
 }
 
+export type CreditCard = {
+  id: string
+  name: string
+  brand?: string | null
+  closing_day?: number | null
+  due_day?: number | null
+  active: boolean
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export type CreditCardInput = {
+  name: string
+  brand?: string | null
+  closing_day?: number | null
+  due_day?: number | null
+  active: boolean
+  notes?: string | null
+}
+
 export type EntryKind = 'credit' | 'debit'
 export type EntryStatus = 'prevista' | 'realizada' | 'cancelada'
 export type IncomeType =
@@ -65,6 +86,10 @@ export type Entry = {
   due_date: string // "YYYY-MM-DD"
   family_member_id?: string | null
   source_id?: string | null
+  card_id?: string | null
+  parent_id?: string | null
+  installment_number?: number | null
+  installment_total?: number | null
   type?: IncomeType | null
   description: string
   recurrence: Recurrence
@@ -81,6 +106,9 @@ export type EntryInput = {
   due_date: string
   family_member_id?: string | null
   source_id?: string | null
+  card_id?: string | null
+  parent_id?: string | null
+  installments_total?: number | null
   type?: IncomeType | null
   description: string
   recurrence: Recurrence
@@ -93,6 +121,9 @@ export type ListEntriesParams = {
   status?: EntryStatus
   family_member_id?: string
   type?: IncomeType
+  card_id?: string
+  parent_id?: string
+  top_level?: boolean
   year?: number
   month?: number
   limit?: number
@@ -208,6 +239,34 @@ export async function confirmEntry(id: string): Promise<Entry> {
 export async function cancelEntry(id: string): Promise<Entry> {
   const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/cancel`)
   return data
+}
+
+// ---------------------------------------------------------------------------
+// Cartões de Crédito (cards)
+// ---------------------------------------------------------------------------
+
+export async function listCards(): Promise<CreditCard[]> {
+  const { data } = await meufinClient.get<Paginated<CreditCard>>(`${BASE}/cards`)
+  return data.items
+}
+
+export async function getCard(id: string): Promise<CreditCard> {
+  const { data } = await meufinClient.get<CreditCard>(`${BASE}/cards/${id}`)
+  return data
+}
+
+export async function createCard(input: CreditCardInput): Promise<CreditCard> {
+  const { data } = await meufinClient.post<CreditCard>(`${BASE}/cards`, input)
+  return data
+}
+
+export async function updateCard(id: string, input: CreditCardInput): Promise<CreditCard> {
+  const { data } = await meufinClient.put<CreditCard>(`${BASE}/cards/${id}`, input)
+  return data
+}
+
+export async function deleteCard(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/cards/${id}`)
 }
 
 // ---------------------------------------------------------------------------

@@ -56,6 +56,23 @@ export const EXPENSE_CATEGORY_LABEL: Record<string, string> = EXPENSE_CATEGORY_O
   {} as Record<string, string>
 )
 
+/** Bandeira/emissor do cartão (campo opcional `brand`). */
+export const CARD_BRAND_OPTIONS: Option<string>[] = [
+  { value: 'nubank', label: 'Nubank' },
+  { value: 'inter', label: 'Inter' },
+  { value: 'santander', label: 'Santander' },
+  { value: 'itau', label: 'Itaú' },
+  { value: 'bradesco', label: 'Bradesco' },
+  { value: 'c6', label: 'C6' },
+  { value: 'mercado_pago', label: 'Mercado Pago' },
+  { value: 'outro', label: 'Outro' },
+]
+
+export const CARD_BRAND_LABEL: Record<string, string> = CARD_BRAND_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
+
 /** Recorrência do lançamento. */
 export const RECURRENCE_OPTIONS: Option<Recurrence>[] = [
   { value: 'none', label: 'Nenhuma' },
@@ -113,7 +130,9 @@ export function yearOptions(base: number = new Date().getFullYear()): number[] {
 export const financeKeys = {
   all: ['finance'] as const,
   incomeSources: () => [...financeKeys.all, 'income-sources'] as const,
+  cards: () => [...financeKeys.all, 'cards'] as const,
   entries: (params: Record<string, unknown>) => [...financeKeys.all, 'entries', params] as const,
+  invoices: (params: Record<string, unknown>) => [...financeKeys.all, 'invoices', params] as const,
   familyMembers: () => [...financeKeys.all, 'family-members'] as const,
 }
 

@@ -1,0 +1,356 @@
+import { useMemo, useState } from 'react'
+import {
+  Button,
+  Card,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
+  MenuItem,
+  Stack,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+} from '@mui/material'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Controller, useForm } from 'react-hook-form'
+import {
+  createCard,
+  deleteCard,
+  listCards,
+  updateCard,
+  type CreditCard,
+  type CreditCardInput,
+} from '../api'
+import { CARD_BRAND_LABEL, CARD_BRAND_OPTIONS, errorMessage, financeKeys } from '../constants'
+import { PageHeader } from '@/features/health/components/PageHeader'
+import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
+import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+
+type FormValues = {
+  name: string
+  brand: string
+  closing_day: string
+  due_day: string
+  active: boolean
+  notes: string
+}
+
+const emptyForm: FormValues = {
+  name: '',
+  brand: '',
+  closing_day: '',
+  due_day: '',
+  active: true,
+  notes: '',
+}
+
+function toDayNumber(value: string): number | null {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 1 || n > 31) return null
+  return Math.trunc(n)
+}
+
+function CardFormDialog({
+  open,
+  card,
+  onClose,
+}: {
+  open: boolean
+  card: CreditCard | null
+  onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const isEdit = Boolean(card)
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormValues>({
+    values: card
+      ? {
+          name: card.name,
+          brand: card.brand ?? '',
+          closing_day: card.closing_day != null ? String(card.closing_day) : '',
+          due_day: card.due_day != null ? String(card.due_day) : '',
+          active: card.active,
+          notes: card.notes ?? '',
+        }
+      : emptyForm,
+  })
+
+  const mutation = useMutation({
+    mutationFn: (values: FormValues) => {
+      const input: CreditCardInput = {
+        name: values.name.trim(),
+        brand: values.brand || null,
+        closing_day: toDayNumber(values.closing_day),
+        due_day: toDayNumber(values.due_day),
+        active: values.active,
+        notes: values.notes.trim() || null,
+      }
+      return isEdit ? updateCard(card!.id, input) : createCard(input)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.cards() })
+      reset(emptyForm)
+      onClose()
+    },
+  })
+
+  const submit = handleSubmit((values) => mutation.mutate(values))
+
+  const dayRules = {
+    validate: (v: string) =>
+      v === '' || (Number(v) >= 1 && Number(v) <= 31) || 'Informe um dia entre 1 e 31',
+  }
+
+  return (
+    <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        {isEdit ? 'Editar cartão' : 'Novo cartão'}
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          {mutation.isError && <ErrorState message={errorMessage(mutation.error)} />}
+          <Controller
+            name="name"
+            control={control}
+            rules={{ required: 'Informe o nome do cartão' }}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Nome"
+                fullWidth
+                required
+                error={Boolean(errors.name)}
+                helperText={errors.name?.message}
+              />
+            )}
+          />
+          <Controller
+            name="brand"
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} select label="Bandeira" fullWidth>
+                <MenuItem value="">
+                  <em>Não informada</em>
+                </MenuItem>
+                {CARD_BRAND_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Controller
+              name="closing_day"
+              control={control}
+              rules={dayRules}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  type="number"
+                  label="Dia de fechamento"
+                  fullWidth
+                  inputProps={{ min: 1, max: 31 }}
+                  error={Boolean(errors.closing_day)}
+                  helperText={errors.closing_day?.message}
+                />
+              )}
+            />
+            <Controller
+              name="due_day"
+              control={control}
+              rules={dayRules}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  type="number"
+                  label="Dia de vencimento"
+                  fullWidth
+                  inputProps={{ min: 1, max: 31 }}
+                  error={Boolean(errors.due_day)}
+                  helperText={errors.due_day?.message}
+                />
+              )}
+            />
+          </Stack>
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} label="Observações" fullWidth multiline minRows={2} />
+            )}
+          />
+          <Controller
+            name="active"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                }
+                label="Ativo"
+              />
+            )}
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={mutation.isPending}>
+          Cancelar
+        </Button>
+        <Button onClick={submit} variant="contained" disabled={mutation.isPending}>
+          {isEdit ? 'Salvar' : 'Criar'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+export default function CartoesPage() {
+  const qc = useQueryClient()
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<CreditCard | null>(null)
+  const [toDelete, setToDelete] = useState<CreditCard | null>(null)
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: financeKeys.cards(),
+    queryFn: listCards,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteCard(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.cards() })
+      setToDelete(null)
+    },
+  })
+
+  const cards = useMemo(() => data ?? [], [data])
+
+  const openCreate = () => {
+    setEditing(null)
+    setFormOpen(true)
+  }
+  const openEdit = (c: CreditCard) => {
+    setEditing(c)
+    setFormOpen(true)
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Cartões de Crédito"
+        subtitle="Cadastre seus cartões e vincule faturas e compras parceladas."
+        action={
+          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
+            Novo cartão
+          </Button>
+        }
+      />
+
+      {isLoading ? (
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState message={errorMessage(error)} onRetry={refetch} />
+      ) : cards.length === 0 ? (
+        <EmptyState
+          icon={<CreditCardRoundedIcon />}
+          title="Nenhum cartão cadastrado"
+          description="Adicione o primeiro cartão para começar a controlar faturas."
+          action={
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
+              Novo cartão
+            </Button>
+          }
+        />
+      ) : (
+        <Card>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nome</TableCell>
+                  <TableCell>Bandeira</TableCell>
+                  <TableCell align="center">Fechamento</TableCell>
+                  <TableCell align="center">Vencimento</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Ações</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {cards.map((c) => (
+                  <TableRow key={c.id} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{c.name}</TableCell>
+                    <TableCell>{c.brand ? CARD_BRAND_LABEL[c.brand] ?? c.brand : '—'}</TableCell>
+                    <TableCell align="center">
+                      {c.closing_day != null ? `Dia ${c.closing_day}` : '—'}
+                    </TableCell>
+                    <TableCell align="center">
+                      {c.due_day != null ? `Dia ${c.due_day}` : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={c.active ? 'Ativo' : 'Inativo'}
+                        color={c.active ? 'success' : 'default'}
+                        variant={c.active ? 'filled' : 'outlined'}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Editar">
+                        <IconButton size="small" onClick={() => openEdit(c)}>
+                          <EditRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Excluir">
+                        <IconButton size="small" color="error" onClick={() => setToDelete(c)}>
+                          <DeleteOutlineRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
+
+      {formOpen && (
+        <CardFormDialog open={formOpen} card={editing} onClose={() => setFormOpen(false)} />
+      )}
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title="Excluir cartão"
+        description={`Tem certeza que deseja excluir "${toDelete?.name}"? Esta ação não pode ser desfeita.`}
+        loading={deleteMutation.isPending}
+        onConfirm={() => toDelete && deleteMutation.mutate(toDelete.id)}
+        onClose={() => setToDelete(null)}
+      />
+    </>
+  )
+}

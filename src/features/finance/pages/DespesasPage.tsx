@@ -11,12 +11,14 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
   MenuItem,
   Snackbar,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -122,6 +124,8 @@ type EntryFormValues = {
   amount: string // reais
   due_date: string
   recurrence: EntryInput['recurrence']
+  installments: boolean
+  installments_count: string
   description: string
   notes: string
 }
@@ -136,6 +140,8 @@ function emptyEntryForm(): EntryFormValues {
     amount: '',
     due_date: `${y}-${m}-${d}`,
     recurrence: 'none',
+    installments: false,
+    installments_count: '2',
     description: '',
     notes: '',
   }
@@ -177,6 +183,8 @@ function EntryFormDialog({
           amount: (entry.amount_cents / 100).toFixed(2).replace('.', ','),
           due_date: entry.due_date,
           recurrence: entry.recurrence,
+          installments: false,
+          installments_count: '2',
           description: entry.description,
           notes: entry.notes ?? '',
         }
@@ -184,6 +192,7 @@ function EntryFormDialog({
   })
 
   const recurrence = useWatch({ control, name: 'recurrence' })
+  const installments = useWatch({ control, name: 'installments' })
 
   const mutation = useMutation({
     mutationFn: async (values: EntryFormValues) => {
@@ -196,8 +205,12 @@ function EntryFormDialog({
         source_id: null,
         type: (values.type || null) as EntryInput['type'],
         description: values.description.trim(),
-        recurrence: values.recurrence,
+        recurrence: values.installments ? 'none' : values.recurrence,
         notes: values.notes.trim() || null,
+      }
+      if (!isEdit && values.installments) {
+        const n = Number(values.installments_count)
+        base.installments_total = Number.isFinite(n) && n >= 2 ? Math.trunc(n) : 2
       }
       if (isEdit) {
         await updateEntry(entry!.id, base)
@@ -302,7 +315,13 @@ function EntryFormDialog({
               name="recurrence"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="Recorrência" fullWidth disabled={isEdit}>
+                <TextField
+                  {...field}
+                  select
+                  label="Recorrência"
+                  fullWidth
+                  disabled={isEdit || installments}
+                >
                   {RECURRENCE_OPTIONS.map((o) => (
                     <MenuItem key={o.value} value={o.value}>
                       {o.label}
@@ -313,7 +332,58 @@ function EntryFormDialog({
             />
           </Stack>
 
-          {!isEdit && recurrence !== 'none' && (
+          {!isEdit && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+              <Controller
+                name="installments"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    sx={{ flexShrink: 0 }}
+                    control={
+                      <Switch
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Parcelado"
+                  />
+                )}
+              />
+              {installments && (
+                <Controller
+                  name="installments_count"
+                  control={control}
+                  rules={{
+                    validate: (v) =>
+                      !installments ||
+                      Number(v) >= 2 ||
+                      'Informe ao menos 2 parcelas',
+                  }}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      type="number"
+                      label="Número de parcelas"
+                      fullWidth
+                      inputProps={{ min: 2 }}
+                      error={Boolean(errors.installments_count)}
+                      helperText={errors.installments_count?.message}
+                    />
+                  )}
+                />
+              )}
+            </Stack>
+          )}
+
+          {!isEdit && installments && (
+            <Alert severity="info" icon={<RepeatRoundedIcon />}>
+              Ao salvar, o sistema gera as <strong>parcelas mensais</strong> previstas (X/N).
+              Confirme cada uma conforme for paga.
+            </Alert>
+          )}
+
+          {!isEdit && !installments && recurrence !== 'none' && (
             <Alert severity="info" icon={<RepeatRoundedIcon />}>
               Ao salvar, o sistema gera os lançamentos <strong>previstos</strong> até dezembro do
               ano. Confirme cada um conforme for pago.
@@ -618,7 +688,13 @@ export default function DespesasPage() {
                       {formatCents(e.amount_cents)}
                     </TableCell>
                     <TableCell>
-                      {e.recurrence !== 'none' ? (
+                      {e.installment_total ? (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={`${e.installment_number ?? '?'}/${e.installment_total}`}
+                        />
+                      ) : e.recurrence !== 'none' ? (
                         <Chip
                           size="small"
                           variant="outlined"
