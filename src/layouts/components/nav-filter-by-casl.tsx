@@ -10,6 +10,8 @@ export type NavDataItem = {
   soon?: boolean
   permission?: NavItemPermission
   children?: NavDataItem[]
+  /** Chave em `businessRules` — exibe o ícone ⓘ com a regra de negócio no hover. */
+  info?: string
 }
 
 export type NavDataSection = {

@@ -12,6 +12,7 @@ import {
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { AppLogo } from './AppLogo'
 import { SidebarUserCard } from './SidebarUserCard'
+import { MenuInfoPopover } from './MenuInfoPopover'
 import { lp } from '@/theme/tokens'
 import { retechfinNavSections } from '@/layouts/nav-config-retechfin'
 import { useFilteredNavData, type NavDataItem } from '@/layouts/components/nav-filter-by-casl'
@@ -48,11 +49,12 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             fontWeight: selected ? 700 : 500,
           }}
         />
-        {soon && (
+        {soon && !item.info && (
           <Typography variant="caption" color="text.disabled" sx={{ flexShrink: 0 }}>
             breve
           </Typography>
         )}
+        {item.info && <Box sx={{ width: 28, flexShrink: 0 }} />}
       </ListItemButton>
     )
 
@@ -66,7 +68,22 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
     return (
       <ListItem key={path} disablePadding sx={{ display: 'block' }}>
-        {inner}
+        <Box sx={{ position: 'relative' }}>
+          {inner}
+          {item.info && (
+            <Box
+              sx={{
+                position: 'absolute',
+                right: 6,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 1,
+              }}
+            >
+              <MenuInfoPopover ruleKey={item.info} />
+            </Box>
+          )}
+        </Box>
       </ListItem>
     )
   }
