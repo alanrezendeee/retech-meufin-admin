@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import ReceitasPage from '@/features/finance/pages/ReceitasPage'
+import DespesasPage from '@/features/finance/pages/DespesasPage'
 import IncomeSourcesPage from '@/features/finance/pages/IncomeSourcesPage'
 
 /**
@@ -13,5 +14,6 @@ import IncomeSourcesPage from '@/features/finance/pages/IncomeSourcesPage'
  */
 export const financeRoutes: { path: string; element: ReactNode }[] = [
   { path: 'financeiro/receitas', element: <ReceitasPage /> },
+  { path: 'financeiro/despesas', element: <DespesasPage /> },
   { path: 'financeiro/fontes', element: <IncomeSourcesPage /> },
 ]
