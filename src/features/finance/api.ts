@@ -137,6 +137,63 @@ export type FamilyMemberLite = {
 }
 
 // ---------------------------------------------------------------------------
+// Documentos / Importação de fatura por PDF + LLM
+// ---------------------------------------------------------------------------
+
+/** Documento (PDF/imagem) enviado para extração de fatura. */
+export type FinanceDocument = {
+  id: string
+  card_id?: string | null
+  filename?: string | null
+  content_type?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+/** Status da extração assíncrona via LLM. */
+export type ExtractionStatusValue = 'pending' | 'processing' | 'completed' | 'failed'
+
+/** Compra sugerida pela extração (valores em CENTAVOS, como vêm do backend). */
+export type PurchaseSuggestion = {
+  description: string
+  amount_cents: number
+  date?: string | null
+  category?: string | null
+  installment_number?: number | null
+  installment_total?: number | null
+  raw_text?: string | null
+}
+
+/** Retorno do endpoint de status de extração. */
+export type ExtractionStatus = {
+  status: ExtractionStatusValue
+  provider?: string | null
+  error_message?: string | null
+  started_at?: string | null
+  finished_at?: string | null
+  purchases?: PurchaseSuggestion[]
+}
+
+/** Item da fatura no confirm — `amount` em REAIS (o backend converte para centavos). */
+export type ConfirmInvoiceItem = {
+  description: string
+  amount: number // REAIS
+  date?: string | null // "YYYY-MM-DD"
+  category?: string | null
+  installment_number?: number | null
+  installment_total?: number | null
+}
+
+/** Payload de confirmação da fatura importada. */
+export type ConfirmInvoicePayload = {
+  card_id?: string | null
+  due_date: string // "YYYY-MM-DD"
+  description: string
+  status: 'prevista' | 'realizada'
+  items: ConfirmInvoiceItem[]
+}
+
+// ---------------------------------------------------------------------------
 // Helpers de dinheiro
 // ---------------------------------------------------------------------------
 
@@ -282,4 +339,53 @@ export async function listFamilyMembers(): Promise<FamilyMemberLite[]> {
     `${HEALTH_BASE}/family-members`
   )
   return data.items ?? []
+}
+
+// ---------------------------------------------------------------------------
+// Importação de fatura por PDF + LLM (documents)
+// ---------------------------------------------------------------------------
+
+/**
+ * Envia o arquivo (PDF/imagem) da fatura. Multipart: `file` + `card_id?`.
+ * Retorna o documento criado (com id).
+ */
+export async function uploadInvoiceDocument(
+  file: File,
+  cardId?: string
+): Promise<FinanceDocument> {
+  const form = new FormData()
+  form.append('file', file)
+  if (cardId) form.append('card_id', cardId)
+  const { data } = await meufinClient.post<FinanceDocument>(`${BASE}/documents`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+/** Dispara a extração assíncrona do documento (202 Accepted). */
+export async function triggerExtraction(documentId: string): Promise<void> {
+  await meufinClient.post(`${BASE}/documents/${documentId}/extract`)
+}
+
+/** Consulta o status/resultado da extração (polling). */
+export async function getExtractionStatus(documentId: string): Promise<ExtractionStatus> {
+  const { data } = await meufinClient.get<ExtractionStatus>(
+    `${BASE}/documents/${documentId}/extraction-status`
+  )
+  return data
+}
+
+/**
+ * Confirma a fatura importada, criando a fatura + compras.
+ * ATENÇÃO: `items[].amount` deve estar em REAIS (o backend converte para centavos).
+ */
+export async function confirmInvoice(
+  documentId: string,
+  payload: ConfirmInvoicePayload
+): Promise<Entry> {
+  const { data } = await meufinClient.post<Entry>(
+    `${BASE}/documents/${documentId}/confirm`,
+    payload
+  )
+  return data
 }

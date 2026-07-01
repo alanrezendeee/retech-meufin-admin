@@ -29,6 +29,7 @@ import {
   Typography,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
@@ -62,6 +63,7 @@ import {
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { ImportInvoiceDialog } from '../components/ImportInvoiceDialog'
 
 const now = new Date()
 
@@ -615,6 +617,7 @@ export default function FaturasPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [formOpen, setFormOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -680,14 +683,24 @@ export default function FaturasPage() {
         title="Faturas"
         subtitle="Controle as faturas dos cartões e as compras de cada uma."
         action={
-          <Button
-            variant="contained"
-            startIcon={<AddRoundedIcon />}
-            onClick={() => setFormOpen(true)}
-            disabled={noCards}
-          >
-            Nova fatura
-          </Button>
+          <>
+            <Button
+              variant="outlined"
+              startIcon={<UploadFileRoundedIcon />}
+              onClick={() => setImportOpen(true)}
+              disabled={noCards}
+            >
+              Importar PDF
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddRoundedIcon />}
+              onClick={() => setFormOpen(true)}
+              disabled={noCards}
+            >
+              Nova fatura
+            </Button>
+          </>
         }
       />
 
@@ -824,6 +837,16 @@ export default function FaturasPage() {
           onCreatedRecurring={(count) =>
             setToast(`${count} faturas previstas criadas até dezembro.`)
           }
+        />
+      )}
+
+      {importOpen && (
+        <ImportInvoiceDialog
+          open={importOpen}
+          cards={cards}
+          defaultCardId={filters.card_id}
+          onClose={() => setImportOpen(false)}
+          onConfirmed={(message) => setToast(message)}
         />
       )}
 
