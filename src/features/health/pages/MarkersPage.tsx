@@ -41,7 +41,7 @@ import {
   type MarkerConflict,
   type MarkerInput,
 } from '../api'
-import { errorMessage, healthKeys, MARKER_CATEGORIES } from '../constants'
+import { errorMessage, healthKeys, MARKER_CATEGORIES, MARKER_CATEGORY_LABEL } from '../constants'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
@@ -177,8 +177,8 @@ function MarkerFormDialog({
                   helperText={errors.category?.message}
                 >
                   {MARKER_CATEGORIES.map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {c}
+                    <MenuItem key={c.value} value={c.value}>
+                      {c.label}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -324,8 +324,8 @@ export default function MarkersPage() {
               <em>Todas</em>
             </MenuItem>
             {MARKER_CATEGORIES.map((c) => (
-              <MenuItem key={c} value={c}>
-                {c}
+              <MenuItem key={c.value} value={c.value}>
+                {c.label}
               </MenuItem>
             ))}
           </TextField>
@@ -378,7 +378,7 @@ export default function MarkersPage() {
                         )}
                       </Stack>
                     </TableCell>
-                    <TableCell>{m.category}</TableCell>
+                    <TableCell>{MARKER_CATEGORY_LABEL[m.category] ?? m.category}</TableCell>
                     <TableCell>{m.canonical_unit || '—'}</TableCell>
                     <TableCell>{m.comparability_class}</TableCell>
                     <TableCell>
