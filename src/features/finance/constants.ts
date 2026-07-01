@@ -36,6 +36,26 @@ export const INCOME_TYPE_LABEL: Record<IncomeType, string> = INCOME_TYPE_OPTIONS
   {} as Record<IncomeType, string>
 )
 
+/** Categoria da despesa (armazenada no campo `type` do lançamento). */
+export const EXPENSE_CATEGORY_OPTIONS: Option<string>[] = [
+  { value: 'moradia', label: 'Moradia' },
+  { value: 'alimentacao', label: 'Alimentação' },
+  { value: 'mercado', label: 'Mercado' },
+  { value: 'saude', label: 'Saúde' },
+  { value: 'transporte', label: 'Transporte' },
+  { value: 'educacao', label: 'Educação' },
+  { value: 'lazer', label: 'Lazer' },
+  { value: 'contas_fixas', label: 'Contas fixas' },
+  { value: 'servicos', label: 'Serviços' },
+  { value: 'impostos', label: 'Impostos' },
+  { value: 'outros', label: 'Outros' },
+]
+
+export const EXPENSE_CATEGORY_LABEL: Record<string, string> = EXPENSE_CATEGORY_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
+
 /** Recorrência do lançamento. */
 export const RECURRENCE_OPTIONS: Option<Recurrence>[] = [
   { value: 'none', label: 'Nenhuma' },
