@@ -7,6 +7,7 @@ import { useDynamicFavicon } from '@/hooks/useDynamicFavicon'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { DashboardIndexRoute } from '@/routes/sections/dashboard'
 import { healthRoutes } from '@/routes/sections/health-routes'
+import { financeRoutes } from '@/routes/sections/finance-routes'
 
 function App() {
   useDynamicFavicon()
@@ -31,6 +32,9 @@ function App() {
         <Route path="dashboard" element={<DashboardLayout />}>
           <Route index element={<DashboardIndexRoute />} />
           {healthRoutes.map((r) => (
+            <Route key={r.path} path={r.path} element={r.element} />
+          ))}
+          {financeRoutes.map((r) => (
             <Route key={r.path} path={r.path} element={r.element} />
           ))}
         </Route>
