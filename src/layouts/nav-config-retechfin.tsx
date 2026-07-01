@@ -5,6 +5,8 @@ import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded'
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
+import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
+import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
@@ -61,6 +63,21 @@ export const retechfinNavSections: NavDataSection[] = [
         icon: FlagRoundedIcon,
         soon: true,
         permission: { action: 'view', subject: 'retechfin.goals' },
+      },
+    ],
+  },
+  {
+    subheader: 'Financeiro',
+    items: [
+      {
+        label: 'Receitas',
+        path: '/dashboard/financeiro/receitas',
+        icon: PaymentsRoundedIcon,
+      },
+      {
+        label: 'Fontes de Receita',
+        path: '/dashboard/financeiro/fontes',
+        icon: AccountBalanceWalletRoundedIcon,
       },
     ],
   },
