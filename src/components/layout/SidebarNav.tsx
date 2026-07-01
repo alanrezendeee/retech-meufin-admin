@@ -1,4 +1,5 @@
 import {
+  alpha,
   Box,
   Divider,
   List,
@@ -101,7 +102,25 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
       <SidebarUserCard />
 
-      <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+      <Box
+        sx={(theme) => ({
+          flex: 1,
+          overflowY: 'auto',
+          minHeight: 0,
+          // Scrollbar temática (reflete no tema atual — dark/light + template).
+          scrollbarWidth: 'thin',
+          scrollbarColor: `${alpha(theme.palette.primary.main, 0.35)} transparent`,
+          '&::-webkit-scrollbar': { width: 6 },
+          '&::-webkit-scrollbar-track': { background: 'transparent' },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.28),
+            borderRadius: 8,
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            backgroundColor: alpha(theme.palette.primary.main, 0.5),
+          },
+        })}
+      >
         {sections.map((section, i) => (
           <Box key={section.subheader ?? `section-${i}`}>
             {section.subheader && (
