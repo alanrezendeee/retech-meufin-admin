@@ -1,7 +1,11 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Box, Drawer, Toolbar, useMediaQuery, useTheme } from '@mui/material'
-import { MainHeader, LAYOUT_DRAWER_WIDTH } from '@/components/layout/MainHeader'
+import {
+  MainHeader,
+  LAYOUT_DRAWER_WIDTH,
+  LAYOUT_DRAWER_MINI_WIDTH,
+} from '@/components/layout/MainHeader'
 import { SidebarNav } from '@/components/layout/SidebarNav'
 import { useUiStore } from '@/store/uiStore'
 
@@ -14,8 +18,8 @@ export function DashboardLayout() {
     if (isLg) setSidebarOpen(false)
   }, [isLg, setSidebarOpen])
 
-  const desktopExpanded = isLg && !sidebarCollapsed
-  const drawer = <SidebarNav onNavigate={() => setSidebarOpen(false)} />
+  // Desktop: recolhida vira mini-rail (só ícones), não some.
+  const desktopWidth = sidebarCollapsed ? LAYOUT_DRAWER_MINI_WIDTH : LAYOUT_DRAWER_WIDTH
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
@@ -34,32 +38,34 @@ export function DashboardLayout() {
           },
         }}
       >
-        {drawer}
+        <SidebarNav onNavigate={() => setSidebarOpen(false)} />
       </Drawer>
 
-      {!sidebarCollapsed && (
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', lg: 'block' },
-            width: LAYOUT_DRAWER_WIDTH,
-            flexShrink: 0,
-            [`& .MuiDrawer-paper`]: {
-              width: LAYOUT_DRAWER_WIDTH,
-              boxSizing: 'border-box',
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      )}
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: 'none', lg: 'block' },
+          width: desktopWidth,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: {
+            width: desktopWidth,
+            boxSizing: 'border-box',
+            overflowX: 'hidden',
+            transition: theme.transitions.create('width', {
+              duration: theme.transitions.duration.shorter,
+            }),
+          },
+        }}
+        open
+      >
+        <SidebarNav collapsed={sidebarCollapsed} />
+      </Drawer>
 
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: { lg: desktopExpanded ? `calc(100% - ${LAYOUT_DRAWER_WIDTH}px)` : '100%' },
+          width: { lg: `calc(100% - ${desktopWidth}px)` },
           minHeight: '100vh',
           px: { xs: 2, sm: 3 },
           py: 3,
