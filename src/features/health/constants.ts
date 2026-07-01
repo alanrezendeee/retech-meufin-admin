@@ -19,17 +19,28 @@ export const GENDER_OPTIONS: { value: string; label: string }[] = [
   { value: 'other', label: 'Outro' },
 ]
 
-/** Categorias comuns do catálogo de exames (sugestões — campo é livre). */
-export const MARKER_CATEGORIES: string[] = [
-  'hematology',
-  'biochemistry',
-  'lipids',
-  'hormones',
-  'vitamins',
-  'urine',
-  'immunology',
-  'other',
+/**
+ * Categorias do catálogo de exames. `value` = chave usada pelo backend (seed em PT),
+ * `label` = rótulo em português exibido na UI. Campo continua livre no cadastro.
+ */
+export const MARKER_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'hematologia', label: 'Hematologia' },
+  { value: 'bioquimica', label: 'Bioquímica' },
+  { value: 'lipidico', label: 'Perfil lipídico' },
+  { value: 'hepatico', label: 'Hepático' },
+  { value: 'renal', label: 'Renal' },
+  { value: 'eletrolitos', label: 'Eletrólitos' },
+  { value: 'hormonios', label: 'Hormônios' },
+  { value: 'vitaminas', label: 'Vitaminas' },
+  { value: 'inflamacao', label: 'Inflamação' },
+  { value: 'outros', label: 'Outros' },
 ]
+
+/** Mapa chave -> rótulo PT para exibição (ex.: na tabela). */
+export const MARKER_CATEGORY_LABEL: Record<string, string> = MARKER_CATEGORIES.reduce(
+  (acc, c) => ({ ...acc, [c.value]: c.label }),
+  {} as Record<string, string>,
+)
 
 export const EXAM_SOURCE_TYPES: { value: string; label: string }[] = [
   { value: 'manual', label: 'Manual' },
