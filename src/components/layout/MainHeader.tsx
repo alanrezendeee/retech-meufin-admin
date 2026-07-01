@@ -17,6 +17,7 @@ import { AppLogo } from './AppLogo'
 import { useUiStore } from '@/store/uiStore'
 
 const DRAWER_WIDTH = 300
+const DRAWER_MINI_WIDTH = 76
 
 type Props = {
   title?: string
@@ -29,7 +30,8 @@ export function MainHeader({ title = 'Painel' }: Props) {
   const toggleSidebarCollapsed = useUiStore((s) => s.toggleSidebarCollapsed)
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed)
 
-  const desktopExpanded = isLg && !sidebarCollapsed
+  // Desktop: expandida = largura cheia; recolhida = mini-rail (só ícones).
+  const lgWidth = sidebarCollapsed ? DRAWER_MINI_WIDTH : DRAWER_WIDTH
 
   return (
     <AppBar
@@ -37,8 +39,8 @@ export function MainHeader({ title = 'Painel' }: Props) {
       color="default"
       elevation={0}
       sx={{
-        width: { lg: desktopExpanded ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%' },
-        ml: { lg: desktopExpanded ? `${DRAWER_WIDTH}px` : 0 },
+        width: { lg: `calc(100% - ${lgWidth}px)` },
+        ml: { lg: `${lgWidth}px` },
         transition: (t) =>
           t.transitions.create(['width', 'margin'], { duration: t.transitions.duration.shorter }),
       }}
@@ -48,14 +50,14 @@ export function MainHeader({ title = 'Painel' }: Props) {
           color="inherit"
           edge="start"
           onClick={isLg ? toggleSidebarCollapsed : toggleSidebar}
-          aria-label={isLg ? (sidebarCollapsed ? 'Abrir menu' : 'Recolher menu') : 'Abrir menu'}
+          aria-label={isLg ? (sidebarCollapsed ? 'Expandir menu' : 'Recolher menu') : 'Abrir menu'}
           sx={{ border: 1, borderColor: 'divider', borderRadius: 2 }}
         >
           <MenuRoundedIcon />
         </IconButton>
 
-        {/* Logo compacta no mobile, e no desktop quando a sidebar está recolhida */}
-        {(!isLg || sidebarCollapsed) && (
+        {/* Logo compacta só no mobile (no desktop a rail já mostra a logo) */}
+        {!isLg && (
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <AppLogo compact />
           </Box>
@@ -106,3 +108,4 @@ export function MainHeader({ title = 'Painel' }: Props) {
 }
 
 export const LAYOUT_DRAWER_WIDTH = DRAWER_WIDTH
+export const LAYOUT_DRAWER_MINI_WIDTH = DRAWER_MINI_WIDTH
