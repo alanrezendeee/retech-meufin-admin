@@ -371,15 +371,36 @@ function EntryFormDialog({
               <Controller
                 name="type"
                 control={control}
-                render={({ field }) => (
-                  <TextField {...field} select label="Categoria" fullWidth>
-                    {activeCategories.map((cat) => (
-                      <MenuItem key={cat.slug} value={cat.slug}>
-                        {cat.name}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                )}
+                render={({ field }) => {
+                  const selected = activeCategories.find((c) => c.slug === field.value)
+                  return (
+                    <TextField
+                      {...field}
+                      select
+                      label="Categoria"
+                      fullWidth
+                      helperText={
+                        selected ? `Grupo: ${selected.group_name} (indicadores)` : undefined
+                      }
+                    >
+                      {activeCategories.map((cat) => (
+                        <MenuItem key={cat.slug} value={cat.slug}>
+                          <Stack
+                            direction="row"
+                            justifyContent="space-between"
+                            alignItems="center"
+                            sx={{ width: '100%' }}
+                          >
+                            <span>{cat.name}</span>
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                              {cat.group_name}
+                            </Typography>
+                          </Stack>
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  )
+                }}
               />
               {quickCategory ? (
                 <QuickCategoryForm
