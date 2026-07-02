@@ -113,6 +113,13 @@ export function createAppTheme(mode: PaletteMode) {
               filter: 'brightness(1.08)',
               boxShadow: glow.btn,
             },
+            // O gradiente acima também vale desabilitado (loading) — sem isto o
+            // MUI aplica texto cinza sobre o verde e o rótulo some.
+            '&.Mui-disabled': {
+              color: alpha(C.primary.contrastText, 0.75),
+              background: `linear-gradient(90deg, ${alpha(C.primary.dark, 0.55)} 0%, ${alpha(C.primary.main, 0.55)} 100%)`,
+              boxShadow: 'none',
+            },
           },
           outlined: {
             borderColor: isDark ? C.border.strong : C.border.onLight12,
