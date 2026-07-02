@@ -90,6 +90,7 @@ export const EXPENSE_CATEGORY_OPTIONS: Option<string>[] = [
   { value: 'contas_fixas', label: 'Contas fixas' },
   { value: 'servicos', label: 'Serviços' },
   { value: 'impostos', label: 'Impostos' },
+  { value: 'equipamentos', label: 'Equipamentos' },
   { value: 'outros', label: 'Outros' },
 ]
 
