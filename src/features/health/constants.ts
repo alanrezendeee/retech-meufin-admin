@@ -65,6 +65,8 @@ export const healthKeys = {
   markers: (params: Record<string, unknown>) => [...healthKeys.all, 'markers', params] as const,
   examResults: () => [...healthKeys.all, 'exam-results'] as const,
   documents: () => [...healthKeys.all, 'documents'] as const,
+  memberDocuments: (memberId: string) =>
+    [...healthKeys.all, 'member-documents', memberId] as const,
 }
 
 /** Extrai mensagem de erro amigável de erro axios/desconhecido. */
@@ -83,3 +85,22 @@ export function errorMessage(err: unknown, fallback = 'Ocorreu um erro. Tente no
   }
   return fallback
 }
+
+/** Tipos de documento pessoal do membro. */
+export const MEMBER_DOC_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'cpf', label: 'CPF' },
+  { value: 'rg', label: 'RG' },
+  { value: 'cnh', label: 'CNH' },
+  { value: 'passaporte', label: 'Passaporte' },
+  { value: 'carteira_trabalho', label: 'Carteira de Trabalho' },
+  { value: 'certidao_nascimento', label: 'Certidão de Nascimento' },
+  { value: 'titulo_eleitor', label: 'Título de Eleitor' },
+  { value: 'cartao_sus', label: 'Cartão SUS' },
+  { value: 'plano_saude', label: 'Plano de Saúde' },
+  { value: 'outro', label: 'Outro (informe o rótulo)' },
+]
+
+export const MEMBER_DOC_TYPE_LABEL: Record<string, string> = MEMBER_DOC_TYPE_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)

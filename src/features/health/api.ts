@@ -458,3 +458,82 @@ export async function getDocumentExtractionStatus(id: string): Promise<unknown> 
   const { data } = await meufinClient.get(`${BASE}/documents/${id}/extraction-status`)
   return data
 }
+
+// ---------------------------------------------------------------------------
+// Documentos pessoais do membro (cpf, rg, cnh, ...)
+// ---------------------------------------------------------------------------
+
+export type MemberDocType =
+  | 'cpf'
+  | 'rg'
+  | 'cnh'
+  | 'passaporte'
+  | 'carteira_trabalho'
+  | 'certidao_nascimento'
+  | 'titulo_eleitor'
+  | 'cartao_sus'
+  | 'plano_saude'
+  | 'outro'
+
+export type MemberDocument = {
+  id: string
+  family_member_id: string
+  doc_type: MemberDocType
+  label?: string | null
+  doc_number?: string | null
+  valid_until?: string | null // "YYYY-MM-DD"
+  notes?: string | null
+  file_name: string
+  original_file_name: string
+  mime_type: string
+  size_bytes: number
+  created_at?: string
+  updated_at?: string
+}
+
+export type MemberDocumentInput = {
+  doc_type: MemberDocType
+  label?: string | null
+  doc_number?: string | null
+  valid_until?: string | null
+  notes?: string | null
+  file: File
+}
+
+export async function listMemberDocuments(memberId: string): Promise<MemberDocument[]> {
+  const { data } = await meufinClient.get<Paginated<MemberDocument>>(
+    `${BASE}/family-members/${memberId}/documents`
+  )
+  return data.items ?? []
+}
+
+/** Upload multipart: file + doc_type (+ label, doc_number, valid_until, notes). */
+export async function uploadMemberDocument(
+  memberId: string,
+  input: MemberDocumentInput
+): Promise<MemberDocument> {
+  const form = new FormData()
+  form.append('file', input.file)
+  form.append('doc_type', input.doc_type)
+  if (input.label) form.append('label', input.label)
+  if (input.doc_number) form.append('doc_number', input.doc_number)
+  if (input.valid_until) form.append('valid_until', input.valid_until)
+  if (input.notes) form.append('notes', input.notes)
+  const { data } = await meufinClient.post<MemberDocument>(
+    `${BASE}/family-members/${memberId}/documents`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+export async function memberDocumentDownloadURL(memberId: string, docId: string): Promise<string> {
+  const { data } = await meufinClient.get<{ url: string }>(
+    `${BASE}/family-members/${memberId}/documents/${docId}/download-url`
+  )
+  return data.url
+}
+
+export async function deleteMemberDocument(memberId: string, docId: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/family-members/${memberId}/documents/${docId}`)
+}

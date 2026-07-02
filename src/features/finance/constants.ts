@@ -134,6 +134,11 @@ export const financeKeys = {
   entries: (params: Record<string, unknown>) => [...financeKeys.all, 'entries', params] as const,
   invoices: (params: Record<string, unknown>) => [...financeKeys.all, 'invoices', params] as const,
   familyMembers: () => [...financeKeys.all, 'family-members'] as const,
+  accounts: () => [...financeKeys.all, 'accounts'] as const,
+  receipts: (entryId: string) => [...financeKeys.all, 'receipts', entryId] as const,
+  dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
+  dashboardMonthly: (params: Record<string, unknown>) =>
+    [...financeKeys.all, 'dashboard-monthly', params] as const,
 }
 
 /** Extrai mensagem de erro amigável de erro axios/desconhecido. */
@@ -149,3 +154,34 @@ export function errorMessage(err: unknown, fallback = 'Ocorreu um erro. Tente no
   }
   return fallback
 }
+
+/** Tipo da conta (finance_accounts). */
+export const ACCOUNT_KIND_OPTIONS: Option<import('./api').AccountKind>[] = [
+  { value: 'corrente', label: 'Conta corrente' },
+  { value: 'poupanca', label: 'Poupança' },
+  { value: 'carteira', label: 'Carteira / Dinheiro' },
+  { value: 'digital', label: 'Conta digital' },
+]
+
+export const ACCOUNT_KIND_LABEL: Record<string, string> = ACCOUNT_KIND_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
+
+/** Forma de pagamento na liquidação. */
+export const PAYMENT_METHOD_OPTIONS: Option<import('./api').PaymentMethod>[] = [
+  { value: 'pix', label: 'Pix' },
+  { value: 'debito', label: 'Débito' },
+  { value: 'transferencia', label: 'Transferência' },
+  { value: 'boleto', label: 'Boleto' },
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'cartao_credito', label: 'Cartão de crédito' },
+]
+
+export const PAYMENT_METHOD_LABEL: Record<string, string> = PAYMENT_METHOD_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
+
+/** Formas que apontam para uma conta (as demais: dinheiro=nada, cartao_credito=cartão). */
+export const ACCOUNT_PAYMENT_METHODS = ['pix', 'debito', 'transferencia', 'boleto'] as const

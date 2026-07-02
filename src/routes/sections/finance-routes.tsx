@@ -5,6 +5,9 @@ import DespesasPage from '@/features/finance/pages/DespesasPage'
 import IncomeSourcesPage from '@/features/finance/pages/IncomeSourcesPage'
 import CartoesPage from '@/features/finance/pages/CartoesPage'
 import FaturasPage from '@/features/finance/pages/FaturasPage'
+import ContasPage from '@/features/finance/pages/ContasPage'
+import ContasDoDiaPage from '@/features/finance/pages/ContasDoDiaPage'
+import FinanceDashboardPage from '@/features/finance/pages/FinanceDashboardPage'
 
 function guarded(subject: string, node: ReactNode): ReactNode {
   return (
@@ -25,4 +28,7 @@ export const financeRoutes: { path: string; element: ReactNode }[] = [
   { path: 'financeiro/fontes', element: guarded('finance.sources', <IncomeSourcesPage />) },
   { path: 'financeiro/cartoes', element: guarded('finance.cards', <CartoesPage />) },
   { path: 'financeiro/faturas', element: guarded('finance.invoices', <FaturasPage />) },
+  { path: 'financeiro', element: guarded('finance.dashboard', <FinanceDashboardPage />) },
+  { path: 'financeiro/contas', element: guarded('finance.accounts', <ContasPage />) },
+  { path: 'financeiro/contas-do-dia', element: guarded('finance.payables', <ContasDoDiaPage />) },
 ]

@@ -25,6 +25,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
+import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import {
@@ -39,6 +40,7 @@ import { errorMessage, GENDER_OPTIONS, healthKeys, RELATIONSHIP_LABEL, RELATIONS
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
+import { MemberDocumentsDialog } from '../components/MemberDocumentsDialog'
 
 type FormValues = FamilyMemberInput
 
@@ -226,6 +228,7 @@ export default function FamilyMembersPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<FamilyMember | null>(null)
   const [toDelete, setToDelete] = useState<FamilyMember | null>(null)
+  const [docsFor, setDocsFor] = useState<FamilyMember | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: healthKeys.familyMembers(),
@@ -308,6 +311,11 @@ export default function FamilyMembersPage() {
                       />
                     </TableCell>
                     <TableCell align="right">
+                      <Tooltip title="Documentos">
+                        <IconButton size="small" onClick={() => setDocsFor(m)}>
+                          <FolderSharedRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Editar">
                         <IconButton size="small" onClick={() => openEdit(m)}>
                           <EditRoundedIcon fontSize="small" />
@@ -330,6 +338,8 @@ export default function FamilyMembersPage() {
       {formOpen && (
         <MemberFormDialog open={formOpen} member={editing} onClose={() => setFormOpen(false)} />
       )}
+
+      {docsFor && <MemberDocumentsDialog member={docsFor} onClose={() => setDocsFor(null)} />}
 
       <ConfirmDialog
         open={Boolean(toDelete)}
