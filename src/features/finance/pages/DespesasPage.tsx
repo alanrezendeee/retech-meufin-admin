@@ -199,7 +199,7 @@ function QuickCategoryForm({
           {errorMessage(mutation.error)}
         </Alert>
       )}
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
+      <Stack spacing={1.5}>
         <Controller
           name="name"
           control={control}
@@ -214,8 +214,6 @@ function QuickCategoryForm({
             <AutocompleteField
               label="Grupo (indicadores)"
               size="small"
-              sx={{ minWidth: 240 }}
-              fullWidth={false}
               value={field.value}
               onChange={field.onChange}
               options={groups.map((g) => ({
@@ -223,16 +221,16 @@ function QuickCategoryForm({
                 label: g.name,
                 description: g.description,
               }))}
-              placeholder="Nome ou exemplo"
+              placeholder="Busque por nome ou exemplo (ex.: cinema)"
             />
           )}
         />
-        <Stack direction="row" spacing={1}>
-          <Button size="small" variant="contained" onClick={submit} disabled={mutation.isPending}>
-            Criar
-          </Button>
+        <Stack direction="row" spacing={1} justifyContent="flex-end">
           <Button size="small" color="inherit" onClick={onCancel} disabled={mutation.isPending}>
             Cancelar
+          </Button>
+          <Button size="small" variant="contained" onClick={submit} disabled={mutation.isPending}>
+            Criar
           </Button>
         </Stack>
       </Stack>
