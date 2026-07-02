@@ -17,6 +17,8 @@ import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded'
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 
 /**
  * Menu RetechFin Admin — subjects alinhados ao manifest / abilities da API de auth (retechauth-api).
@@ -73,6 +75,20 @@ export const retechfinNavSections: NavDataSection[] = [
     subheader: 'Financeiro',
     items: [
       {
+        label: 'Dashboard Financeira',
+        path: '/dashboard/financeiro',
+        icon: InsightsRoundedIcon,
+        permission: { action: 'view', subject: 'finance.dashboard' },
+        info: 'finance.dashboard',
+      },
+      {
+        label: 'Contas do Dia',
+        path: '/dashboard/financeiro/contas-do-dia',
+        icon: TaskAltRoundedIcon,
+        permission: { action: 'view', subject: 'finance.payables' },
+        info: 'finance.payables',
+      },
+      {
         label: 'Receitas',
         path: '/dashboard/financeiro/receitas',
         icon: PaymentsRoundedIcon,
@@ -101,6 +117,13 @@ export const retechfinNavSections: NavDataSection[] = [
         path: '/dashboard/financeiro/faturas',
         icon: ReceiptLongRoundedIcon,
         permission: { action: 'view', subject: 'finance.invoices' },
+        info: 'finance.invoices',
+      },
+      {
+        label: 'Contas',
+        path: '/dashboard/financeiro/contas',
+        icon: AccountBalanceRoundedIcon,
+        permission: { action: 'view', subject: 'finance.accounts' },
       },
     ],
   },

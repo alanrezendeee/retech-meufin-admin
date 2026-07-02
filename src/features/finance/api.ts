@@ -95,6 +95,11 @@ export type Entry = {
   recurrence: Recurrence
   recurrence_group_id?: string | null
   notes?: string | null
+  paid_at?: string | null
+  paid_amount_cents?: number | null
+  payment_method?: PaymentMethod | null
+  payment_account_id?: string | null
+  payment_card_id?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -126,6 +131,10 @@ export type ListEntriesParams = {
   top_level?: boolean
   year?: number
   month?: number
+  due_on?: string
+  due_from?: string
+  due_to?: string
+  overdue?: boolean
   limit?: number
   offset?: number
 }
@@ -386,6 +395,168 @@ export async function confirmInvoice(
   const { data } = await meufinClient.post<Entry>(
     `${BASE}/documents/${documentId}/confirm`,
     payload
+  )
+  return data
+}
+
+// ---------------------------------------------------------------------------
+// Contas (finance_accounts) — usadas na liquidação
+// ---------------------------------------------------------------------------
+
+export type AccountKind = 'corrente' | 'poupanca' | 'carteira' | 'digital'
+
+export type FinanceAccount = {
+  id: string
+  name: string
+  kind: AccountKind
+  bank_name?: string | null
+  active: boolean
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export type FinanceAccountInput = {
+  name: string
+  kind: AccountKind
+  bank_name?: string | null
+  active: boolean
+  notes?: string | null
+}
+
+export async function listAccounts(): Promise<FinanceAccount[]> {
+  const { data } = await meufinClient.get<Paginated<FinanceAccount>>(`${BASE}/accounts`)
+  return data.items
+}
+
+export async function createAccount(input: FinanceAccountInput): Promise<FinanceAccount> {
+  const { data } = await meufinClient.post<FinanceAccount>(`${BASE}/accounts`, input)
+  return data
+}
+
+export async function updateAccount(id: string, input: FinanceAccountInput): Promise<FinanceAccount> {
+  const { data } = await meufinClient.put<FinanceAccount>(`${BASE}/accounts/${id}`, input)
+  return data
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/accounts/${id}`)
+}
+
+// ---------------------------------------------------------------------------
+// Liquidação (settle) + comprovantes (receipts)
+// ---------------------------------------------------------------------------
+
+export type PaymentMethod =
+  | 'pix'
+  | 'debito'
+  | 'transferencia'
+  | 'boleto'
+  | 'dinheiro'
+  | 'cartao_credito'
+
+export type SettleEntryInput = {
+  paid_at?: string | null // "YYYY-MM-DD" ou RFC3339; default: agora
+  paid_amount_cents?: number | null // default: amount_cents
+  payment_method: PaymentMethod
+  account_id?: string | null
+  card_id?: string | null
+  notes?: string | null
+}
+
+/** Liquida o lançamento (pagamento/recebimento). Fatura pai cascateia para os filhos. */
+export async function settleEntry(id: string, input: SettleEntryInput): Promise<Entry> {
+  const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/settle`, input)
+  return data
+}
+
+export type EntryReceipt = {
+  id: string
+  entry_id?: string | null
+  file_name: string
+  original_file_name: string
+  mime_type: string
+  size_bytes: number
+  created_at?: string
+}
+
+export async function listEntryReceipts(entryId: string): Promise<EntryReceipt[]> {
+  const { data } = await meufinClient.get<Paginated<EntryReceipt>>(
+    `${BASE}/entries/${entryId}/receipts`
+  )
+  return data.items ?? []
+}
+
+export async function uploadEntryReceipt(entryId: string, file: File): Promise<EntryReceipt> {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await meufinClient.post<EntryReceipt>(
+    `${BASE}/entries/${entryId}/receipts`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+export async function entryReceiptDownloadURL(entryId: string, receiptId: string): Promise<string> {
+  const { data } = await meufinClient.get<{ url: string }>(
+    `${BASE}/entries/${entryId}/receipts/${receiptId}/download-url`
+  )
+  return data.url
+}
+
+export async function deleteEntryReceipt(entryId: string, receiptId: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/entries/${entryId}/receipts/${receiptId}`)
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard financeira (agregados; valores em CENTAVOS)
+// ---------------------------------------------------------------------------
+
+export type DashboardSummary = {
+  year: number
+  month: number
+  income_realized_cents: number
+  income_expected_cents: number
+  expense_realized_cents: number
+  expense_expected_cents: number
+  balance_realized_cents: number
+  balance_expected_cents: number
+  receivable_cents: number
+  payable_cents: number
+  categories: { category: string; total_cents: number }[]
+  future_installments: {
+    total_cents: number
+    count: number
+    last_due_date?: string | null
+  }
+}
+
+export type DashboardMonth = {
+  month: number
+  income_realized_cents: number
+  income_expected_cents: number
+  expense_realized_cents: number
+  expense_expected_cents: number
+  balance_expected_cents: number
+}
+
+export async function getFinanceDashboard(params: {
+  year?: number
+  month?: number
+  family_member_id?: string
+}): Promise<DashboardSummary> {
+  const { data } = await meufinClient.get<DashboardSummary>(`${BASE}/dashboard`, { params })
+  return data
+}
+
+export async function getFinanceDashboardMonthly(params: {
+  year?: number
+  family_member_id?: string
+}): Promise<{ year: number; months: DashboardMonth[] }> {
+  const { data } = await meufinClient.get<{ year: number; months: DashboardMonth[] }>(
+    `${BASE}/dashboard/monthly`,
+    { params }
   )
   return data
 }
