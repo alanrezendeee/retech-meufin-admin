@@ -171,7 +171,7 @@ export function ImportInvoiceDialog({
       if (!documentId) throw new Error('Documento inválido.')
       const payloadItems: ConfirmInvoiceItem[] = acceptedItems.map((i) => ({
         description: i.description.trim(),
-        amount: centsToReais(reaisToCents(i.amount)),
+        amount_cents: reaisToCents(i.amount),
         date: i.date || undefined,
         category: i.category || undefined,
         installment_number: i.installment_number ?? undefined,
