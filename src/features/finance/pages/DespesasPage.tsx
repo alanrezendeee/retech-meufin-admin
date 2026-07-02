@@ -69,6 +69,7 @@ import {
   type ExpenseGroup,
 } from '../api'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
+import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -210,26 +211,20 @@ function QuickCategoryForm({
           name="group_slug"
           control={control}
           render={({ field }) => (
-            <TextField
-              {...field}
-              select
+            <AutocompleteField
               label="Grupo (indicadores)"
               size="small"
-              sx={{ minWidth: 220 }}
-            >
-              {groups.map((g) => (
-                <MenuItem key={g.slug} value={g.slug}>
-                  <Stack sx={{ py: 0.25 }}>
-                    <span>{g.name}</span>
-                    {g.description && (
-                      <Typography variant="caption" color="text.secondary">
-                        {g.description}
-                      </Typography>
-                    )}
-                  </Stack>
-                </MenuItem>
-              ))}
-            </TextField>
+              sx={{ minWidth: 240 }}
+              fullWidth={false}
+              value={field.value}
+              onChange={field.onChange}
+              options={groups.map((g) => ({
+                value: g.slug,
+                label: g.name,
+                description: g.description,
+              }))}
+              placeholder="Nome ou exemplo"
+            />
           )}
         />
         <Stack direction="row" spacing={1}>
@@ -360,16 +355,16 @@ function EntryFormDialog({
             name="family_member_id"
             control={control}
             render={({ field }) => (
-              <TextField {...field} select label="Membro da família" fullWidth>
-                <MenuItem value="">
-                  <em>Não atribuído</em>
-                </MenuItem>
-                {(membersQuery.data ?? []).map((m) => (
-                  <MenuItem key={m.id} value={m.id}>
-                    {m.full_name}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <AutocompleteField
+                label="Membro da família"
+                emptyLabel="Não atribuído"
+                value={field.value}
+                onChange={field.onChange}
+                options={(membersQuery.data ?? []).map((m) => ({
+                  value: m.id,
+                  label: m.full_name,
+                }))}
+              />
             )}
           />
 
@@ -381,31 +376,21 @@ function EntryFormDialog({
                 render={({ field }) => {
                   const selected = activeCategories.find((c) => c.slug === field.value)
                   return (
-                    <TextField
-                      {...field}
-                      select
+                    <AutocompleteField
                       label="Categoria"
-                      fullWidth
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={activeCategories.map((cat) => ({
+                        value: cat.slug,
+                        label: cat.name,
+                        description: cat.group_name,
+                        keywords: groups.find((g) => g.slug === cat.group_slug)?.description,
+                      }))}
+                      placeholder="Busque por nome, grupo ou exemplo"
                       helperText={
                         selected ? `Grupo: ${selected.group_name} (indicadores)` : undefined
                       }
-                    >
-                      {activeCategories.map((cat) => (
-                        <MenuItem key={cat.slug} value={cat.slug}>
-                          <Stack
-                            direction="row"
-                            justifyContent="space-between"
-                            alignItems="center"
-                            sx={{ width: '100%' }}
-                          >
-                            <span>{cat.name}</span>
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                              {cat.group_name}
-                            </Typography>
-                          </Stack>
-                        </MenuItem>
-                      ))}
-                    </TextField>
+                    />
                   )
                 }}
               />
@@ -812,21 +797,18 @@ export default function DespesasPage() {
               </TextField>
             </Grid>
             <Grid size={{ xs: 6, sm: 6, md: 3 }}>
-              <TextField
-                select
+              <AutocompleteField
                 label="Categoria"
-                fullWidth
                 size="small"
+                emptyLabel="Todas"
                 value={filters.type}
-                onChange={(e) => setFilter('type', e.target.value)}
-              >
-                <MenuItem value="">Todas</MenuItem>
-                {activeCategories.map((cat) => (
-                  <MenuItem key={cat.slug} value={cat.slug}>
-                    {cat.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                onChange={(v) => setFilter('type', v)}
+                options={activeCategories.map((cat) => ({
+                  value: cat.slug,
+                  label: cat.name,
+                  description: cat.group_name,
+                }))}
+              />
             </Grid>
           </Grid>
         </CardContent>
