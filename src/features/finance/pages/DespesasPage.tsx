@@ -63,6 +63,11 @@ import {
   yearOptions,
 } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
+import {
+  createExpenseCategory,
+  type ExpenseCategory,
+  type ExpenseGroup,
+} from '../api'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
@@ -152,6 +157,87 @@ function emptyEntryForm(): EntryFormValues {
 // Entry form dialog
 // ---------------------------------------------------------------------------
 
+
+function QuickCategoryForm({
+  groups,
+  onCreated,
+  onCancel,
+}: {
+  groups: ExpenseGroup[]
+  onCreated: (category: ExpenseCategory) => void
+  onCancel: () => void
+}) {
+  const qc = useQueryClient()
+  const { control, handleSubmit } = useForm<{ name: string; group_slug: string }>({
+    defaultValues: { name: '', group_slug: 'outros' },
+  })
+
+  const mutation = useMutation({
+    mutationFn: (values: { name: string; group_slug: string }) =>
+      createExpenseCategory({ name: values.name.trim(), group_slug: values.group_slug }),
+    onSuccess: (created) => {
+      qc.invalidateQueries({ queryKey: financeKeys.expenseCategories() })
+      onCreated(created)
+    },
+  })
+
+  const submit = handleSubmit((values) => {
+    if (!values.name.trim()) return
+    mutation.mutate(values)
+  })
+
+  return (
+    <Box
+      sx={{ p: 2, borderRadius: 1, border: 1, borderColor: 'divider', bgcolor: 'action.hover' }}
+    >
+      <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700 }}>
+        Criar categoria rápida
+      </Typography>
+      {mutation.isError && (
+        <Alert severity="error" sx={{ mb: 1.5 }}>
+          {errorMessage(mutation.error)}
+        </Alert>
+      )}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="flex-start">
+        <Controller
+          name="name"
+          control={control}
+          render={({ field }) => (
+            <TextField {...field} label="Nome" size="small" fullWidth placeholder="Ex.: Pets" />
+          )}
+        />
+        <Controller
+          name="group_slug"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              select
+              label="Grupo (indicadores)"
+              size="small"
+              sx={{ minWidth: 190 }}
+            >
+              {groups.map((g) => (
+                <MenuItem key={g.slug} value={g.slug}>
+                  {g.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+        />
+        <Stack direction="row" spacing={1}>
+          <Button size="small" variant="contained" onClick={submit} disabled={mutation.isPending}>
+            Criar
+          </Button>
+          <Button size="small" color="inherit" onClick={onCancel} disabled={mutation.isPending}>
+            Cancelar
+          </Button>
+        </Stack>
+      </Stack>
+    </Box>
+  )
+}
+
 function EntryFormDialog({
   open,
   entry,
@@ -170,12 +256,14 @@ function EntryFormDialog({
     queryKey: financeKeys.familyMembers(),
     queryFn: listFamilyMembers,
   })
-  const { activeCategories } = useExpenseCategories()
+  const { activeCategories, groups } = useExpenseCategories()
+  const [quickCategory, setQuickCategory] = useState(false)
 
   const {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<EntryFormValues>({
     values: entry
@@ -279,19 +367,40 @@ function EntryFormDialog({
           />
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <Controller
-              name="type"
-              control={control}
-              render={({ field }) => (
-                <TextField {...field} select label="Categoria" fullWidth>
-                  {activeCategories.map((cat) => (
-                    <MenuItem key={cat.slug} value={cat.slug}>
-                      {cat.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+            <Stack spacing={1} sx={{ width: '100%' }}>
+              <Controller
+                name="type"
+                control={control}
+                render={({ field }) => (
+                  <TextField {...field} select label="Categoria" fullWidth>
+                    {activeCategories.map((cat) => (
+                      <MenuItem key={cat.slug} value={cat.slug}>
+                        {cat.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
+              {quickCategory ? (
+                <QuickCategoryForm
+                  groups={groups}
+                  onCreated={(created) => {
+                    setValue('type', created.slug)
+                    setQuickCategory(false)
+                  }}
+                  onCancel={() => setQuickCategory(false)}
+                />
+              ) : (
+                <Button
+                  size="small"
+                  startIcon={<AddRoundedIcon />}
+                  onClick={() => setQuickCategory(true)}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  Criar categoria rápida
+                </Button>
               )}
-            />
+            </Stack>
             <Controller
               name="amount"
               control={control}
