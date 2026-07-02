@@ -215,11 +215,18 @@ function QuickCategoryForm({
               select
               label="Grupo (indicadores)"
               size="small"
-              sx={{ minWidth: 190 }}
+              sx={{ minWidth: 220 }}
             >
               {groups.map((g) => (
                 <MenuItem key={g.slug} value={g.slug}>
-                  {g.name}
+                  <Stack sx={{ py: 0.25 }}>
+                    <span>{g.name}</span>
+                    {g.description && (
+                      <Typography variant="caption" color="text.secondary">
+                        {g.description}
+                      </Typography>
+                    )}
+                  </Stack>
                 </MenuItem>
               ))}
             </TextField>

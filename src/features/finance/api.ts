@@ -570,7 +570,7 @@ export async function getFinanceDashboardMonthly(params: {
 // Categorias de despesa (gerenciadas por workspace; grupo canônico curado)
 // ---------------------------------------------------------------------------
 
-export type ExpenseGroup = { slug: string; name: string }
+export type ExpenseGroup = { slug: string; name: string; description?: string }
 
 export type ExpenseCategory = {
   id: string
