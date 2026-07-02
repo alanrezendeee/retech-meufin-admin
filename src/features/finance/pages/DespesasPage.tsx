@@ -56,8 +56,6 @@ import {
   ENTRY_STATUS_LABEL,
   ENTRY_STATUS_OPTIONS,
   errorMessage,
-  EXPENSE_CATEGORY_LABEL,
-  EXPENSE_CATEGORY_OPTIONS,
   financeKeys,
   MONTH_OPTIONS,
   RECURRENCE_LABEL,
@@ -65,6 +63,7 @@ import {
   yearOptions,
 } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
+import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -126,6 +125,7 @@ type EntryFormValues = {
   recurrence: EntryInput['recurrence']
   installments: boolean
   installments_count: string
+  confirm_past: boolean
   description: string
   notes: string
 }
@@ -142,6 +142,7 @@ function emptyEntryForm(): EntryFormValues {
     recurrence: 'none',
     installments: false,
     installments_count: '2',
+    confirm_past: false,
     description: '',
     notes: '',
   }
@@ -169,6 +170,7 @@ function EntryFormDialog({
     queryKey: financeKeys.familyMembers(),
     queryFn: listFamilyMembers,
   })
+  const { activeCategories } = useExpenseCategories()
 
   const {
     control,
@@ -185,6 +187,7 @@ function EntryFormDialog({
           recurrence: entry.recurrence,
           installments: false,
           installments_count: '2',
+          confirm_past: false,
           description: entry.description,
           notes: entry.notes ?? '',
         }
@@ -193,6 +196,23 @@ function EntryFormDialog({
 
   const recurrence = useWatch({ control, name: 'recurrence' })
   const installments = useWatch({ control, name: 'installments' })
+  const amountText = useWatch({ control, name: 'amount' })
+  const installmentsCount = useWatch({ control, name: 'installments_count' })
+  const dueDateText = useWatch({ control, name: 'due_date' })
+
+  // "15× de R$ 1.500,00 = R$ 22.500,00 no total" — mata a ambiguidade
+  // parcela × total na origem.
+  const installmentsSummary = useMemo(() => {
+    const n = Math.trunc(Number(installmentsCount))
+    const per = reaisToCents(amountText ?? '')
+    if (!installments || !Number.isFinite(n) || n < 2 || per <= 0) return ''
+    return `${n}× de ${formatCents(per)} = ${formatCents(per * n)} no total.`
+  }, [installments, installmentsCount, amountText])
+
+  const isPastDate = useMemo(() => {
+    if (!dueDateText) return false
+    return dueDateText < new Date().toISOString().slice(0, 10)
+  }, [dueDateText])
 
   const mutation = useMutation({
     mutationFn: async (values: EntryFormValues) => {
@@ -211,6 +231,9 @@ function EntryFormDialog({
       if (!isEdit && values.installments) {
         const n = Number(values.installments_count)
         base.installments_total = Number.isFinite(n) && n >= 2 ? Math.trunc(n) : 2
+      }
+      if (!isEdit && values.confirm_past) {
+        base.confirm_past_occurrences = true
       }
       if (isEdit) {
         await updateEntry(entry!.id, base)
@@ -261,9 +284,9 @@ function EntryFormDialog({
               control={control}
               render={({ field }) => (
                 <TextField {...field} select label="Categoria" fullWidth>
-                  {EXPENSE_CATEGORY_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>
-                      {o.label}
+                  {activeCategories.map((cat) => (
+                    <MenuItem key={cat.slug} value={cat.slug}>
+                      {cat.name}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -279,11 +302,14 @@ function EntryFormDialog({
               render={({ field }) => (
                 <MoneyField
                   {...field}
-                  label="Valor"
+                  label={installments ? 'Valor da parcela' : 'Valor'}
                   fullWidth
                   required
                   error={Boolean(errors.amount)}
-                  helperText={errors.amount?.message}
+                  helperText={
+                    errors.amount?.message ??
+                    (installments ? 'Valor de CADA parcela, não o total' : undefined)
+                  }
                 />
               )}
             />
@@ -375,15 +401,39 @@ function EntryFormDialog({
           {!isEdit && installments && (
             <Alert severity="info" icon={<RepeatRoundedIcon />}>
               Ao salvar, o sistema gera as <strong>parcelas mensais</strong> previstas (X/N).
-              Confirme cada uma conforme for paga.
+              {installmentsSummary && (
+                <>
+                  {' '}
+                  <strong>{installmentsSummary}</strong>
+                </>
+              )}
             </Alert>
           )}
 
           {!isEdit && !installments && recurrence !== 'none' && (
             <Alert severity="info" icon={<RepeatRoundedIcon />}>
-              Ao salvar, o sistema gera os lançamentos <strong>previstos</strong> até dezembro do
-              ano. Confirme cada um conforme for pago.
+              Ao salvar, o sistema gera os lançamentos <strong>previstos</strong> dos próximos 12
+              meses — e mantém sempre 1 ano à frente. Para encerrar a recorrência, cancele a
+              ocorrência mais recente.
             </Alert>
+          )}
+
+          {!isEdit && (installments || recurrence !== 'none') && isPastDate && (
+            <Controller
+              name="confirm_past"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                    />
+                  }
+                  label="Parcelas/lançamentos já vencidos foram pagos (nascem como realizados)"
+                />
+              )}
+            />
           )}
 
           <Controller
@@ -440,6 +490,7 @@ export default function DespesasPage() {
     queryKey: financeKeys.familyMembers(),
     queryFn: listFamilyMembers,
   })
+  const { activeCategories, labelOf } = useExpenseCategories()
 
   const listParams: ListEntriesParams = useMemo(() => {
     const p: ListEntriesParams = {
@@ -486,7 +537,7 @@ export default function DespesasPage() {
   const memberName = (id?: string | null) =>
     (membersQuery.data ?? []).find((m) => m.id === id)?.full_name ?? '—'
   const categoryName = (value?: string | null) =>
-    value ? EXPENSE_CATEGORY_LABEL[value] ?? value : '—'
+    labelOf(value)
 
   const stats = useMemo(() => {
     let previsto = 0
@@ -633,9 +684,9 @@ export default function DespesasPage() {
                 onChange={(e) => setFilter('type', e.target.value)}
               >
                 <MenuItem value="">Todas</MenuItem>
-                {EXPENSE_CATEGORY_OPTIONS.map((o) => (
-                  <MenuItem key={o.value} value={o.value}>
-                    {o.label}
+                {activeCategories.map((cat) => (
+                  <MenuItem key={cat.slug} value={cat.slug}>
+                    {cat.name}
                   </MenuItem>
                 ))}
               </TextField>

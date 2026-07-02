@@ -24,12 +24,8 @@ import UpcomingRoundedIcon from '@mui/icons-material/UpcomingRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import { useQuery } from '@tanstack/react-query'
 import { formatCents, listEntries, type Entry, type EntryKind } from '../api'
-import {
-  errorMessage,
-  EXPENSE_CATEGORY_LABEL,
-  financeKeys,
-  INCOME_TYPE_LABEL,
-} from '../constants'
+import { errorMessage, financeKeys, INCOME_TYPE_LABEL } from '../constants'
+import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { SettleEntryDialog } from '../components/SettleEntryDialog'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -43,22 +39,21 @@ function formatDueDate(due: string): string {
   return `${d}/${m}/${y}`
 }
 
-function categoryLabel(e: Entry): string {
+function categoryLabel(e: Entry, expenseLabelOf: (slug?: string | null) => string): string {
   if (!e.type) return '—'
-  if ((e.type as string) === 'cartao') return 'Fatura de cartão'
-  return e.kind === 'debit'
-    ? (EXPENSE_CATEGORY_LABEL[e.type] ?? e.type)
-    : (INCOME_TYPE_LABEL[e.type] ?? e.type)
+  return e.kind === 'debit' ? expenseLabelOf(e.type) : (INCOME_TYPE_LABEL[e.type] ?? e.type)
 }
 
 function EntriesTable({
   entries,
   kind,
   onSettle,
+  labelOf,
 }: {
   entries: Entry[]
   kind: EntryKind
   onSettle: (e: Entry) => void
+  labelOf: (slug?: string | null) => string
 }) {
   return (
     <TableContainer>
@@ -87,7 +82,7 @@ function EntriesTable({
                   />
                 )}
               </TableCell>
-              <TableCell sx={{ color: 'text.secondary' }}>{categoryLabel(e)}</TableCell>
+              <TableCell sx={{ color: 'text.secondary' }}>{categoryLabel(e, labelOf)}</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
                 {formatCents(e.amount_cents)}
               </TableCell>
@@ -120,6 +115,7 @@ function Section({
   kind,
   emptyText,
   onSettle,
+  labelOf,
 }: {
   title: string
   icon: React.ReactNode
@@ -129,6 +125,7 @@ function Section({
   kind: EntryKind
   emptyText: string
   onSettle: (e: Entry) => void
+  labelOf: (slug?: string | null) => string
 }) {
   return (
     <Card>
@@ -153,7 +150,9 @@ function Section({
           </Typography>
         )}
       </CardContent>
-      {entries.length > 0 && <EntriesTable entries={entries} kind={kind} onSettle={onSettle} />}
+      {entries.length > 0 && (
+        <EntriesTable entries={entries} kind={kind} onSettle={onSettle} labelOf={labelOf} />
+      )}
     </Card>
   )
 }
@@ -161,6 +160,7 @@ function Section({
 export default function ContasDoDiaPage() {
   const [kind, setKind] = useState<EntryKind>('debit')
   const [settling, setSettling] = useState<Entry | null>(null)
+  const { labelOf } = useExpenseCategories()
 
   const today = useMemo(() => new Date(), [])
   const todayStr = isoDate(today)
@@ -236,6 +236,7 @@ export default function ContasDoDiaPage() {
             kind={kind}
             emptyText="Nada em atraso. 👏"
             onSettle={setSettling}
+            labelOf={labelOf}
           />
           <Section
             title="Vencendo hoje"
@@ -246,6 +247,7 @@ export default function ContasDoDiaPage() {
             kind={kind}
             emptyText="Nada vencendo hoje."
             onSettle={setSettling}
+            labelOf={labelOf}
           />
           <Section
             title="Próximos 7 dias"
@@ -256,6 +258,7 @@ export default function ContasDoDiaPage() {
             kind={kind}
             emptyText="Nada previsto para os próximos 7 dias."
             onSettle={setSettling}
+            labelOf={labelOf}
           />
         </Stack>
       )}
