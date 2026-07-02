@@ -12,12 +12,17 @@ export const adminKeys = {
 export function errorMessage(err: unknown, fallback = 'Ocorreu um erro. Tente novamente.'): string {
   if (typeof err === 'object' && err != null) {
     const anyErr = err as {
-      response?: { data?: { error?: string; message?: string } }
+      response?: { data?: { error?: string | { message?: string }; message?: string } }
       message?: string
     }
-    return (
-      anyErr.response?.data?.error ?? anyErr.response?.data?.message ?? anyErr.message ?? fallback
-    )
+    // A API responde { error: { code, message, request_id } } — objeto, não string.
+    // Devolver o objeto quebraria o React ("Objects are not valid as a React child").
+    const apiErr = anyErr.response?.data?.error
+    if (typeof apiErr === 'string' && apiErr) return apiErr
+    if (apiErr && typeof apiErr === 'object' && typeof apiErr.message === 'string' && apiErr.message) {
+      return apiErr.message
+    }
+    return anyErr.response?.data?.message ?? anyErr.message ?? fallback
   }
   return fallback
 }
