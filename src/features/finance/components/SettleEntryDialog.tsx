@@ -33,6 +33,7 @@ import {
   financeKeys,
   PAYMENT_METHOD_OPTIONS,
 } from '../constants'
+import { MoneyField } from '@/components/fields/MoneyField'
 import { ErrorState } from '@/features/health/components/StateViews'
 
 type FormValues = {
@@ -174,9 +175,9 @@ export function SettleEntryDialog({
                 validate: (v) => reaisToCents(v) !== 0 || 'Valor não pode ser zero',
               }}
               render={({ field }) => (
-                <TextField
+                <MoneyField
                   {...field}
-                  label={isExpense ? 'Valor pago (R$)' : 'Valor recebido (R$)'}
+                  label={isExpense ? 'Valor pago' : 'Valor recebido'}
                   fullWidth
                   required
                   error={Boolean(errors.paid_amount)}
