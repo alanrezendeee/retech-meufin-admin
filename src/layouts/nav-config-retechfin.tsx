@@ -93,6 +93,7 @@ export const retechfinNavSections: NavDataSection[] = [
         path: '/dashboard/financeiro/receitas',
         icon: PaymentsRoundedIcon,
         permission: { action: 'view', subject: 'finance.income' },
+        info: 'finance.income',
       },
       {
         label: 'Despesas',
