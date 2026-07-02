@@ -5,6 +5,8 @@ import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
+import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
+import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded'
 
 /**
  * Registro central de REGRAS DE NEGÓCIO complexas/críticas, exibidas na UI
@@ -98,6 +100,47 @@ export const businessRules: Record<string, BusinessRule> = {
           'Ao escolher a Fonte, o tipo é sugerido automaticamente pela natureza dela (pode trocar).',
           'Reembolso não é renda (é estorno) — fica fora dos indicadores de composição.',
           '13º/Férias e Freela são sazonais — a projeção anual não os lineariza.',
+        ],
+      },
+    ],
+  },
+  'finance.expenses': {
+    title: 'Parcelas, retroativos e recorrências',
+    icon: TrendingDownRoundedIcon,
+    blocks: [
+      {
+        type: 'callout',
+        tone: 'warning',
+        title: 'Parcelado: o valor é DA PARCELA',
+        text: 'Em despesa parcelada, informe o valor de cada parcela (o aviso mostra a conta: N× valor = total). O sistema clona esse valor em cada parcela — nunca digite o total.',
+      },
+      {
+        type: 'list',
+        items: [
+          'Lançamento retroativo (ex.: financiamento começado ano passado): marque "vencidos foram pagos" e as parcelas até hoje nascem realizadas.',
+          'Parcelas cruzam o ano até quitar (15× em outubro vai até dezembro do ano seguinte).',
+          'Recorrentes mantêm sempre 12 meses de previstos à frente (o sistema completa o horizonte diariamente).',
+          'Para ENCERRAR uma recorrência: cancele a ocorrência mais recente — o sistema para de gerar novas.',
+          'Excluir ocorrências futuras de recorrência ativa não encerra: elas são recriadas pelo horizonte automático.',
+        ],
+      },
+    ],
+  },
+  'finance.categories': {
+    title: 'Categorias em duas camadas',
+    icon: CategoryRoundedIcon,
+    blocks: [
+      {
+        type: 'paragraph',
+        text: 'Categoria é sua: crie, renomeie e arquive à vontade (Pets, Escola do João, Viagens...). Grupo é do sistema: fixo, e é por ele que os indicadores agregam — liberdade total sem bagunçar os números.',
+      },
+      {
+        type: 'list',
+        items: [
+          'Toda categoria pertence a exatamente um grupo (Moradia, Alimentação, Transporte, Saúde...).',
+          'Renomear categoria não altera o histórico — o vínculo é interno, o nome é só rótulo.',
+          '"Outros" não pode ser removida: é o destino de tudo que chega sem categoria conhecida (ex.: importação de fatura).',
+          'A importação por LLM só sugere categorias que existem no seu cadastro.',
         ],
       },
     ],

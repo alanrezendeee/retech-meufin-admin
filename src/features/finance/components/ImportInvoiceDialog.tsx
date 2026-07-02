@@ -41,9 +41,9 @@ import {
 import {
   ENTRY_STATUS_LABEL,
   errorMessage,
-  EXPENSE_CATEGORY_OPTIONS,
   financeKeys,
 } from '../constants'
+import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { LoadingState } from '@/features/health/components/StateViews'
 
 const STEPS = ['Enviar arquivo', 'Ler fatura', 'Revisar', 'Confirmar']
@@ -94,6 +94,7 @@ export function ImportInvoiceDialog({
   onClose: () => void
   onConfirmed: (message: string) => void
 }) {
+  const { activeCategories } = useExpenseCategories()
   const qc = useQueryClient()
 
   const [step, setStep] = useState(0)
@@ -365,9 +366,9 @@ export function ImportInvoiceDialog({
                             value={it.category}
                             onChange={(e) => setItem(idx, { category: e.target.value })}
                           >
-                            {EXPENSE_CATEGORY_OPTIONS.map((o) => (
-                              <MenuItem key={o.value} value={o.value}>
-                                {o.label}
+                            {activeCategories.map((cat) => (
+                              <MenuItem key={cat.slug} value={cat.slug}>
+                                {cat.name}
                               </MenuItem>
                             ))}
                           </TextField>

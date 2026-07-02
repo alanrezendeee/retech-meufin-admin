@@ -100,6 +100,14 @@ export const retechfinNavSections: NavDataSection[] = [
         path: '/dashboard/financeiro/despesas',
         icon: TrendingDownRoundedIcon,
         permission: { action: 'view', subject: 'finance.expenses' },
+        info: 'finance.expenses',
+      },
+      {
+        label: 'Categorias',
+        path: '/dashboard/financeiro/categorias',
+        icon: CategoryRoundedIcon,
+        permission: { action: 'view', subject: 'finance.categories' },
+        info: 'finance.categories',
       },
       {
         label: 'Fontes de Receita',

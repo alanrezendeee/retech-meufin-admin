@@ -7,6 +7,7 @@ import {
   CardContent,
   Chip,
   Dialog,
+  FormControlLabel,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -16,6 +17,7 @@ import {
   MenuItem,
   Snackbar,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -124,6 +126,7 @@ function StatCard({
 type EntryFormValues = {
   family_member_id: string
   source_id: string
+  confirm_past: boolean
   type: string
   amount: string // reais
   due_date: string
@@ -139,6 +142,7 @@ function emptyEntryForm(): EntryFormValues {
   return {
     family_member_id: '',
     source_id: '',
+    confirm_past: false,
     type: 'salario',
     amount: '',
     due_date: `${y}-${m}-${d}`,
@@ -261,6 +265,7 @@ function EntryFormDialog({
       ? {
           family_member_id: entry.family_member_id ?? '',
           source_id: entry.source_id ?? '',
+          confirm_past: false,
           type: entry.type ?? 'salario',
           amount: (entry.amount_cents / 100).toFixed(2).replace('.', ','),
           due_date: entry.due_date,
@@ -272,6 +277,11 @@ function EntryFormDialog({
   })
 
   const recurrence = useWatch({ control, name: 'recurrence' })
+  const dueDateText = useWatch({ control, name: 'due_date' })
+  const isPastDate = useMemo(() => {
+    if (!dueDateText) return false
+    return dueDateText < new Date().toISOString().slice(0, 10)
+  }, [dueDateText])
 
   const mutation = useMutation({
     mutationFn: async (values: EntryFormValues) => {
@@ -282,6 +292,7 @@ function EntryFormDialog({
         due_date: values.due_date,
         family_member_id: values.family_member_id || null,
         source_id: values.source_id || null,
+        confirm_past_occurrences: !isEdit && values.confirm_past ? true : undefined,
         type: (values.type || null) as EntryInput['type'],
         description: values.description.trim(),
         recurrence: values.recurrence,
@@ -444,9 +455,28 @@ function EntryFormDialog({
 
           {!isEdit && recurrence !== 'none' && (
             <Alert severity="info" icon={<RepeatRoundedIcon />}>
-              Ao salvar, o sistema gera os lançamentos <strong>previstos</strong> até dezembro do
-              ano. Confirme cada um conforme for recebido.
+              Ao salvar, o sistema gera os lançamentos <strong>previstos</strong> dos próximos 12
+              meses — e mantém sempre 1 ano à frente. Para encerrar a recorrência, cancele a
+              ocorrência mais recente.
             </Alert>
+          )}
+
+          {!isEdit && recurrence !== 'none' && isPastDate && (
+            <Controller
+              name="confirm_past"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={field.value}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                    />
+                  }
+                  label="Lançamentos já vencidos foram recebidos (nascem como realizados)"
+                />
+              )}
+            />
           )}
 
           <Controller
@@ -588,7 +618,7 @@ export default function ReceitasPage() {
     <>
       <PageHeader
         title="Receitas"
-        subtitle="Lance as receitas da família. Recorrentes viram previstos do ano; confirmar marca como recebido."
+        subtitle="Lance as receitas da família. Recorrentes mantêm 12 meses de previstos à frente; confirmar marca como recebido."
         action={
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
             Nova receita
@@ -826,7 +856,7 @@ export default function ReceitasPage() {
           entry={editing}
           onClose={() => setFormOpen(false)}
           onCreatedRecurring={(count) =>
-            setToast(`${count} lançamentos previstos criados até dezembro.`)
+            setToast(`${count} lançamentos previstos criados (próximos 12 meses).`)
           }
         />
       )}

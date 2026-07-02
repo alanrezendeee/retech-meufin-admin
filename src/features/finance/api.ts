@@ -121,6 +121,8 @@ export type EntryInput = {
   recurrence: Recurrence
   recurrence_group_id?: string | null
   notes?: string | null
+  /** Lançamento retroativo: ocorrências vencidas nascem realizadas. */
+  confirm_past_occurrences?: boolean
 }
 
 export type ListEntriesParams = {
@@ -561,4 +563,55 @@ export async function getFinanceDashboardMonthly(params: {
     { params }
   )
   return data
+}
+
+
+// ---------------------------------------------------------------------------
+// Categorias de despesa (gerenciadas por workspace; grupo canônico curado)
+// ---------------------------------------------------------------------------
+
+export type ExpenseGroup = { slug: string; name: string }
+
+export type ExpenseCategory = {
+  id: string
+  slug: string
+  name: string
+  group_slug: string
+  group_name: string
+  active: boolean
+}
+
+export type ExpenseCategoriesResponse = {
+  items: ExpenseCategory[]
+  total: number
+  groups: ExpenseGroup[]
+}
+
+/** Lista categorias do workspace (o backend semeia as padrão no 1º uso) + grupos curados. */
+export async function listExpenseCategories(): Promise<ExpenseCategoriesResponse> {
+  const { data } = await meufinClient.get<ExpenseCategoriesResponse>(`${BASE}/expense-categories`)
+  return data
+}
+
+export async function createExpenseCategory(input: {
+  name: string
+  group_slug: string
+}): Promise<ExpenseCategory> {
+  const { data } = await meufinClient.post<ExpenseCategory>(`${BASE}/expense-categories`, input)
+  return data
+}
+
+export async function updateExpenseCategory(
+  id: string,
+  input: { name: string; group_slug: string; active?: boolean }
+): Promise<ExpenseCategory> {
+  const { data } = await meufinClient.put<ExpenseCategory>(
+    `${BASE}/expense-categories/${id}`,
+    input
+  )
+  return data
+}
+
+export async function deleteExpenseCategory(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/expense-categories/${id}`)
 }

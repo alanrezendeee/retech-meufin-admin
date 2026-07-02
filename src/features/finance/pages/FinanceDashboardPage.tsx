@@ -37,13 +37,8 @@ import {
   getFinanceDashboardMonthly,
   listFamilyMembers,
 } from '../api'
-import {
-  errorMessage,
-  EXPENSE_CATEGORY_LABEL,
-  financeKeys,
-  MONTH_OPTIONS,
-  yearOptions,
-} from '../constants'
+import { errorMessage, financeKeys, MONTH_OPTIONS, yearOptions } from '../constants'
+import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
@@ -145,6 +140,7 @@ export default function FinanceDashboardPage() {
     queryKey: financeKeys.familyMembers(),
     queryFn: listFamilyMembers,
   })
+  const { labelOf } = useExpenseCategories()
 
   const s = summaryQ.data
   const balanceExpected = s?.balance_expected_cents ?? 0
@@ -172,13 +168,10 @@ export default function FinanceDashboardPage() {
   const categoryData = useMemo(
     () =>
       (s?.categories ?? []).slice(0, 10).map((c) => ({
-        name:
-          c.category === 'cartao'
-            ? 'Fatura de cartão'
-            : (EXPENSE_CATEGORY_LABEL[c.category] ?? c.category),
+        name: labelOf(c.category),
         valor: c.total_cents / 100,
       })),
-    [s]
+    [s, labelOf]
   )
 
   const brl = (v: number) =>
