@@ -187,10 +187,10 @@ export type ExtractionStatus = {
   purchases?: PurchaseSuggestion[]
 }
 
-/** Item da fatura no confirm — `amount` em REAIS (o backend converte para centavos). */
+/** Item da fatura no confirm — dinheiro trafega como inteiro de CENTAVOS (regra do sistema). */
 export type ConfirmInvoiceItem = {
   description: string
-  amount: number // REAIS
+  amount_cents: number // CENTAVOS (inteiro)
   date?: string | null // "YYYY-MM-DD"
   category?: string | null
   installment_number?: number | null
@@ -388,10 +388,7 @@ export async function getExtractionStatus(documentId: string): Promise<Extractio
   return data
 }
 
-/**
- * Confirma a fatura importada, criando a fatura + compras.
- * ATENÇÃO: `items[].amount` deve estar em REAIS (o backend converte para centavos).
- */
+/** Confirma a fatura importada, criando a fatura + compras (valores em centavos inteiros). */
 export async function confirmInvoice(
   documentId: string,
   payload: ConfirmInvoicePayload
