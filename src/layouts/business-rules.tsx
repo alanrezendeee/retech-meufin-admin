@@ -4,6 +4,7 @@ import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
+import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
 
 /**
  * Registro central de REGRAS DE NEGÓCIO complexas/críticas, exibidas na UI
@@ -72,6 +73,32 @@ export const businessRules: Record<string, BusinessRule> = {
       {
         type: 'paragraph',
         text: 'O modo normalizado põe cada ponto na posição da própria referência — assim dá para comparar labs diferentes num gráfico só.',
+      },
+    ],
+  },
+  'finance.income': {
+    title: 'Receita lança-se bruta; o tipo carrega a semântica',
+    icon: PaymentsRoundedIcon,
+    blocks: [
+      {
+        type: 'paragraph',
+        text: 'Receita entra sempre pelo valor BRUTO do contrato. Desconto na origem (ex.: equipamento comprado pela empresa e abatido do repasse) vira uma despesa espelhada na mesma data — o líquido aparece no saldo, e as três verdades se preservam: quanto você fatura, pra onde foi o dinheiro e o rastro do bem.',
+      },
+      {
+        type: 'callout',
+        tone: 'warning',
+        title: 'Nunca lance o líquido',
+        text: 'Lançar só o que caiu na conta esconde o desconto: o equipamento some do gráfico de categorias e seu faturamento real fica subestimado para qualquer análise futura.',
+      },
+      {
+        type: 'list',
+        items: [
+          'O TIPO é curado pelo sistema (não é cadastro livre) — é ele que permite os indicadores futuros: composição ativa × passiva, sazonalidade na projeção e inteligência fiscal.',
+          'CLT usa Salário; PJ usa Remuneração PJ (contrato); retirada de sócio usa Pró-labore ou Dividendos — tratamentos fiscais diferentes.',
+          'Ao escolher a Fonte, o tipo é sugerido automaticamente pela natureza dela (pode trocar).',
+          'Reembolso não é renda (é estorno) — fica fora dos indicadores de composição.',
+          '13º/Férias e Freela são sazonais — a projeção anual não os lineariza.',
+        ],
       },
     ],
   },

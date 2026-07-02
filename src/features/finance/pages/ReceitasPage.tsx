@@ -60,6 +60,7 @@ import {
   financeKeys,
   INCOME_TYPE_LABEL,
   INCOME_TYPE_OPTIONS,
+  SOURCE_KIND_TO_INCOME_TYPE,
   MONTH_OPTIONS,
   RECURRENCE_LABEL,
   RECURRENCE_OPTIONS,
@@ -334,7 +335,20 @@ function EntryFormDialog({
               name="source_id"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="Fonte de receita" fullWidth>
+                <TextField
+                  {...field}
+                  select
+                  label="Fonte de receita"
+                  fullWidth
+                  onChange={(e) => {
+                    field.onChange(e)
+                    // Sugere o tipo pela natureza da fonte (pj → Remuneração PJ,
+                    // rental → Aluguel...). O usuário pode trocar depois.
+                    const src = (sourcesQuery.data ?? []).find((s) => s.id === e.target.value)
+                    const suggested = src ? SOURCE_KIND_TO_INCOME_TYPE[src.kind] : undefined
+                    if (suggested) setValue('type', suggested)
+                  }}
+                >
                   <MenuItem value="">
                     <em>Não atribuída</em>
                   </MenuItem>

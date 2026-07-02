@@ -20,9 +20,11 @@ export const SOURCE_KIND_LABEL: Record<SourceKind, string> = SOURCE_KIND_OPTIONS
 
 /** Tipo da receita (natureza do lançamento). */
 export const INCOME_TYPE_OPTIONS: Option<IncomeType>[] = [
-  { value: 'salario', label: 'Salário' },
+  { value: 'salario', label: 'Salário (CLT)' },
+  { value: 'pj_contrato', label: 'Remuneração PJ (contrato)' },
   { value: 'pro_labore', label: 'Pró-labore' },
   { value: 'dividendos', label: 'Dividendos' },
+  { value: 'rendimento', label: 'Rendimentos (juros/investimentos)' },
   { value: 'aluguel', label: 'Aluguel' },
   { value: 'freela', label: 'Freela' },
   { value: 'ferias_13', label: '13º/Férias' },
@@ -30,6 +32,46 @@ export const INCOME_TYPE_OPTIONS: Option<IncomeType>[] = [
   { value: 'reembolso', label: 'Reembolso' },
   { value: 'outro', label: 'Outro' },
 ]
+
+/**
+ * Semântica de cada tipo de receita — é isto que deixa o sistema "raciocinar"
+ * sobre a renda no futuro (composição ativa×passiva, sazonalidade na projeção,
+ * inteligência fiscal). Regra: o catálogo de tipos é curado (nunca livre) para
+ * a semântica não degradar; a liberdade de nomes fica na Fonte de Receita.
+ *
+ *  - nature: 'ativa' (você trabalhando) | 'passiva' (dinheiro trabalhando) |
+ *    'neutra' (não é renda de verdade — ex.: reembolso é estorno e deve ficar
+ *    FORA dos indicadores de composição de renda)
+ *  - seasonal: true = não recorre todo mês (projeção anual não deve linearizar)
+ *  - regime: dica do tratamento tributário típico no Brasil (uso futuro)
+ */
+export type IncomeNature = 'ativa' | 'passiva' | 'neutra'
+export const INCOME_TYPE_SEMANTICS: Record<
+  IncomeType,
+  { nature: IncomeNature; seasonal: boolean; regime: string }
+> = {
+  salario: { nature: 'ativa', seasonal: false, regime: 'clt_fonte' },
+  pj_contrato: { nature: 'ativa', seasonal: false, regime: 'pj_simples' },
+  pro_labore: { nature: 'ativa', seasonal: false, regime: 'pro_labore_inss' },
+  dividendos: { nature: 'passiva', seasonal: false, regime: 'isento' },
+  rendimento: { nature: 'passiva', seasonal: false, regime: 'ir_investimento' },
+  aluguel: { nature: 'passiva', seasonal: false, regime: 'carne_leao' },
+  freela: { nature: 'ativa', seasonal: true, regime: 'variavel' },
+  ferias_13: { nature: 'ativa', seasonal: true, regime: 'clt_fonte' },
+  beneficio: { nature: 'passiva', seasonal: false, regime: 'isento' },
+  reembolso: { nature: 'neutra', seasonal: true, regime: 'nao_tributavel' },
+  outro: { nature: 'ativa', seasonal: false, regime: 'indefinido' },
+}
+
+/** Tipo sugerido a partir do kind da Fonte de Receita (menos um clique, menos erro na origem). */
+export const SOURCE_KIND_TO_INCOME_TYPE: Partial<Record<SourceKind, IncomeType>> = {
+  clt: 'salario',
+  pj: 'pj_contrato',
+  freelance: 'freela',
+  rental: 'aluguel',
+  investment: 'rendimento',
+  benefit: 'beneficio',
+}
 
 export const INCOME_TYPE_LABEL: Record<IncomeType, string> = INCOME_TYPE_OPTIONS.reduce(
   (acc, o) => ({ ...acc, [o.value]: o.label }),
