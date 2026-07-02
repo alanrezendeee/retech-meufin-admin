@@ -44,6 +44,7 @@ import {
   financeKeys,
 } from '../constants'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
+import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { LoadingState } from '@/features/health/components/StateViews'
 
 const STEPS = ['Enviar arquivo', 'Ler fatura', 'Revisar', 'Confirmar']
@@ -359,19 +360,17 @@ export function ImportInvoiceDialog({
                           />
                         </TableCell>
                         <TableCell>
-                          <TextField
-                            variant="standard"
-                            select
-                            fullWidth
+                          <AutocompleteField
+                            label=""
+                            size="small"
                             value={it.category}
-                            onChange={(e) => setItem(idx, { category: e.target.value })}
-                          >
-                            {activeCategories.map((cat) => (
-                              <MenuItem key={cat.slug} value={cat.slug}>
-                                {cat.name}
-                              </MenuItem>
-                            ))}
-                          </TextField>
+                            onChange={(v) => setItem(idx, { category: v })}
+                            options={activeCategories.map((cat) => ({
+                              value: cat.slug,
+                              label: cat.name,
+                              description: cat.group_name,
+                            }))}
+                          />
                         </TableCell>
                         <TableCell>
                           {it.installment_total

@@ -10,7 +10,6 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
-  MenuItem,
   Stack,
   Switch,
   Table,
@@ -21,7 +20,6 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -38,6 +36,7 @@ import {
   type ExpenseGroup,
 } from '../api'
 import { errorMessage, financeKeys } from '../constants'
+import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -112,27 +111,19 @@ function CategoryFormDialog({
             control={control}
             rules={{ required: true }}
             render={({ field }) => (
-              <TextField
-                {...field}
-                select
+              <AutocompleteField
                 label="Grupo"
-                fullWidth
                 required
+                value={field.value}
+                onChange={field.onChange}
+                options={groups.map((g) => ({
+                  value: g.slug,
+                  label: g.name,
+                  description: g.description,
+                }))}
+                placeholder="Busque por nome ou exemplo (ex.: cinema)"
                 helperText="O grupo é fixo do sistema — é por ele que os indicadores agregam."
-              >
-                {groups.map((g) => (
-                  <MenuItem key={g.slug} value={g.slug}>
-                    <Stack sx={{ py: 0.25 }}>
-                      <span>{g.name}</span>
-                      {g.description && (
-                        <Typography variant="caption" color="text.secondary">
-                          {g.description}
-                        </Typography>
-                      )}
-                    </Stack>
-                  </MenuItem>
-                ))}
-              </TextField>
+              />
             )}
           />
           {isEdit && (

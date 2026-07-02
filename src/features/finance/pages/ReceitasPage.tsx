@@ -62,6 +62,7 @@ import {
   financeKeys,
   INCOME_TYPE_LABEL,
   INCOME_TYPE_OPTIONS,
+  SOURCE_KIND_LABEL,
   SOURCE_KIND_TO_INCOME_TYPE,
   MONTH_OPTIONS,
   RECURRENCE_LABEL,
@@ -70,6 +71,7 @@ import {
   yearOptions,
 } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
+import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -328,16 +330,16 @@ function EntryFormDialog({
             name="family_member_id"
             control={control}
             render={({ field }) => (
-              <TextField {...field} select label="Membro da família" fullWidth>
-                <MenuItem value="">
-                  <em>Não atribuído</em>
-                </MenuItem>
-                {(membersQuery.data ?? []).map((m) => (
-                  <MenuItem key={m.id} value={m.id}>
-                    {m.full_name}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <AutocompleteField
+                label="Membro da família"
+                emptyLabel="Não atribuído"
+                value={field.value}
+                onChange={field.onChange}
+                options={(membersQuery.data ?? []).map((m) => ({
+                  value: m.id,
+                  label: m.full_name,
+                }))}
+              />
             )}
           />
 
@@ -346,29 +348,24 @@ function EntryFormDialog({
               name="source_id"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
+                <AutocompleteField
                   label="Fonte de receita"
-                  fullWidth
-                  onChange={(e) => {
-                    field.onChange(e)
+                  emptyLabel="Não atribuída"
+                  value={field.value}
+                  onChange={(v) => {
+                    field.onChange(v)
                     // Sugere o tipo pela natureza da fonte (pj → Remuneração PJ,
                     // rental → Aluguel...). O usuário pode trocar depois.
-                    const src = (sourcesQuery.data ?? []).find((s) => s.id === e.target.value)
+                    const src = (sourcesQuery.data ?? []).find((s) => s.id === v)
                     const suggested = src ? SOURCE_KIND_TO_INCOME_TYPE[src.kind] : undefined
                     if (suggested) setValue('type', suggested)
                   }}
-                >
-                  <MenuItem value="">
-                    <em>Não atribuída</em>
-                  </MenuItem>
-                  {(sourcesQuery.data ?? []).map((s) => (
-                    <MenuItem key={s.id} value={s.id}>
-                      {s.name}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                  options={(sourcesQuery.data ?? []).map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                    description: SOURCE_KIND_LABEL[s.kind],
+                  }))}
+                />
               )}
             />
             {quickSource ? (
@@ -391,13 +388,12 @@ function EntryFormDialog({
               name="type"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="Tipo" fullWidth>
-                  {INCOME_TYPE_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>
-                      {o.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <AutocompleteField
+                  label="Tipo"
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  options={INCOME_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                />
               )}
             />
             <Controller

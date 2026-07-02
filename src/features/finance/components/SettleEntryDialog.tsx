@@ -34,6 +34,7 @@ import {
   PAYMENT_METHOD_OPTIONS,
 } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
+import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { ErrorState } from '@/features/health/components/StateViews'
 
 type FormValues = {
@@ -210,19 +211,19 @@ export function SettleEntryDialog({
               name="account_id"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="Conta" fullWidth>
-                  <MenuItem value="">
-                    <em>Não informar</em>
-                  </MenuItem>
-                  {(accounts ?? [])
+                <AutocompleteField
+                  label="Conta"
+                  emptyLabel="Não informar"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={(accounts ?? [])
                     .filter((a) => a.active)
-                    .map((a) => (
-                      <MenuItem key={a.id} value={a.id}>
-                        {a.name}
-                        {a.bank_name ? ` — ${a.bank_name}` : ''}
-                      </MenuItem>
-                    ))}
-                </TextField>
+                    .map((a) => ({
+                      value: a.id,
+                      label: a.name,
+                      description: a.bank_name ?? undefined,
+                    }))}
+                />
               )}
             />
           )}
@@ -233,26 +234,20 @@ export function SettleEntryDialog({
               control={control}
               rules={{ required: 'Informe o cartão usado' }}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  select
+                <AutocompleteField
                   label="Cartão de crédito"
-                  fullWidth
                   required
+                  value={field.value}
+                  onChange={field.onChange}
                   error={Boolean(errors.card_id)}
                   helperText={
                     errors.card_id?.message ??
                     'A compra entra na próxima fatura do cartão — registre-a lá também.'
                   }
-                >
-                  {(cards ?? [])
+                  options={(cards ?? [])
                     .filter((c) => c.active)
-                    .map((c) => (
-                      <MenuItem key={c.id} value={c.id}>
-                        {c.name}
-                      </MenuItem>
-                    ))}
-                </TextField>
+                    .map((c) => ({ value: c.id, label: c.name }))}
+                />
               )}
             />
           )}
