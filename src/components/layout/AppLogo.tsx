@@ -50,19 +50,14 @@ export function AppLogo({ compact, sx }: Props) {
     >
       <Box
         sx={{
-          width: compact ? 28 : 32,
-          height: compact ? 28 : 32,
-          borderRadius: 1.75,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
-          background: `linear-gradient(135deg, ${alpha(lp.neon, 0.16)} 0%, ${alpha(lp.neonDim, 0.1)} 100%)`,
-          border: `1px solid ${alpha(lp.neon, 0.3)}`,
-          boxShadow: `0 0 16px -8px ${alpha(lp.neon, 0.45)}`,
+          filter: `drop-shadow(0 0 10px ${alpha(lp.neon, 0.45)})`,
         }}
       >
-        <BrandMark size={compact ? 17 : 19} />
+        <BrandMark size={compact ? 24 : 28} />
       </Box>
       {!compact && (
         <Box>
