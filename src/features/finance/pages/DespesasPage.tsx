@@ -14,7 +14,6 @@ import {
   FormControlLabel,
   Grid,
   IconButton,
-  InputAdornment,
   MenuItem,
   Snackbar,
   Stack,
@@ -65,6 +64,7 @@ import {
   RECURRENCE_OPTIONS,
   yearOptions,
 } from '../constants'
+import { MoneyField } from '@/components/fields/MoneyField'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -277,17 +277,13 @@ function EntryFormDialog({
                 validate: (v) => reaisToCents(v) > 0 || 'Valor deve ser maior que zero',
               }}
               render={({ field }) => (
-                <TextField
+                <MoneyField
                   {...field}
                   label="Valor"
                   fullWidth
                   required
-                  placeholder="0,00"
                   error={Boolean(errors.amount)}
                   helperText={errors.amount?.message}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-                  }}
                 />
               )}
             />

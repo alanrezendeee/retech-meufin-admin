@@ -1,3 +1,4 @@
+import { MoneyField } from '@/components/fields/MoneyField'
 import { useMemo, useState } from 'react'
 import {
   Alert,
@@ -9,7 +10,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  InputAdornment,
   MenuItem,
   Step,
   StepLabel,
@@ -342,15 +342,10 @@ export function ImportInvoiceDialog({
                           />
                         </TableCell>
                         <TableCell align="right">
-                          <TextField
+                          <MoneyField
                             variant="standard"
                             value={it.amount}
                             onChange={(e) => setItem(idx, { amount: e.target.value })}
-                            InputProps={{
-                              startAdornment: (
-                                <InputAdornment position="start">R$</InputAdornment>
-                              ),
-                            }}
                           />
                         </TableCell>
                         <TableCell>
