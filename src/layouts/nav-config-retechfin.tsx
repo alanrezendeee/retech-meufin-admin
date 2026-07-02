@@ -29,10 +29,10 @@ export const retechfinNavSections: NavDataSection[] = [
     subheader: 'Menu',
     items: [
       {
+        // Home é o hub pós-login: visível pra qualquer autenticado (rota idem).
         label: 'Painel',
         path: '/dashboard',
         icon: DashboardRoundedIcon,
-        permission: { action: 'view', subject: 'retechfin.dashboard' },
       },
       {
         label: 'Transações',

@@ -3,9 +3,10 @@ import { PermissionGuard } from '@/auth/guard/permission-guard'
 import UsersPage from '@/features/admin/pages/UsersPage'
 import RolesPermissionsPage from '@/features/admin/pages/RolesPermissionsPage'
 
-function guarded(subject: string, node: ReactNode): ReactNode {
+function guarded(subjects: string | string[], node: ReactNode): ReactNode {
+  const list = Array.isArray(subjects) ? subjects : [subjects]
   return (
-    <PermissionGuard required={{ action: 'view', subject }} hasContent>
+    <PermissionGuard required={list.map((subject) => ({ action: 'view', subject }))} hasContent>
       {node}
     </PermissionGuard>
   )
@@ -17,5 +18,6 @@ function guarded(subject: string, node: ReactNode): ReactNode {
  */
 export const adminRoutes: { path: string; element: ReactNode }[] = [
   { path: 'admin/usuarios', element: guarded('admin.users', <UsersPage />) },
-  { path: 'admin/permissoes', element: guarded('admin.roles', <RolesPermissionsPage />) },
+  // ANY-of: quem gerencia grupos OU quem gerencia o catálogo de permissões entra
+  { path: 'admin/permissoes', element: guarded(['admin.roles', 'admin.permissions'], <RolesPermissionsPage />) },
 ]
