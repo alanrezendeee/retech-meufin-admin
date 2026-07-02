@@ -25,6 +25,7 @@ import {
   Cell,
   ComposedChart,
   Line,
+  Legend,
   ResponsiveContainer,
   Tooltip as ReTooltip,
   XAxis,
@@ -46,20 +47,35 @@ import {
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
+/**
+ * Legenda do "esperado no mês" com estado: distingue "tudo realizado" de
+ * "ainda falta" — era a confusão do rótulo antigo "Previsto", que parecia
+ * dizer que havia algo pendente mesmo com tudo realizado.
+ */
+function expectedCaption(
+  expectedCents: number | undefined,
+  realizedCents: number | undefined,
+  pendingWord: string
+): string {
+  const expected = expectedCents ?? 0
+  const pending = Math.max(0, expected - (realizedCents ?? 0))
+  if (expected === 0) return 'Nada esperado no mês'
+  if (pending === 0) return `Esperado no mês: ${formatCents(expected)} · ✓ tudo realizado`
+  return `Esperado no mês: ${formatCents(expected)} · ${pendingWord} ${formatCents(pending)}`
+}
+
 const MONTH_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 function MoneyCard({
   title,
   mainCents,
-  secondaryCents,
-  secondaryLabel,
+  secondary,
   icon: Icon,
   tone = 'primary',
 }: {
   title: string
   mainCents: number
-  secondaryCents?: number
-  secondaryLabel?: string
+  secondary?: string
   icon: typeof TrendingUpRoundedIcon
   tone?: 'primary' | 'success' | 'error' | 'warning' | 'info'
 }) {
@@ -74,9 +90,9 @@ function MoneyCard({
             <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5, whiteSpace: 'nowrap' }}>
               {formatCents(mainCents)}
             </Typography>
-            {secondaryCents != null && (
+            {secondary && (
               <Typography variant="caption" color="text.secondary">
-                {secondaryLabel}: {formatCents(secondaryCents)}
+                {secondary}
               </Typography>
             )}
           </Box>
@@ -135,12 +151,21 @@ export default function FinanceDashboardPage() {
 
   const chartData = useMemo(
     () =>
-      (monthlyQ.data?.months ?? []).map((m) => ({
-        name: MONTH_SHORT[m.month - 1],
-        receita: (m.income_expected_cents ?? 0) / 100,
-        despesa: (m.expense_expected_cents ?? 0) / 100,
-        saldo: (m.balance_expected_cents ?? 0) / 100,
-      })),
+      (monthlyQ.data?.months ?? []).map((m) => {
+        const incReal = m.income_realized_cents ?? 0
+        const incExp = m.income_expected_cents ?? 0
+        const expReal = m.expense_realized_cents ?? 0
+        const expExp = m.expense_expected_cents ?? 0
+        return {
+          name: MONTH_SHORT[m.month - 1],
+          // sólido = realizado; translúcido = previsto ainda não realizado
+          receitaReal: incReal / 100,
+          receitaPrev: Math.max(0, incExp - incReal) / 100,
+          despesaReal: expReal / 100,
+          despesaPrev: Math.max(0, expExp - expReal) / 100,
+          saldo: (m.balance_expected_cents ?? 0) / 100,
+        }
+      }),
     [monthlyQ.data]
   )
 
@@ -225,8 +250,7 @@ export default function FinanceDashboardPage() {
             <MoneyCard
               title="Receitas do mês"
               mainCents={s?.income_realized_cents ?? 0}
-              secondaryCents={s?.income_expected_cents ?? 0}
-              secondaryLabel="Previsto"
+              secondary={expectedCaption(s?.income_expected_cents, s?.income_realized_cents, 'a receber')}
               icon={TrendingUpRoundedIcon}
               tone="success"
             />
@@ -235,8 +259,7 @@ export default function FinanceDashboardPage() {
             <MoneyCard
               title="Despesas do mês"
               mainCents={s?.expense_realized_cents ?? 0}
-              secondaryCents={s?.expense_expected_cents ?? 0}
-              secondaryLabel="Previsto"
+              secondary={expectedCaption(s?.expense_expected_cents, s?.expense_realized_cents, 'a pagar')}
               icon={TrendingDownRoundedIcon}
               tone="error"
             />
@@ -245,8 +268,7 @@ export default function FinanceDashboardPage() {
             <MoneyCard
               title="Saldo do mês"
               mainCents={s?.balance_realized_cents ?? 0}
-              secondaryCents={balanceExpected}
-              secondaryLabel="Previsto"
+              secondary={`Esperado no mês: ${formatCents(balanceExpected)}`}
               icon={AccountBalanceWalletRoundedIcon}
               tone={balanceExpected >= 0 ? 'success' : 'error'}
             />
@@ -271,8 +293,6 @@ export default function FinanceDashboardPage() {
             <MoneyCard
               title="Parcelas futuras"
               mainCents={s?.future_installments.total_cents ?? 0}
-              secondaryCents={undefined}
-              secondaryLabel={undefined}
               icon={EventRepeatRoundedIcon}
               tone="warning"
             />
@@ -315,16 +335,31 @@ export default function FinanceDashboardPage() {
                             borderRadius: 8,
                           }}
                         />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
                         <Bar
-                          dataKey="receita"
-                          name="Receita"
-                          fill={alpha(theme.palette.success.main, 0.75)}
+                          dataKey="receitaReal"
+                          name="Receita realizada"
+                          stackId="receita"
+                          fill={alpha(theme.palette.success.main, 0.85)}
+                        />
+                        <Bar
+                          dataKey="receitaPrev"
+                          name="Receita prevista"
+                          stackId="receita"
+                          fill={alpha(theme.palette.success.main, 0.3)}
                           radius={[4, 4, 0, 0]}
                         />
                         <Bar
-                          dataKey="despesa"
-                          name="Despesa"
-                          fill={alpha(theme.palette.error.main, 0.7)}
+                          dataKey="despesaReal"
+                          name="Despesa realizada"
+                          stackId="despesa"
+                          fill={alpha(theme.palette.error.main, 0.8)}
+                        />
+                        <Bar
+                          dataKey="despesaPrev"
+                          name="Despesa prevista"
+                          stackId="despesa"
+                          fill={alpha(theme.palette.error.main, 0.3)}
                           radius={[4, 4, 0, 0]}
                         />
                         <Line
@@ -340,7 +375,8 @@ export default function FinanceDashboardPage() {
                   </Box>
                 )}
                 <Typography variant="caption" color="text.secondary">
-                  Inclui lançamentos previstos até o fim do ano. Faturas de cartão contam pelo
+                  Barra sólida = realizado; barra translúcida = previsto ainda não realizado.
+                  Inclui lançamentos previstos até o fim do ano; faturas de cartão contam pelo
                   total (as compras dentro delas não duplicam).
                 </Typography>
               </CardContent>
