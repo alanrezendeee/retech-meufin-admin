@@ -17,7 +17,7 @@ export function useExpenseCategories(): {
 } {
   const { data, isLoading } = useQuery({
     queryKey: financeKeys.expenseCategories(),
-    queryFn: listExpenseCategories,
+    queryFn: () => listExpenseCategories(),
   })
 
   const categories = useMemo(() => data?.items ?? [], [data])

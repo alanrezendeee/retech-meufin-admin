@@ -30,12 +30,13 @@ import { Controller, useForm } from 'react-hook-form'
 import {
   createIncomeSource,
   deleteIncomeSource,
-  listIncomeSources,
+  listIncomeSourcesPaged,
   updateIncomeSource,
   type IncomeSource,
   type IncomeSourceInput,
 } from '../api'
 import { errorMessage, financeKeys, SOURCE_KIND_LABEL, SOURCE_KIND_OPTIONS } from '../constants'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -181,9 +182,11 @@ export default function IncomeSourcesPage() {
   const [editing, setEditing] = useState<IncomeSource | null>(null)
   const [toDelete, setToDelete] = useState<IncomeSource | null>(null)
 
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: financeKeys.incomeSources(),
-    queryFn: listIncomeSources,
+    queryKey: [...financeKeys.incomeSources(), page, pageSize],
+    queryFn: () => listIncomeSourcesPaged({ limit: pageSize, offset: page * pageSize }),
   })
 
   const deleteMutation = useMutation({
@@ -194,7 +197,7 @@ export default function IncomeSourcesPage() {
     },
   })
 
-  const sources = useMemo(() => data ?? [], [data])
+  const sources = useMemo(() => data?.items ?? [], [data])
 
   const openCreate = () => {
     setEditing(null)
@@ -276,6 +279,13 @@ export default function IncomeSourcesPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 

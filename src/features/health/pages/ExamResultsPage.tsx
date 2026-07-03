@@ -29,7 +29,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createExamResult,
   deleteExamResult,
-  listExamResults,
+  listExamResultsPaged,
   listFamilyMembers,
   listLabs,
   type ExamResult,
@@ -38,6 +38,7 @@ import {
   type Marker,
 } from '../api'
 import { EXAM_RESULT_STATUS, EXAM_SOURCE_TYPES, errorMessage, healthKeys } from '../constants'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
@@ -338,9 +339,11 @@ export default function ExamResultsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [toDelete, setToDelete] = useState<ExamResult | null>(null)
 
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: healthKeys.examResults(),
-    queryFn: listExamResults,
+    queryKey: [...healthKeys.examResults(), page, pageSize],
+    queryFn: () => listExamResultsPaged({ limit: pageSize, offset: page * pageSize }),
   })
   const { data: members } = useQuery({
     queryKey: healthKeys.familyMembers(),
@@ -361,7 +364,7 @@ export default function ExamResultsPage() {
     },
   })
 
-  const results = data ?? []
+  const results = data?.items ?? []
 
   return (
     <>
@@ -430,6 +433,13 @@ export default function ExamResultsPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 

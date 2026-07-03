@@ -37,6 +37,7 @@ import {
 } from '../api'
 import { errorMessage, financeKeys } from '../constants'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -168,10 +169,12 @@ export default function CategoriasPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ExpenseCategory | null>(null)
   const [toDelete, setToDelete] = useState<ExpenseCategory | null>(null)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: financeKeys.expenseCategories(),
-    queryFn: listExpenseCategories,
+    queryKey: [...financeKeys.expenseCategories(), page, pageSize],
+    queryFn: () => listExpenseCategories({ limit: pageSize, offset: page * pageSize }),
   })
 
   const deleteMutation = useMutation({
@@ -274,6 +277,13 @@ export default function CategoriasPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 

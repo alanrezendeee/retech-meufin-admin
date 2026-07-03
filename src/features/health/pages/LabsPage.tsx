@@ -28,8 +28,9 @@ import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
-import { createLab, deleteLab, listLabs, updateLab, type Lab, type LabInput } from '../api'
+import { createLab, deleteLab, listLabsPaged, updateLab, type Lab, type LabInput } from '../api'
 import { errorMessage, healthKeys } from '../constants'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
@@ -201,9 +202,11 @@ export default function LabsPage() {
   const [editing, setEditing] = useState<Lab | null>(null)
   const [toDelete, setToDelete] = useState<Lab | null>(null)
 
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: healthKeys.labs(),
-    queryFn: listLabs,
+    queryKey: [...healthKeys.labs(), page, pageSize],
+    queryFn: () => listLabsPaged({ limit: pageSize, offset: page * pageSize }),
   })
 
   const deleteMutation = useMutation({
@@ -214,7 +217,7 @@ export default function LabsPage() {
     },
   })
 
-  const labs = useMemo(() => data ?? [], [data])
+  const labs = useMemo(() => data?.items ?? [], [data])
 
   const openCreate = () => {
     setEditing(null)
@@ -309,6 +312,13 @@ export default function LabsPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 

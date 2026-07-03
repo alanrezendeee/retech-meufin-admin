@@ -31,12 +31,13 @@ import { Controller, useForm } from 'react-hook-form'
 import {
   createFamilyMember,
   deleteFamilyMember,
-  listFamilyMembers,
+  listFamilyMembersPaged,
   updateFamilyMember,
   type FamilyMember,
   type FamilyMemberInput,
 } from '../api'
 import { errorMessage, GENDER_OPTIONS, healthKeys, RELATIONSHIP_LABEL, RELATIONSHIP_OPTIONS } from '../constants'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
@@ -230,9 +231,11 @@ export default function FamilyMembersPage() {
   const [toDelete, setToDelete] = useState<FamilyMember | null>(null)
   const [docsFor, setDocsFor] = useState<FamilyMember | null>(null)
 
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: healthKeys.familyMembers(),
-    queryFn: listFamilyMembers,
+    queryKey: [...healthKeys.familyMembers(), page, pageSize],
+    queryFn: () => listFamilyMembersPaged({ limit: pageSize, offset: page * pageSize }),
   })
 
   const deleteMutation = useMutation({
@@ -243,7 +246,7 @@ export default function FamilyMembersPage() {
     },
   })
 
-  const members = useMemo(() => data ?? [], [data])
+  const members = useMemo(() => data?.items ?? [], [data])
 
   const openCreate = () => {
     setEditing(null)
@@ -332,6 +335,13 @@ export default function FamilyMembersPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 

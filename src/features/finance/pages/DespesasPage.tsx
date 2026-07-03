@@ -70,6 +70,8 @@ import {
 } from '../api'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
+import { formatDateBR } from '@/utils/dates'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -600,6 +602,8 @@ function EntryFormDialog({
 export default function DespesasPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useState<Filters>(initialFilters)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Entry | null>(null)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
@@ -617,13 +621,14 @@ export default function DespesasPage() {
       kind: 'debit',
       year: filters.year,
       month: filters.month,
-      limit: 500,
+      limit: pageSize,
+      offset: page * pageSize,
     }
     if (filters.family_member_id) p.family_member_id = filters.family_member_id
     if (filters.status) p.status = filters.status as ListEntriesParams['status']
     if (filters.type) p.type = filters.type as ListEntriesParams['type']
     return p
-  }, [filters])
+  }, [filters, page, pageSize])
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: financeKeys.entries(listParams as Record<string, unknown>),
@@ -685,8 +690,10 @@ export default function DespesasPage() {
     setFormOpen(true)
   }
 
-  const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) =>
+  const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
+    setPage(0) // filtro mudou: resultado novo começa da primeira página
     setFilters((f) => ({ ...f, [key]: value }))
+  }
 
   return (
     <>
@@ -845,7 +852,7 @@ export default function DespesasPage() {
               <TableBody>
                 {entries.map((e) => (
                   <TableRow key={e.id} hover>
-                    <TableCell>{e.due_date}</TableCell>
+                    <TableCell>{formatDateBR(e.due_date)}</TableCell>
                     <TableCell>{memberName(e.family_member_id)}</TableCell>
                     <TableCell>{categoryName(e.type)}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
@@ -917,11 +924,13 @@ export default function DespesasPage() {
             </Table>
           </TableContainer>
           <Divider />
-          <Box sx={{ px: 2, py: 1.5 }}>
-            <Typography variant="caption" color="text.secondary">
-              {entries.length} lançamento(s) no período. Total: {data?.total ?? entries.length}.
-            </Typography>
-          </Box>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 
