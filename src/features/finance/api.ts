@@ -243,8 +243,21 @@ export function formatCents(cents: number): string {
 // ---------------------------------------------------------------------------
 
 export async function listIncomeSources(): Promise<IncomeSource[]> {
-  const { data } = await meufinClient.get<Paginated<IncomeSource>>(`${BASE}/income-sources`)
+  const { data } = await meufinClient.get<Paginated<IncomeSource>>(`${BASE}/income-sources`, {
+    params: { limit: 500 },
+  })
   return data.items
+}
+
+/** Variante paginada para a tela de gestão (selects usam a de cima). */
+export async function listIncomeSourcesPaged(params: {
+  limit: number
+  offset: number
+}): Promise<Paginated<IncomeSource>> {
+  const { data } = await meufinClient.get<Paginated<IncomeSource>>(`${BASE}/income-sources`, {
+    params,
+  })
+  return data
 }
 
 export async function getIncomeSource(id: string): Promise<IncomeSource> {
@@ -316,8 +329,19 @@ export async function cancelEntry(id: string): Promise<Entry> {
 // ---------------------------------------------------------------------------
 
 export async function listCards(): Promise<CreditCard[]> {
-  const { data } = await meufinClient.get<Paginated<CreditCard>>(`${BASE}/cards`)
+  const { data } = await meufinClient.get<Paginated<CreditCard>>(`${BASE}/cards`, {
+    params: { limit: 500 },
+  })
   return data.items
+}
+
+/** Variante paginada para a tela de gestão. */
+export async function listCardsPaged(params: {
+  limit: number
+  offset: number
+}): Promise<Paginated<CreditCard>> {
+  const { data } = await meufinClient.get<Paginated<CreditCard>>(`${BASE}/cards`, { params })
+  return data
 }
 
 export async function getCard(id: string): Promise<CreditCard> {
@@ -426,8 +450,21 @@ export type FinanceAccountInput = {
 }
 
 export async function listAccounts(): Promise<FinanceAccount[]> {
-  const { data } = await meufinClient.get<Paginated<FinanceAccount>>(`${BASE}/accounts`)
+  const { data } = await meufinClient.get<Paginated<FinanceAccount>>(`${BASE}/accounts`, {
+    params: { limit: 500 },
+  })
   return data.items
+}
+
+/** Variante paginada para a tela de gestão. */
+export async function listAccountsPaged(params: {
+  limit: number
+  offset: number
+}): Promise<Paginated<FinanceAccount>> {
+  const { data } = await meufinClient.get<Paginated<FinanceAccount>>(`${BASE}/accounts`, {
+    params,
+  })
+  return data
 }
 
 export async function createAccount(input: FinanceAccountInput): Promise<FinanceAccount> {
@@ -584,9 +621,18 @@ export type ExpenseCategoriesResponse = {
   groups: ExpenseGroup[]
 }
 
-/** Lista categorias do workspace (o backend semeia as padrão no 1º uso) + grupos curados. */
-export async function listExpenseCategories(): Promise<ExpenseCategoriesResponse> {
-  const { data } = await meufinClient.get<ExpenseCategoriesResponse>(`${BASE}/expense-categories`)
+/**
+ * Lista categorias do workspace (o backend semeia as padrão no 1º uso) + grupos
+ * curados. Sem params retorna tudo (selects); com limit/offset pagina (gestão).
+ */
+export async function listExpenseCategories(params?: {
+  limit: number
+  offset: number
+}): Promise<ExpenseCategoriesResponse> {
+  const { data } = await meufinClient.get<ExpenseCategoriesResponse>(
+    `${BASE}/expense-categories`,
+    { params }
+  )
   return data
 }
 

@@ -30,12 +30,13 @@ import { Controller, useForm } from 'react-hook-form'
 import {
   createCard,
   deleteCard,
-  listCards,
+  listCardsPaged,
   updateCard,
   type CreditCard,
   type CreditCardInput,
 } from '../api'
 import { CARD_BRAND_LABEL, CARD_BRAND_OPTIONS, errorMessage, financeKeys } from '../constants'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -235,9 +236,11 @@ export default function CartoesPage() {
   const [editing, setEditing] = useState<CreditCard | null>(null)
   const [toDelete, setToDelete] = useState<CreditCard | null>(null)
 
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: financeKeys.cards(),
-    queryFn: listCards,
+    queryKey: [...financeKeys.cards(), page, pageSize],
+    queryFn: () => listCardsPaged({ limit: pageSize, offset: page * pageSize }),
   })
 
   const deleteMutation = useMutation({
@@ -248,7 +251,7 @@ export default function CartoesPage() {
     },
   })
 
-  const cards = useMemo(() => data ?? [], [data])
+  const cards = useMemo(() => data?.items ?? [], [data])
 
   const openCreate = () => {
     setEditing(null)
@@ -336,6 +339,13 @@ export default function CartoesPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 

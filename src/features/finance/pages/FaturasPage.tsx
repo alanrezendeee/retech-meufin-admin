@@ -60,6 +60,8 @@ import {
   yearOptions,
 } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
+import { formatDateBR } from '@/utils/dates'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -449,7 +451,7 @@ function PurchasesRow({
         </TableCell>
         <TableCell sx={{ fontWeight: 600 }}>{cardName}</TableCell>
         <TableCell>{competencia}</TableCell>
-        <TableCell>{invoice.due_date}</TableCell>
+        <TableCell>{formatDateBR(invoice.due_date)}</TableCell>
         <TableCell align="right" sx={{ fontWeight: 700 }}>
           {formatCents(invoice.amount_cents)}
         </TableCell>
@@ -539,7 +541,7 @@ function PurchasesRow({
                   <TableBody>
                     {purchases.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell>{p.due_date}</TableCell>
+                        <TableCell>{formatDateBR(p.due_date)}</TableCell>
                         <TableCell>{p.description}</TableCell>
                         <TableCell>
                           {p.type ? EXPENSE_CATEGORY_LABEL[p.type] ?? p.type : '—'}
@@ -608,6 +610,8 @@ function PurchasesRow({
 export default function FaturasPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useState<Filters>(initialFilters)
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
@@ -627,11 +631,12 @@ export default function FaturasPage() {
       top_level: true,
       year: filters.year,
       month: filters.month,
-      limit: 500,
+      limit: pageSize,
+      offset: page * pageSize,
     }
     if (filters.card_id) p.card_id = filters.card_id
     return p
-  }, [filters])
+  }, [filters, page, pageSize])
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: financeKeys.invoices(listParams as Record<string, unknown>),
@@ -664,8 +669,10 @@ export default function FaturasPage() {
     [invoices]
   )
 
-  const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) =>
+  const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
+    setPage(0) // filtro mudou: volta pra primeira página
     setFilters((f) => ({ ...f, [key]: value }))
+  }
 
   const noCards = !cardsQuery.isLoading && cards.length === 0
 
@@ -812,11 +819,23 @@ export default function FaturasPage() {
             </Table>
           </TableContainer>
           <Divider />
-          <Box sx={{ px: 2, py: 1.5 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ pl: 2, flexWrap: 'wrap' }}
+          >
             <Typography variant="caption" color="text.secondary">
-              {invoices.length} fatura(s) no período. Total: {formatCents(totalFaturas)}.
+              Total do período: {formatCents(totalFaturas)}
             </Typography>
-          </Box>
+            <TablePaginationBR
+              total={data?.total ?? 0}
+              page={page}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </Stack>
         </Card>
       )}
 

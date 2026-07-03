@@ -21,7 +21,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -30,6 +29,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -60,7 +60,6 @@ import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
-const PAGE_SIZE = 20
 
 function isMaster(u: AdminUser): boolean {
   return u.roles?.some((r) => r.code === 'master') ?? false
@@ -473,6 +472,7 @@ const emptyFilters: Filters = { email: '', name: '', active: '', role: '' }
 export default function UsersPage() {
   const qc = useQueryClient()
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const [filters, setFilters] = useState<Filters>(emptyFilters)
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -485,14 +485,14 @@ export default function UsersPage() {
 
   const params: ListUsersParams = useMemo(
     () => ({
-      limit: PAGE_SIZE,
-      offset: page * PAGE_SIZE,
+      limit: pageSize,
+      offset: page * pageSize,
       email: filters.email.trim() || undefined,
       name: filters.name.trim() || undefined,
       active: filters.active === '' ? undefined : filters.active === 'true',
       role: filters.role || undefined,
     }),
-    [page, filters]
+    [page, pageSize, filters]
   )
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -698,14 +698,12 @@ export default function UsersPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          <TablePagination
-            component="div"
-            count={total}
+          <TablePaginationBR
+            total={total}
             page={page}
-            onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={PAGE_SIZE}
-            rowsPerPageOptions={[PAGE_SIZE]}
-            labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         </Card>
       )}

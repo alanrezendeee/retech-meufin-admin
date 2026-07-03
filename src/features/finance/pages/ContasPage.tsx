@@ -30,12 +30,13 @@ import { Controller, useForm } from 'react-hook-form'
 import {
   createAccount,
   deleteAccount,
-  listAccounts,
+  listAccountsPaged,
   updateAccount,
   type FinanceAccount,
   type FinanceAccountInput,
 } from '../api'
 import { ACCOUNT_KIND_LABEL, ACCOUNT_KIND_OPTIONS, errorMessage, financeKeys } from '../constants'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -190,9 +191,11 @@ export default function ContasPage() {
   const [editing, setEditing] = useState<FinanceAccount | null>(null)
   const [toDelete, setToDelete] = useState<FinanceAccount | null>(null)
 
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: financeKeys.accounts(),
-    queryFn: listAccounts,
+    queryKey: [...financeKeys.accounts(), page, pageSize],
+    queryFn: () => listAccountsPaged({ limit: pageSize, offset: page * pageSize }),
   })
 
   const deleteMutation = useMutation({
@@ -203,7 +206,7 @@ export default function ContasPage() {
     },
   })
 
-  const accounts = useMemo(() => data ?? [], [data])
+  const accounts = useMemo(() => data?.items ?? [], [data])
 
   const openCreate = () => {
     setEditing(null)
@@ -285,6 +288,13 @@ export default function ContasPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </Card>
       )}
 

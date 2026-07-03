@@ -216,8 +216,21 @@ export type HealthDocument = {
 // ---------------------------------------------------------------------------
 
 export async function listFamilyMembers(): Promise<FamilyMember[]> {
-  const { data } = await meufinClient.get<Paginated<FamilyMember>>(`${BASE}/family-members`)
+  const { data } = await meufinClient.get<Paginated<FamilyMember>>(`${BASE}/family-members`, {
+    params: { limit: 500 },
+  })
   return data.items
+}
+
+/** Variante paginada para a tela de gestão. */
+export async function listFamilyMembersPaged(params: {
+  limit: number
+  offset: number
+}): Promise<Paginated<FamilyMember>> {
+  const { data } = await meufinClient.get<Paginated<FamilyMember>>(`${BASE}/family-members`, {
+    params,
+  })
+  return data
 }
 
 export async function getFamilyMember(id: string): Promise<FamilyMember> {
@@ -244,8 +257,19 @@ export async function deleteFamilyMember(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function listLabs(): Promise<Lab[]> {
-  const { data } = await meufinClient.get<Paginated<Lab>>(`${BASE}/labs`)
+  const { data } = await meufinClient.get<Paginated<Lab>>(`${BASE}/labs`, {
+    params: { limit: 500 },
+  })
   return data.items
+}
+
+/** Variante paginada para a tela de gestão. */
+export async function listLabsPaged(params: {
+  limit: number
+  offset: number
+}): Promise<Paginated<Lab>> {
+  const { data } = await meufinClient.get<Paginated<Lab>>(`${BASE}/labs`, { params })
+  return data
 }
 
 export async function getLab(id: string): Promise<Lab> {
@@ -318,8 +342,21 @@ export async function resolveMarkers(rawNames: string[]): Promise<MarkerResolveI
 // ---------------------------------------------------------------------------
 
 export async function listExamResults(): Promise<ExamResult[]> {
-  const { data } = await meufinClient.get<Paginated<ExamResult>>(`${BASE}/exam-results`)
+  const { data } = await meufinClient.get<Paginated<ExamResult>>(`${BASE}/exam-results`, {
+    params: { limit: 500 },
+  })
   return data.items
+}
+
+/** Variante paginada para a tela de gestão. */
+export async function listExamResultsPaged(params: {
+  limit: number
+  offset: number
+}): Promise<Paginated<ExamResult>> {
+  const { data } = await meufinClient.get<Paginated<ExamResult>>(`${BASE}/exam-results`, {
+    params,
+  })
+  return data
 }
 
 export async function getExamResult(id: string): Promise<ExamResult> {

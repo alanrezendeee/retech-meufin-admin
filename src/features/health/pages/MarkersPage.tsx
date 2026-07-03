@@ -18,12 +18,12 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
@@ -232,13 +232,13 @@ function MarkerFormDialog({
   )
 }
 
-const PAGE_SIZE = 20
 
 export default function MarkersPage() {
   const qc = useQueryClient()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Marker | null>(null)
   const [toDelete, setToDelete] = useState<Marker | null>(null)
@@ -247,10 +247,10 @@ export default function MarkersPage() {
     () => ({
       query: query || undefined,
       category: category || undefined,
-      limit: PAGE_SIZE,
-      offset: page * PAGE_SIZE,
+      limit: pageSize,
+      offset: page * pageSize,
     }),
-    [query, category, page]
+    [query, category, page, pageSize]
   )
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -422,14 +422,12 @@ export default function MarkersPage() {
               </TableBody>
             </Table>
           </TableContainer>
-          <TablePagination
-            component="div"
-            count={total}
+          <TablePaginationBR
+            total={total}
             page={page}
-            onPageChange={(_, p) => setPage(p)}
-            rowsPerPage={PAGE_SIZE}
-            rowsPerPageOptions={[PAGE_SIZE]}
-            labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         </Card>
       )}
