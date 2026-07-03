@@ -14,6 +14,7 @@ import {
   FormControlLabel,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   Snackbar,
   Stack,
@@ -33,6 +34,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
 import RepeatRoundedIcon from '@mui/icons-material/RepeatRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -602,6 +604,7 @@ function EntryFormDialog({
 export default function DespesasPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useState<Filters>(initialFilters)
+  const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [formOpen, setFormOpen] = useState(false)
@@ -627,8 +630,9 @@ export default function DespesasPage() {
     if (filters.family_member_id) p.family_member_id = filters.family_member_id
     if (filters.status) p.status = filters.status as ListEntriesParams['status']
     if (filters.type) p.type = filters.type as ListEntriesParams['type']
+    if (query.trim()) p.query = query.trim()
     return p
-  }, [filters, page, pageSize])
+  }, [filters, query, page, pageSize])
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: financeKeys.entries(listParams as Record<string, unknown>),
@@ -735,6 +739,25 @@ export default function DespesasPage() {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  setPage(0)
+                }}
+                placeholder="Buscar por descrição…"
+                size="small"
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchRoundedIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 select

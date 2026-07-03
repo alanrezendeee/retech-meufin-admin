@@ -9,6 +9,7 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  InputAdornment,
   MenuItem,
   Stack,
   Switch,
@@ -24,6 +25,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
@@ -236,11 +238,24 @@ export default function CartoesPage() {
   const [editing, setEditing] = useState<CreditCard | null>(null)
   const [toDelete, setToDelete] = useState<CreditCard | null>(null)
 
+  const [q, setQ] = useState('')
+  const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  const params = useMemo(
+    () => ({
+      limit: pageSize,
+      offset: page * pageSize,
+      query: q.trim() || undefined,
+      active: status === '' ? undefined : status === 'true',
+    }),
+    [pageSize, page, q, status]
+  )
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...financeKeys.cards(), page, pageSize],
-    queryFn: () => listCardsPaged({ limit: pageSize, offset: page * pageSize }),
+    queryKey: [...financeKeys.cards(), params],
+    queryFn: () => listCardsPaged(params),
   })
 
   const deleteMutation = useMutation({
@@ -274,6 +289,45 @@ export default function CartoesPage() {
         }
       />
 
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setPage(0)
+            }}
+            placeholder="Buscar por nome…"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(0)
+            }}
+            label="Status"
+            size="small"
+            sx={{ minWidth: { sm: 200 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            <MenuItem value="true">Ativos</MenuItem>
+            <MenuItem value="false">Arquivados</MenuItem>
+          </TextField>
+        </Stack>
+      </Card>
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
@@ -282,7 +336,11 @@ export default function CartoesPage() {
         <EmptyState
           icon={<CreditCardRoundedIcon />}
           title="Nenhum cartão cadastrado"
-          description="Adicione o primeiro cartão para começar a controlar faturas."
+          description={
+            q || status
+              ? 'Ajuste a busca ou os filtros.'
+              : 'Adicione o primeiro cartão para começar a controlar faturas.'
+          }
           action={
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
               Novo cartão

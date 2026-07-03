@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  InputAdornment,
   MenuItem,
   Stack,
   Switch,
@@ -26,6 +27,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import {
@@ -231,11 +233,26 @@ export default function FamilyMembersPage() {
   const [toDelete, setToDelete] = useState<FamilyMember | null>(null)
   const [docsFor, setDocsFor] = useState<FamilyMember | null>(null)
 
+  const [q, setQ] = useState('')
+  const [relationship, setRelationship] = useState('')
+  const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  const params = useMemo(
+    () => ({
+      limit: pageSize,
+      offset: page * pageSize,
+      query: q.trim() || undefined,
+      relationship: relationship || undefined,
+      active: status === '' ? undefined : status === 'true',
+    }),
+    [pageSize, page, q, relationship, status]
+  )
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...healthKeys.familyMembers(), page, pageSize],
-    queryFn: () => listFamilyMembersPaged({ limit: pageSize, offset: page * pageSize }),
+    queryKey: [...healthKeys.familyMembers(), params],
+    queryFn: () => listFamilyMembersPaged(params),
   })
 
   const deleteMutation = useMutation({
@@ -269,6 +286,65 @@ export default function FamilyMembersPage() {
         }
       />
 
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setPage(0)
+            }}
+            placeholder="Buscar por nome…"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            value={relationship}
+            onChange={(e) => {
+              setRelationship(e.target.value)
+              setPage(0)
+            }}
+            label="Parentesco"
+            size="small"
+            sx={{ minWidth: { sm: 200 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            {RELATIONSHIP_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(0)
+            }}
+            label="Status"
+            size="small"
+            sx={{ minWidth: { sm: 200 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            <MenuItem value="true">Ativos</MenuItem>
+            <MenuItem value="false">Arquivados</MenuItem>
+          </TextField>
+        </Stack>
+      </Card>
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
@@ -277,7 +353,11 @@ export default function FamilyMembersPage() {
         <EmptyState
           icon={<GroupsRoundedIcon />}
           title="Nenhum membro cadastrado"
-          description="Adicione o primeiro membro da família para começar a organizar os exames."
+          description={
+            q || relationship || status
+              ? 'Ajuste a busca ou os filtros.'
+              : 'Adicione o primeiro membro da família para começar a organizar os exames.'
+          }
           action={
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
               Novo membro

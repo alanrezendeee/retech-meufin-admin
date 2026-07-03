@@ -126,6 +126,7 @@ export type EntryInput = {
 }
 
 export type ListEntriesParams = {
+  query?: string
   kind?: EntryKind
   status?: EntryStatus
   family_member_id?: string
@@ -253,6 +254,9 @@ export async function listIncomeSources(): Promise<IncomeSource[]> {
 export async function listIncomeSourcesPaged(params: {
   limit: number
   offset: number
+  query?: string
+  kind?: string
+  active?: boolean
 }): Promise<Paginated<IncomeSource>> {
   const { data } = await meufinClient.get<Paginated<IncomeSource>>(`${BASE}/income-sources`, {
     params,
@@ -339,6 +343,8 @@ export async function listCards(): Promise<CreditCard[]> {
 export async function listCardsPaged(params: {
   limit: number
   offset: number
+  query?: string
+  active?: boolean
 }): Promise<Paginated<CreditCard>> {
   const { data } = await meufinClient.get<Paginated<CreditCard>>(`${BASE}/cards`, { params })
   return data
@@ -460,6 +466,9 @@ export async function listAccounts(): Promise<FinanceAccount[]> {
 export async function listAccountsPaged(params: {
   limit: number
   offset: number
+  query?: string
+  kind?: string
+  active?: boolean
 }): Promise<Paginated<FinanceAccount>> {
   const { data } = await meufinClient.get<Paginated<FinanceAccount>>(`${BASE}/accounts`, {
     params,

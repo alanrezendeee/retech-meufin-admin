@@ -10,6 +10,7 @@ import {
   DialogTitle,
   Divider,
   IconButton,
+  InputAdornment,
   MenuItem,
   Stack,
   Table,
@@ -25,6 +26,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createExamResult,
@@ -339,11 +341,26 @@ export default function ExamResultsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [toDelete, setToDelete] = useState<ExamResult | null>(null)
 
+  const [q, setQ] = useState('')
+  const [memberId, setMemberId] = useState('')
+  const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  const params = useMemo(
+    () => ({
+      limit: pageSize,
+      offset: page * pageSize,
+      query: q.trim() || undefined,
+      family_member_id: memberId || undefined,
+      status: status || undefined,
+    }),
+    [pageSize, page, q, memberId, status]
+  )
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...healthKeys.examResults(), page, pageSize],
-    queryFn: () => listExamResultsPaged({ limit: pageSize, offset: page * pageSize }),
+    queryKey: [...healthKeys.examResults(), params],
+    queryFn: () => listExamResultsPaged(params),
   })
   const { data: members } = useQuery({
     queryKey: healthKeys.familyMembers(),
@@ -378,6 +395,68 @@ export default function ExamResultsPage() {
         }
       />
 
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setPage(0)
+            }}
+            placeholder="Buscar no resumo…"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            value={memberId}
+            onChange={(e) => {
+              setMemberId(e.target.value)
+              setPage(0)
+            }}
+            label="Membro"
+            size="small"
+            sx={{ minWidth: { sm: 200 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            {(members ?? []).map((m) => (
+              <MenuItem key={m.id} value={m.id}>
+                {m.full_name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(0)
+            }}
+            label="Status"
+            size="small"
+            sx={{ minWidth: { sm: 200 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            {EXAM_RESULT_STATUS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
+      </Card>
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
@@ -386,7 +465,11 @@ export default function ExamResultsPage() {
         <EmptyState
           icon={<DescriptionRoundedIcon />}
           title="Nenhum resultado cadastrado"
-          description="Registre o primeiro resultado de exame para acompanhar a evolução."
+          description={
+            q || memberId || status
+              ? 'Ajuste a busca ou os filtros.'
+              : 'Registre o primeiro resultado de exame para acompanhar a evolução.'
+          }
           action={
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setFormOpen(true)}>
               Novo resultado
