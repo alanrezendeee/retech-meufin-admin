@@ -628,6 +628,9 @@ export type ExpenseCategoriesResponse = {
 export async function listExpenseCategories(params?: {
   limit: number
   offset: number
+  query?: string
+  group?: string
+  active?: boolean
 }): Promise<ExpenseCategoriesResponse> {
   const { data } = await meufinClient.get<ExpenseCategoriesResponse>(
     `${BASE}/expense-categories`,

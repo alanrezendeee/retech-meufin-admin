@@ -10,6 +10,8 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  InputAdornment,
+  MenuItem,
   Stack,
   Switch,
   Table,
@@ -25,6 +27,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import {
@@ -169,13 +172,29 @@ export default function CategoriasPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ExpenseCategory | null>(null)
   const [toDelete, setToDelete] = useState<ExpenseCategory | null>(null)
+  const [query, setQuery] = useState('')
+  const [group, setGroup] = useState('')
+  const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
 
+  const params = useMemo(
+    () => ({
+      limit: pageSize,
+      offset: page * pageSize,
+      query: query.trim() || undefined,
+      group: group || undefined,
+      active: status === '' ? undefined : status === 'true',
+    }),
+    [query, group, status, page, pageSize]
+  )
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...financeKeys.expenseCategories(), page, pageSize],
-    queryFn: () => listExpenseCategories({ limit: pageSize, offset: page * pageSize }),
+    queryKey: [...financeKeys.expenseCategories(), params],
+    queryFn: () => listExpenseCategories(params),
   })
+
+  const hasFilters = Boolean(query.trim() || group || status)
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteExpenseCategory(id),
@@ -210,6 +229,65 @@ export default function CategoriasPage() {
         }
       />
 
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setPage(0)
+            }}
+            placeholder="Buscar por nome…"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            value={group}
+            onChange={(e) => {
+              setGroup(e.target.value)
+              setPage(0)
+            }}
+            label="Grupo"
+            size="small"
+            sx={{ minWidth: { sm: 220 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            {groups.map((g) => (
+              <MenuItem key={g.slug} value={g.slug}>
+                {g.name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(0)
+            }}
+            label="Status"
+            size="small"
+            sx={{ minWidth: { sm: 160 } }}
+          >
+            <MenuItem value="">
+              <em>Todas</em>
+            </MenuItem>
+            <MenuItem value="true">Ativas</MenuItem>
+            <MenuItem value="false">Arquivadas</MenuItem>
+          </TextField>
+        </Stack>
+      </Card>
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
@@ -217,8 +295,12 @@ export default function CategoriasPage() {
       ) : categories.length === 0 ? (
         <EmptyState
           icon={<CategoryRoundedIcon />}
-          title="Nenhuma categoria"
-          description="As categorias padrão são criadas automaticamente no primeiro uso."
+          title="Nenhuma categoria encontrada"
+          description={
+            hasFilters
+              ? 'Ajuste a busca ou os filtros.'
+              : 'As categorias padrão são criadas automaticamente no primeiro uso.'
+          }
         />
       ) : (
         <Card>
