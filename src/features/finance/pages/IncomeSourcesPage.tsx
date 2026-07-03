@@ -9,6 +9,7 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  InputAdornment,
   MenuItem,
   Stack,
   Switch,
@@ -24,6 +25,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
@@ -182,11 +184,26 @@ export default function IncomeSourcesPage() {
   const [editing, setEditing] = useState<IncomeSource | null>(null)
   const [toDelete, setToDelete] = useState<IncomeSource | null>(null)
 
+  const [q, setQ] = useState('')
+  const [kind, setKind] = useState('')
+  const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  const params = useMemo(
+    () => ({
+      limit: pageSize,
+      offset: page * pageSize,
+      query: q.trim() || undefined,
+      kind: kind || undefined,
+      active: status === '' ? undefined : status === 'true',
+    }),
+    [pageSize, page, q, kind, status]
+  )
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...financeKeys.incomeSources(), page, pageSize],
-    queryFn: () => listIncomeSourcesPaged({ limit: pageSize, offset: page * pageSize }),
+    queryKey: [...financeKeys.incomeSources(), params],
+    queryFn: () => listIncomeSourcesPaged(params),
   })
 
   const deleteMutation = useMutation({
@@ -220,6 +237,65 @@ export default function IncomeSourcesPage() {
         }
       />
 
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setPage(0)
+            }}
+            placeholder="Buscar por nome…"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            value={kind}
+            onChange={(e) => {
+              setKind(e.target.value)
+              setPage(0)
+            }}
+            label="Tipo"
+            size="small"
+            sx={{ minWidth: { sm: 200 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            {SOURCE_KIND_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(0)
+            }}
+            label="Status"
+            size="small"
+            sx={{ minWidth: { sm: 200 } }}
+          >
+            <MenuItem value="">
+              <em>Todas</em>
+            </MenuItem>
+            <MenuItem value="true">Ativas</MenuItem>
+            <MenuItem value="false">Arquivadas</MenuItem>
+          </TextField>
+        </Stack>
+      </Card>
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
@@ -228,7 +304,11 @@ export default function IncomeSourcesPage() {
         <EmptyState
           icon={<AccountBalanceWalletRoundedIcon />}
           title="Nenhuma fonte cadastrada"
-          description="Adicione a primeira fonte de receita para vincular aos seus lançamentos."
+          description={
+            q || kind || status
+              ? 'Ajuste a busca ou os filtros.'
+              : 'Adicione a primeira fonte de receita para vincular aos seus lançamentos.'
+          }
           action={
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
               Nova fonte

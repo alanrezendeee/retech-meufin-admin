@@ -14,6 +14,7 @@ import {
   Divider,
   Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   Snackbar,
   Stack,
@@ -31,6 +32,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded'
@@ -610,6 +612,7 @@ function PurchasesRow({
 export default function FaturasPage() {
   const qc = useQueryClient()
   const [filters, setFilters] = useState<Filters>(initialFilters)
+  const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [formOpen, setFormOpen] = useState(false)
@@ -635,8 +638,9 @@ export default function FaturasPage() {
       offset: page * pageSize,
     }
     if (filters.card_id) p.card_id = filters.card_id
+    if (query.trim()) p.query = query.trim()
     return p
-  }, [filters, page, pageSize])
+  }, [filters, query, page, pageSize])
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: financeKeys.invoices(listParams as Record<string, unknown>),
@@ -713,6 +717,25 @@ export default function FaturasPage() {
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <TextField
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  setPage(0)
+                }}
+                placeholder="Buscar por descrição…"
+                size="small"
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchRoundedIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <TextField
                 select

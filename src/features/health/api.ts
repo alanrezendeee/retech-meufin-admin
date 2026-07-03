@@ -226,6 +226,9 @@ export async function listFamilyMembers(): Promise<FamilyMember[]> {
 export async function listFamilyMembersPaged(params: {
   limit: number
   offset: number
+  query?: string
+  relationship?: string
+  active?: boolean
 }): Promise<Paginated<FamilyMember>> {
   const { data } = await meufinClient.get<Paginated<FamilyMember>>(`${BASE}/family-members`, {
     params,
@@ -267,6 +270,8 @@ export async function listLabs(): Promise<Lab[]> {
 export async function listLabsPaged(params: {
   limit: number
   offset: number
+  query?: string
+  active?: boolean
 }): Promise<Paginated<Lab>> {
   const { data } = await meufinClient.get<Paginated<Lab>>(`${BASE}/labs`, { params })
   return data
@@ -352,6 +357,9 @@ export async function listExamResults(): Promise<ExamResult[]> {
 export async function listExamResultsPaged(params: {
   limit: number
   offset: number
+  query?: string
+  family_member_id?: string
+  status?: string
 }): Promise<Paginated<ExamResult>> {
   const { data } = await meufinClient.get<Paginated<ExamResult>>(`${BASE}/exam-results`, {
     params,

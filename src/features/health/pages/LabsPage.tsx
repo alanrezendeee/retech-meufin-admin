@@ -9,7 +9,9 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  InputAdornment,
   Link,
+  MenuItem,
   Stack,
   Switch,
   Table,
@@ -26,6 +28,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import { createLab, deleteLab, listLabsPaged, updateLab, type Lab, type LabInput } from '../api'
@@ -202,11 +205,24 @@ export default function LabsPage() {
   const [editing, setEditing] = useState<Lab | null>(null)
   const [toDelete, setToDelete] = useState<Lab | null>(null)
 
+  const [q, setQ] = useState('')
+  const [status, setStatus] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
+
+  const params = useMemo(
+    () => ({
+      limit: pageSize,
+      offset: page * pageSize,
+      query: q.trim() || undefined,
+      active: status === '' ? undefined : status === 'true',
+    }),
+    [pageSize, page, q, status]
+  )
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [...healthKeys.labs(), page, pageSize],
-    queryFn: () => listLabsPaged({ limit: pageSize, offset: page * pageSize }),
+    queryKey: [...healthKeys.labs(), params],
+    queryFn: () => listLabsPaged(params),
   })
 
   const deleteMutation = useMutation({
@@ -240,6 +256,45 @@ export default function LabsPage() {
         }
       />
 
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setPage(0)
+            }}
+            placeholder="Buscar por nome…"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(0)
+            }}
+            label="Status"
+            size="small"
+            sx={{ minWidth: { sm: 220 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            <MenuItem value="true">Ativos</MenuItem>
+            <MenuItem value="false">Arquivados</MenuItem>
+          </TextField>
+        </Stack>
+      </Card>
+
       {isLoading ? (
         <LoadingState />
       ) : isError ? (
@@ -248,7 +303,11 @@ export default function LabsPage() {
         <EmptyState
           icon={<ScienceRoundedIcon />}
           title="Nenhum laboratório cadastrado"
-          description="Adicione um laboratório para associar aos resultados de exames."
+          description={
+            q || status
+              ? 'Ajuste a busca ou os filtros.'
+              : 'Adicione um laboratório para associar aos resultados de exames.'
+          }
           action={
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
               Novo laboratório
