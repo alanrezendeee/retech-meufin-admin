@@ -373,7 +373,7 @@ export default function MarkersPage() {
                         <span>{m.canonical_name}</span>
                         {m.aliases && m.aliases.length > 0 && (
                           <Typography variant="caption" color="text.secondary">
-                            {m.aliases.join(', ')}
+                            {m.aliases.map((a) => a.alias).join(', ')}
                           </Typography>
                         )}
                       </Stack>
@@ -382,7 +382,7 @@ export default function MarkersPage() {
                     <TableCell>{m.canonical_unit || '—'}</TableCell>
                     <TableCell>{m.comparability_class}</TableCell>
                     <TableCell>
-                      {m.system ? (
+                      {m.scope === 'system' ? (
                         <Chip
                           size="small"
                           icon={<LockRoundedIcon sx={{ fontSize: 14 }} />}
@@ -394,7 +394,7 @@ export default function MarkersPage() {
                       )}
                     </TableCell>
                     <TableCell align="right">
-                      {m.system ? (
+                      {m.scope === 'system' ? (
                         <Tooltip title="Marcador de sistema (somente leitura)">
                           <Box component="span">
                             <IconButton size="small" disabled>

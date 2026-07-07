@@ -61,14 +61,16 @@ export type LabInput = {
 
 export type ComparabilityClass = string
 
+export type MarkerAlias = { alias: string; normalized_alias: string }
+
 export type Marker = {
   id: string
+  scope?: string
   canonical_name: string
   category: string
   comparability_class: ComparabilityClass
   canonical_unit?: string | null
-  aliases?: string[]
-  system?: boolean
+  aliases?: MarkerAlias[]
   created_at?: string
   updated_at?: string
 }
