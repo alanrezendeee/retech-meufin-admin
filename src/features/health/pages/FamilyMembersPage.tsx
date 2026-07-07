@@ -44,6 +44,7 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { MemberDocumentsDialog } from '../components/MemberDocumentsDialog'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = FamilyMemberInput
 
@@ -67,6 +68,7 @@ function MemberFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(member)
 
   const {
@@ -92,6 +94,7 @@ function MemberFormDialog({
     mutationFn: (values: FormValues) =>
       isEdit ? updateFamilyMember(member!.id, values) : createFamilyMember(values),
     onSuccess: () => {
+      show(isEdit ? 'Membro atualizado com sucesso.' : 'Membro criado com sucesso.')
       qc.invalidateQueries({ queryKey: healthKeys.familyMembers() })
       reset(emptyForm)
       onClose()
@@ -228,6 +231,7 @@ function MemberFormDialog({
 
 export default function FamilyMembersPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<FamilyMember | null>(null)
   const [toDelete, setToDelete] = useState<FamilyMember | null>(null)
@@ -260,6 +264,7 @@ export default function FamilyMembersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: healthKeys.familyMembers() })
       setToDelete(null)
+      show('Membro excluído.')
     },
   })
 

@@ -42,6 +42,7 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = FinanceAccountInput
 
@@ -63,6 +64,7 @@ function AccountFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(account)
 
   const {
@@ -86,6 +88,7 @@ function AccountFormDialog({
     mutationFn: (values: FormValues) =>
       isEdit ? updateAccount(account!.id, values) : createAccount(values),
     onSuccess: () => {
+      show(isEdit ? 'Conta atualizada com sucesso.' : 'Conta criada com sucesso.')
       qc.invalidateQueries({ queryKey: financeKeys.accounts() })
       reset(emptyForm)
       onClose()
@@ -189,6 +192,7 @@ function AccountFormDialog({
 
 export default function ContasPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<FinanceAccount | null>(null)
   const [toDelete, setToDelete] = useState<FinanceAccount | null>(null)
@@ -220,6 +224,7 @@ export default function ContasPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.accounts() })
       setToDelete(null)
+      show('Conta excluída.')
     },
   })
 

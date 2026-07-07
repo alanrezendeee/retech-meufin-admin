@@ -44,6 +44,7 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = {
   name: string
@@ -61,6 +62,7 @@ function CategoryFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(category)
 
   const {
@@ -79,6 +81,7 @@ function CategoryFormDialog({
         ? updateExpenseCategory(category!.id, values)
         : createExpenseCategory({ name: values.name, group_slug: values.group_slug }),
     onSuccess: () => {
+      show(isEdit ? 'Categoria atualizada com sucesso.' : 'Categoria criada com sucesso.')
       qc.invalidateQueries({ queryKey: financeKeys.expenseCategories() })
       onClose()
     },
@@ -169,6 +172,7 @@ function CategoryFormDialog({
 
 export default function CategoriasPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ExpenseCategory | null>(null)
   const [toDelete, setToDelete] = useState<ExpenseCategory | null>(null)
@@ -201,6 +205,7 @@ export default function CategoriasPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.expenseCategories() })
       setToDelete(null)
+      show('Categoria excluída.')
     },
   })
 

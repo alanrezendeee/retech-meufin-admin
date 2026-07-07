@@ -26,8 +26,6 @@ import {
   Tooltip,
   IconButton,
   InputAdornment,
-  Snackbar,
-  Alert,
 } from '@mui/material'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
@@ -59,6 +57,7 @@ import { adminKeys, errorMessage } from '../constants'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 
 function isMaster(u: AdminUser): boolean {
@@ -88,6 +87,7 @@ function CreateUserDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const {
     control,
     handleSubmit,
@@ -104,6 +104,7 @@ function CreateUserDialog({
         role_ids: values.role_ids,
       }),
     onSuccess: () => {
+      show('Usuário criado com sucesso.')
       qc.invalidateQueries({ queryKey: adminKeys.all })
       reset(emptyCreate)
       onClose()
@@ -224,6 +225,7 @@ function CreateUserDialog({
 
 function EditNameDialog({ user, onClose }: { user: AdminUser; onClose: () => void }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const {
     control,
     handleSubmit,
@@ -234,6 +236,7 @@ function EditNameDialog({ user, onClose }: { user: AdminUser; onClose: () => voi
     mutationFn: (values: { name: string }) =>
       updateUser(user.id, { name: values.name.trim(), version: user.version }),
     onSuccess: () => {
+      show('Usuário atualizado com sucesso.')
       qc.invalidateQueries({ queryKey: adminKeys.all })
       onClose()
     },
@@ -291,11 +294,13 @@ function AssignRolesDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [selected, setSelected] = useState<string[]>(user.roles?.map((r) => r.id) ?? [])
 
   const mutation = useMutation({
     mutationFn: () => setUserRoles(user.id, { role_ids: selected, version: user.version }),
     onSuccess: () => {
+      show('Grupos do usuário atualizados.')
       qc.invalidateQueries({ queryKey: adminKeys.all })
       onClose()
     },
@@ -355,12 +360,11 @@ function AssignRolesDialog({
 function ResetPasswordDialog({
   user,
   onClose,
-  onNotify,
 }: {
   user: AdminUser
   onClose: () => void
-  onNotify: (message: string, severity: 'success' | 'error') => void
 }) {
+  const { show: showToast } = useToast()
   const [show, setShow] = useState(false)
   const {
     control,
@@ -374,10 +378,9 @@ function ResetPasswordDialog({
     mutationFn: (values: { new_password: string }) =>
       resetUserPassword(user.id, { new_password: values.new_password, version: user.version }),
     onSuccess: () => {
-      onNotify('Senha alterada com sucesso.', 'success')
+      showToast('Senha alterada com sucesso.')
       onClose()
     },
-    onError: (err) => onNotify(errorMessage(err), 'error'),
   })
 
   const submit = handleSubmit((values) => mutation.mutate({ new_password: values.new_password }))
@@ -471,6 +474,7 @@ const emptyFilters: Filters = { email: '', name: '', active: '', role: '' }
 
 export default function UsersPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [filters, setFilters] = useState<Filters>(emptyFilters)
@@ -481,7 +485,6 @@ export default function UsersPage() {
   const [resetUser, setResetUser] = useState<AdminUser | null>(null)
   const [toDelete, setToDelete] = useState<AdminUser | null>(null)
   const [toToggle, setToToggle] = useState<AdminUser | null>(null)
-  const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
 
   const params: ListUsersParams = useMemo(
     () => ({
@@ -511,6 +514,7 @@ export default function UsersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: adminKeys.all })
       setToDelete(null)
+      show('Usuário excluído.')
     },
   })
 
@@ -519,6 +523,7 @@ export default function UsersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: adminKeys.all })
       setToToggle(null)
+      show('Status do usuário atualizado.')
     },
   })
 
@@ -719,22 +724,8 @@ export default function UsersPage() {
         <ResetPasswordDialog
           user={resetUser}
           onClose={() => setResetUser(null)}
-          onNotify={(message, severity) => setSnack({ message, severity })}
         />
       )}
-
-      <Snackbar
-        open={Boolean(snack)}
-        autoHideDuration={4000}
-        onClose={() => setSnack(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        {snack ? (
-          <Alert severity={snack.severity} variant="filled" onClose={() => setSnack(null)} sx={{ width: '100%' }}>
-            {snack.message}
-          </Alert>
-        ) : undefined}
-      </Snackbar>
 
       <ConfirmDialog
         open={Boolean(toDelete)}

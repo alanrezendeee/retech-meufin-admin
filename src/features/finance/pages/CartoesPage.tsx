@@ -42,6 +42,7 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = {
   name: string
@@ -77,6 +78,7 @@ function CardFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(card)
 
   const {
@@ -110,6 +112,7 @@ function CardFormDialog({
       return isEdit ? updateCard(card!.id, input) : createCard(input)
     },
     onSuccess: () => {
+      show(isEdit ? 'Cartão atualizado com sucesso.' : 'Cartão criado com sucesso.')
       qc.invalidateQueries({ queryKey: financeKeys.cards() })
       reset(emptyForm)
       onClose()
@@ -234,6 +237,7 @@ function CardFormDialog({
 
 export default function CartoesPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<CreditCard | null>(null)
   const [toDelete, setToDelete] = useState<CreditCard | null>(null)
@@ -263,6 +267,7 @@ export default function CartoesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.cards() })
       setToDelete(null)
+      show('Cartão excluído.')
     },
   })
 

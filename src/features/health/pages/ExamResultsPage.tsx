@@ -45,6 +45,7 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { MarkerAutocomplete } from '../components/MarkerAutocomplete'
+import { useToast } from '@/providers/ToastProvider'
 
 type DraftItem = {
   key: string
@@ -72,6 +73,7 @@ function newDraftItem(): DraftItem {
 
 function ResultFormDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [familyMemberId, setFamilyMemberId] = useState('')
   const [labId, setLabId] = useState('')
   const [examDate, setExamDate] = useState('')
@@ -90,6 +92,7 @@ function ResultFormDialog({ open, onClose }: { open: boolean; onClose: () => voi
   const mutation = useMutation({
     mutationFn: (input: ExamResultInput) => createExamResult(input),
     onSuccess: () => {
+      show('Resultado de exame criado com sucesso.')
       qc.invalidateQueries({ queryKey: healthKeys.examResults() })
       qc.invalidateQueries({ queryKey: healthKeys.dashboard() })
       onClose()
@@ -338,6 +341,7 @@ function ResultFormDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
 export default function ExamResultsPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [toDelete, setToDelete] = useState<ExamResult | null>(null)
 
@@ -378,6 +382,7 @@ export default function ExamResultsPage() {
       qc.invalidateQueries({ queryKey: healthKeys.examResults() })
       qc.invalidateQueries({ queryKey: healthKeys.dashboard() })
       setToDelete(null)
+      show('Resultado excluído.')
     },
   })
 
