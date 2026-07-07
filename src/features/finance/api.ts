@@ -670,3 +670,87 @@ export async function updateExpenseCategory(
 export async function deleteExpenseCategory(id: string): Promise<void> {
   await meufinClient.delete(`${BASE}/expense-categories/${id}`)
 }
+
+// ---------------------------------------------------------------------------
+// Fornecedores (suppliers)
+// ---------------------------------------------------------------------------
+
+export type SupplierCategory =
+  | 'servicos_publicos'
+  | 'telecom'
+  | 'streaming'
+  | 'varejo'
+  | 'farmacia'
+  | 'saude'
+  | 'seguros'
+  | 'financeiro'
+  | 'educacao'
+  | 'alimentacao'
+  | 'transporte'
+  | 'academia'
+  | 'outros'
+
+export type SupplierBillingType =
+  | 'boleto'
+  | 'pix'
+  | 'cartao_credito'
+  | 'debito_automatico'
+  | 'debito'
+  | 'transferencia'
+
+export type Supplier = {
+  id: string
+  workspace_id?: string | null
+  is_global: boolean
+  name: string
+  category: SupplierCategory
+  default_billing_type?: SupplierBillingType | null
+  pix_key?: string | null
+  bank_name?: string | null
+  notes?: string | null
+  active: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export type SupplierInput = {
+  name: string
+  category: SupplierCategory
+  default_billing_type?: SupplierBillingType | null
+  pix_key?: string | null
+  bank_name?: string | null
+  notes?: string | null
+  active: boolean
+}
+
+export async function listSuppliers(): Promise<Supplier[]> {
+  const { data } = await meufinClient.get<Paginated<Supplier>>(`${BASE}/suppliers`, {
+    params: { limit: 500 },
+  })
+  return data.items
+}
+
+export async function listSuppliersPaged(params: {
+  limit: number
+  offset: number
+  query?: string
+  category?: string
+  active?: boolean
+}): Promise<Paginated<Supplier>> {
+  const { data } = await meufinClient.get<Paginated<Supplier>>(`${BASE}/suppliers`, { params })
+  return data
+}
+
+export async function createSupplier(input: SupplierInput): Promise<Supplier> {
+  const { data } = await meufinClient.post<Supplier>(`${BASE}/suppliers`, input)
+  return data
+}
+
+export async function updateSupplier(id: string, input: SupplierInput): Promise<Supplier> {
+  const { data } = await meufinClient.put<Supplier>(`${BASE}/suppliers/${id}`, input)
+  return data
+}
+
+export async function deleteSupplier(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/suppliers/${id}`)
+}

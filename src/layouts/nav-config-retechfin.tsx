@@ -19,6 +19,7 @@ import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded'
 
 /**
  * Menu RetechFin Admin — subjects alinhados ao manifest / abilities da API de auth (retechauth-api).
@@ -133,6 +134,12 @@ export const retechfinNavSections: NavDataSection[] = [
         path: '/dashboard/financeiro/contas',
         icon: AccountBalanceRoundedIcon,
         permission: { action: 'view', subject: 'finance.accounts' },
+      },
+      {
+        label: 'Fornecedores',
+        path: '/dashboard/financeiro/fornecedores',
+        icon: StorefrontRoundedIcon,
+        permission: { action: 'view', subject: 'finance.suppliers' },
       },
     ],
   },
