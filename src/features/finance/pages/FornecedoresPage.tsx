@@ -1,0 +1,474 @@
+import { useMemo, useState } from 'react'
+import {
+  Button,
+  Card,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Stack,
+  Switch,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+} from '@mui/material'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Controller, useForm } from 'react-hook-form'
+import {
+  createSupplier,
+  deleteSupplier,
+  listSuppliersPaged,
+  updateSupplier,
+  type Supplier,
+  type SupplierInput,
+} from '../api'
+import {
+  errorMessage,
+  financeKeys,
+  SUPPLIER_BILLING_LABEL,
+  SUPPLIER_BILLING_OPTIONS,
+  SUPPLIER_CATEGORY_LABEL,
+  SUPPLIER_CATEGORY_OPTIONS,
+} from '../constants'
+import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
+import { PageHeader } from '@/features/health/components/PageHeader'
+import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
+import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+
+type FormValues = SupplierInput
+
+const emptyForm: FormValues = {
+  name: '',
+  category: 'outros',
+  default_billing_type: null,
+  pix_key: '',
+  bank_name: '',
+  notes: '',
+  active: true,
+}
+
+function SupplierFormDialog({
+  open,
+  supplier,
+  onClose,
+}: {
+  open: boolean
+  supplier: Supplier | null
+  onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const isEdit = Boolean(supplier)
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<FormValues>({
+    values: supplier
+      ? {
+          name: supplier.name,
+          category: supplier.category,
+          default_billing_type: supplier.default_billing_type ?? null,
+          pix_key: supplier.pix_key ?? '',
+          bank_name: supplier.bank_name ?? '',
+          notes: supplier.notes ?? '',
+          active: supplier.active,
+        }
+      : emptyForm,
+  })
+
+  const mutation = useMutation({
+    mutationFn: (values: FormValues) =>
+      isEdit ? updateSupplier(supplier!.id, values) : createSupplier(values),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.suppliers() })
+      reset(emptyForm)
+      onClose()
+    },
+  })
+
+  const submit = handleSubmit((values) => {
+    mutation.mutate({
+      ...values,
+      name: values.name.trim(),
+      pix_key: values.pix_key?.trim() || null,
+      bank_name: values.bank_name?.trim() || null,
+      notes: values.notes?.trim() || null,
+      default_billing_type: values.default_billing_type || null,
+    })
+  })
+
+  return (
+    <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        {isEdit ? 'Editar fornecedor' : 'Novo fornecedor'}
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          {mutation.isError && <ErrorState message={errorMessage(mutation.error)} />}
+          <Controller
+            name="name"
+            control={control}
+            rules={{ required: 'Informe o nome do fornecedor' }}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Nome"
+                fullWidth
+                required
+                error={Boolean(errors.name)}
+                helperText={errors.name?.message}
+              />
+            )}
+          />
+          <Controller
+            name="category"
+            control={control}
+            rules={{ required: true }}
+            render={({ field }) => (
+              <TextField {...field} select label="Categoria" fullWidth required>
+                {SUPPLIER_CATEGORY_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+          <Controller
+            name="default_billing_type"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                value={field.value ?? ''}
+                select
+                label="Forma de cobrança padrão"
+                fullWidth
+              >
+                <MenuItem value="">
+                  <em>Nenhuma</em>
+                </MenuItem>
+                {SUPPLIER_BILLING_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+          <Controller
+            name="bank_name"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                value={field.value ?? ''}
+                label="Banco"
+                fullWidth
+              />
+            )}
+          />
+          <Controller
+            name="pix_key"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                value={field.value ?? ''}
+                label="Chave Pix"
+                fullWidth
+              />
+            )}
+          />
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                value={field.value ?? ''}
+                label="Observações"
+                fullWidth
+                multiline
+                minRows={2}
+              />
+            )}
+          />
+          <Controller
+            name="active"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={field.value}
+                    onChange={(e) => field.onChange(e.target.checked)}
+                  />
+                }
+                label="Ativo"
+              />
+            )}
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={mutation.isPending}>
+          Cancelar
+        </Button>
+        <Button onClick={submit} variant="contained" disabled={mutation.isPending}>
+          {isEdit ? 'Salvar' : 'Criar'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+export default function FornecedoresPage() {
+  const qc = useQueryClient()
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<Supplier | null>(null)
+  const [toDelete, setToDelete] = useState<Supplier | null>(null)
+
+  const [q, setQ] = useState('')
+  const [category, setCategory] = useState('')
+  const [status, setStatus] = useState('')
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+
+  const params = useMemo(
+    () => ({
+      limit: pageSize,
+      offset: page * pageSize,
+      query: q.trim() || undefined,
+      category: category || undefined,
+      active: status === '' ? undefined : status === 'true',
+    }),
+    [pageSize, page, q, category, status]
+  )
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: [...financeKeys.suppliers(), params],
+    queryFn: () => listSuppliersPaged(params),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteSupplier(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.suppliers() })
+      setToDelete(null)
+    },
+  })
+
+  const suppliers = useMemo(() => data?.items ?? [], [data])
+
+  const openCreate = () => {
+    setEditing(null)
+    setFormOpen(true)
+  }
+  const openEdit = (s: Supplier) => {
+    setEditing(s)
+    setFormOpen(true)
+  }
+
+  return (
+    <>
+      <PageHeader
+        title="Fornecedores"
+        subtitle="Gerencie os fornecedores vinculáveis às despesas. Globais são geridos pelo sistema."
+        action={
+          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
+            Novo fornecedor
+          </Button>
+        }
+      />
+
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value)
+              setPage(0)
+            }}
+            placeholder="Buscar por nome…"
+            size="small"
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchRoundedIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <TextField
+            select
+            value={category}
+            onChange={(e) => {
+              setCategory(e.target.value)
+              setPage(0)
+            }}
+            label="Categoria"
+            size="small"
+            sx={{ minWidth: { sm: 220 } }}
+          >
+            <MenuItem value="">
+              <em>Todas</em>
+            </MenuItem>
+            {SUPPLIER_CATEGORY_OPTIONS.map((o) => (
+              <MenuItem key={o.value} value={o.value}>
+                {o.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(0)
+            }}
+            label="Status"
+            size="small"
+            sx={{ minWidth: { sm: 180 } }}
+          >
+            <MenuItem value="">
+              <em>Todos</em>
+            </MenuItem>
+            <MenuItem value="true">Ativos</MenuItem>
+            <MenuItem value="false">Inativos</MenuItem>
+          </TextField>
+        </Stack>
+      </Card>
+
+      {isLoading ? (
+        <LoadingState />
+      ) : isError ? (
+        <ErrorState message={errorMessage(error)} onRetry={refetch} />
+      ) : suppliers.length === 0 ? (
+        <EmptyState
+          icon={<StorefrontRoundedIcon />}
+          title="Nenhum fornecedor encontrado"
+          description={
+            q || category || status
+              ? 'Ajuste a busca ou os filtros.'
+              : 'Adicione o primeiro fornecedor para vincular às despesas.'
+          }
+          action={
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
+              Novo fornecedor
+            </Button>
+          }
+        />
+      ) : (
+        <Card>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Nome</TableCell>
+                  <TableCell>Categoria</TableCell>
+                  <TableCell>Cobrança padrão</TableCell>
+                  <TableCell>Origem</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Ações</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {suppliers.map((s) => (
+                  <TableRow key={s.id} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{s.name}</TableCell>
+                    <TableCell>{SUPPLIER_CATEGORY_LABEL[s.category] ?? s.category}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>
+                      {s.default_billing_type
+                        ? SUPPLIER_BILLING_LABEL[s.default_billing_type] ?? s.default_billing_type
+                        : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={s.is_global ? 'Global' : 'Meu workspace'}
+                        color={s.is_global ? 'info' : 'default'}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={s.active ? 'Ativo' : 'Inativo'}
+                        color={s.active ? 'success' : 'default'}
+                        variant={s.active ? 'filled' : 'outlined'}
+                      />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={s.is_global ? 'Fornecedores globais não podem ser editados' : 'Editar'}>
+                        <span>
+                          <IconButton size="small" onClick={() => openEdit(s)} disabled={s.is_global}>
+                            <EditRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title={s.is_global ? 'Fornecedores globais não podem ser excluídos' : 'Excluir'}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setToDelete(s)}
+                            disabled={s.is_global}
+                          >
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePaginationBR
+            total={data?.total ?? 0}
+            page={page}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </Card>
+      )}
+
+      {formOpen && (
+        <SupplierFormDialog
+          open={formOpen}
+          supplier={editing}
+          onClose={() => setFormOpen(false)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title="Excluir fornecedor"
+        description={`Tem certeza que deseja excluir "${toDelete?.name}"? Esta ação não pode ser desfeita.`}
+        loading={deleteMutation.isPending}
+        onConfirm={() => toDelete && deleteMutation.mutate(toDelete.id)}
+        onClose={() => setToDelete(null)}
+      />
+    </>
+  )
+}

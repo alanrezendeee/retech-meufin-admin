@@ -179,6 +179,7 @@ export const financeKeys = {
   familyMembers: () => [...financeKeys.all, 'family-members'] as const,
   accounts: () => [...financeKeys.all, 'accounts'] as const,
   expenseCategories: () => [...financeKeys.all, 'expense-categories'] as const,
+  suppliers: () => [...financeKeys.all, 'suppliers'] as const,
   receipts: (entryId: string) => [...financeKeys.all, 'receipts', entryId] as const,
   dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
   dashboardMonthly: (params: Record<string, unknown>) =>
@@ -234,3 +235,40 @@ export const PAYMENT_METHOD_LABEL: Record<string, string> = PAYMENT_METHOD_OPTIO
 
 /** Formas que apontam para uma conta (as demais: dinheiro=nada, cartao_credito=cartão). */
 export const ACCOUNT_PAYMENT_METHODS = ['pix', 'debito', 'transferencia', 'boleto'] as const
+
+/** Categoria do fornecedor. */
+export const SUPPLIER_CATEGORY_OPTIONS: Option<import('./api').SupplierCategory>[] = [
+  { value: 'servicos_publicos', label: 'Serviços Públicos' },
+  { value: 'telecom', label: 'Telecom' },
+  { value: 'streaming', label: 'Streaming' },
+  { value: 'varejo', label: 'Varejo / E-commerce' },
+  { value: 'farmacia', label: 'Farmácia' },
+  { value: 'saude', label: 'Saúde' },
+  { value: 'seguros', label: 'Seguros' },
+  { value: 'financeiro', label: 'Financeiro' },
+  { value: 'educacao', label: 'Educação' },
+  { value: 'alimentacao', label: 'Alimentação / Delivery' },
+  { value: 'transporte', label: 'Transporte' },
+  { value: 'academia', label: 'Academia / Bem-estar' },
+  { value: 'outros', label: 'Outros' },
+]
+
+export const SUPPLIER_CATEGORY_LABEL: Record<string, string> = SUPPLIER_CATEGORY_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
+
+/** Tipo de cobrança padrão do fornecedor. */
+export const SUPPLIER_BILLING_OPTIONS: Option<import('./api').SupplierBillingType>[] = [
+  { value: 'boleto', label: 'Boleto' },
+  { value: 'pix', label: 'Pix' },
+  { value: 'cartao_credito', label: 'Cartão de crédito' },
+  { value: 'debito_automatico', label: 'Débito automático' },
+  { value: 'debito', label: 'Débito' },
+  { value: 'transferencia', label: 'Transferência' },
+]
+
+export const SUPPLIER_BILLING_LABEL: Record<string, string> = SUPPLIER_BILLING_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
