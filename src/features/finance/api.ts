@@ -102,6 +102,7 @@ export type Entry = {
   payment_method?: PaymentMethod | null
   payment_account_id?: string | null
   payment_card_id?: string | null
+  supplier_id?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -121,6 +122,7 @@ export type EntryInput = {
   recurrence: Recurrence
   recurrence_group_id?: string | null
   notes?: string | null
+  supplier_id?: string | null
   /** Lançamento retroativo: ocorrências vencidas nascem realizadas. */
   confirm_past_occurrences?: boolean
 }
@@ -140,6 +142,7 @@ export type ListEntriesParams = {
   due_from?: string
   due_to?: string
   overdue?: boolean
+  supplier_id?: string
   limit?: number
   offset?: number
 }
