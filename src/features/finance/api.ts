@@ -691,6 +691,7 @@ export type SupplierCategory =
   | 'alimentacao'
   | 'transporte'
   | 'academia'
+  | 'moradia'
   | 'tecnologia'
   | 'pet'
   | 'juridico'
@@ -719,6 +720,7 @@ export type Supplier = {
   category: SupplierCategory
   default_billing_type?: SupplierBillingType | null
   pix_key?: string | null
+  pix_key_holder?: string | null
   bank_name?: string | null
   bank_agency?: string | null
   bank_account?: string | null
@@ -734,6 +736,7 @@ export type SupplierInput = {
   category: SupplierCategory
   default_billing_type?: SupplierBillingType | null
   pix_key?: string | null
+  pix_key_holder?: string | null
   bank_name?: string | null
   bank_agency?: string | null
   bank_account?: string | null

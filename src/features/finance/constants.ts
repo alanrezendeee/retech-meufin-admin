@@ -250,6 +250,7 @@ export const SUPPLIER_CATEGORY_OPTIONS: Option<import('./api').SupplierCategory>
   { value: 'alimentacao', label: 'Alimentação / Delivery' },
   { value: 'transporte', label: 'Transporte' },
   { value: 'academia', label: 'Academia / Bem-estar' },
+  { value: 'moradia', label: 'Moradia / Imóvel' },
   { value: 'tecnologia', label: 'Tecnologia / SaaS / TI' },
   { value: 'pet', label: 'Pet / Veterinário' },
   { value: 'juridico', label: 'Jurídico / Cartório' },
