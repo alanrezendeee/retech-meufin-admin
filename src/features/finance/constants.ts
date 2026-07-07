@@ -250,6 +250,15 @@ export const SUPPLIER_CATEGORY_OPTIONS: Option<import('./api').SupplierCategory>
   { value: 'alimentacao', label: 'Alimentação / Delivery' },
   { value: 'transporte', label: 'Transporte' },
   { value: 'academia', label: 'Academia / Bem-estar' },
+  { value: 'tecnologia', label: 'Tecnologia / SaaS / TI' },
+  { value: 'pet', label: 'Pet / Veterinário' },
+  { value: 'juridico', label: 'Jurídico / Cartório' },
+  { value: 'contabil', label: 'Contabilidade / Fiscal' },
+  { value: 'condominio', label: 'Condomínio / IPTU' },
+  { value: 'vestuario', label: 'Vestuário / Calçados' },
+  { value: 'beleza', label: 'Beleza / Estética' },
+  { value: 'viagem', label: 'Viagem / Hospedagem' },
+  { value: 'entretenimento', label: 'Entretenimento / Eventos' },
   { value: 'outros', label: 'Outros' },
 ]
 
@@ -266,6 +275,7 @@ export const SUPPLIER_BILLING_OPTIONS: Option<import('./api').SupplierBillingTyp
   { value: 'debito_automatico', label: 'Débito automático' },
   { value: 'debito', label: 'Débito' },
   { value: 'transferencia', label: 'Transferência' },
+  { value: 'desconto_folha', label: 'Desconto em folha' },
 ]
 
 export const SUPPLIER_BILLING_LABEL: Record<string, string> = SUPPLIER_BILLING_OPTIONS.reduce(

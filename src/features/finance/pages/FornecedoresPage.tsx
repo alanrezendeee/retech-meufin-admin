@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import {
   Button,
   Card,
@@ -28,7 +28,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
   createSupplier,
   deleteSupplier,
@@ -58,8 +58,25 @@ const emptyForm: FormValues = {
   default_billing_type: null,
   pix_key: '',
   bank_name: '',
+  bank_agency: '',
+  bank_account: '',
+  bank_account_type: '',
   notes: '',
   active: true,
+}
+
+// Quais grupos de campos exibir por forma de cobrança
+const BILLING_VISIBILITY: Record<
+  string,
+  { pix: boolean; bank: boolean; bankDetails: boolean }
+> = {
+  pix:              { pix: true,  bank: false, bankDetails: false },
+  boleto:           { pix: false, bank: true,  bankDetails: false },
+  cartao_credito:   { pix: false, bank: false, bankDetails: false },
+  debito_automatico:{ pix: false, bank: true,  bankDetails: true  },
+  debito:           { pix: false, bank: true,  bankDetails: true  },
+  transferencia:    { pix: true,  bank: true,  bankDetails: true  },
+  desconto_folha:   { pix: false, bank: false, bankDetails: false },
 }
 
 function SupplierFormDialog({
@@ -87,11 +104,17 @@ function SupplierFormDialog({
           default_billing_type: supplier.default_billing_type ?? null,
           pix_key: supplier.pix_key ?? '',
           bank_name: supplier.bank_name ?? '',
+          bank_agency: supplier.bank_agency ?? '',
+          bank_account: supplier.bank_account ?? '',
+          bank_account_type: supplier.bank_account_type ?? '',
           notes: supplier.notes ?? '',
           active: supplier.active,
         }
       : emptyForm,
   })
+
+  const billingType = useWatch({ control, name: 'default_billing_type' })
+  const vis = BILLING_VISIBILITY[billingType ?? ''] ?? { pix: false, bank: false, bankDetails: false }
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
@@ -103,16 +126,25 @@ function SupplierFormDialog({
     },
   })
 
-  const submit = handleSubmit((values) => {
-    mutation.mutate({
-      ...values,
-      name: values.name.trim(),
-      pix_key: values.pix_key?.trim() || null,
-      bank_name: values.bank_name?.trim() || null,
-      notes: values.notes?.trim() || null,
-      default_billing_type: values.default_billing_type || null,
-    })
-  })
+  const submit = handleSubmit(
+    useCallback(
+      (values: FormValues) => {
+        const v = BILLING_VISIBILITY[values.default_billing_type ?? ''] ?? { pix: false, bank: false, bankDetails: false }
+        mutation.mutate({
+          ...values,
+          name: values.name.trim(),
+          pix_key: v.pix ? values.pix_key?.trim() || null : null,
+          bank_name: v.bank ? values.bank_name?.trim() || null : null,
+          bank_agency: v.bankDetails ? values.bank_agency?.trim() || null : null,
+          bank_account: v.bankDetails ? values.bank_account?.trim() || null : null,
+          bank_account_type: v.bankDetails ? values.bank_account_type?.trim() || null : null,
+          notes: values.notes?.trim() || null,
+          default_billing_type: values.default_billing_type || null,
+        })
+      },
+      [mutation]
+    )
+  )
 
   return (
     <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} maxWidth="sm" fullWidth>
@@ -173,30 +205,86 @@ function SupplierFormDialog({
               </TextField>
             )}
           />
-          <Controller
-            name="bank_name"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                value={field.value ?? ''}
-                label="Banco"
-                fullWidth
+
+          {/* Chave Pix — visível para: pix, transferência */}
+          {vis.pix && (
+            <Controller
+              name="pix_key"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  label="Chave Pix"
+                  fullWidth
+                  placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                />
+              )}
+            />
+          )}
+
+          {/* Banco — visível para: boleto, débito automático, débito, transferência */}
+          {vis.bank && (
+            <Controller
+              name="bank_name"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  label="Banco"
+                  fullWidth
+                />
+              )}
+            />
+          )}
+
+          {/* Agência, conta e tipo — visível para: débito automático, débito, transferência */}
+          {vis.bankDetails && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Controller
+                name="bank_agency"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    value={field.value ?? ''}
+                    label="Agência"
+                    sx={{ minWidth: 120 }}
+                  />
+                )}
               />
-            )}
-          />
-          <Controller
-            name="pix_key"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                value={field.value ?? ''}
-                label="Chave Pix"
-                fullWidth
+              <Controller
+                name="bank_account"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    value={field.value ?? ''}
+                    label="Conta"
+                    fullWidth
+                  />
+                )}
               />
-            )}
-          />
+              <Controller
+                name="bank_account_type"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    value={field.value ?? ''}
+                    select
+                    label="Tipo"
+                    sx={{ minWidth: 140 }}
+                  >
+                    <MenuItem value="corrente">Corrente</MenuItem>
+                    <MenuItem value="poupanca">Poupança</MenuItem>
+                  </TextField>
+                )}
+              />
+            </Stack>
+          )}
+
           <Controller
             name="notes"
             control={control}
