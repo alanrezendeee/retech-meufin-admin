@@ -58,6 +58,7 @@ const emptyForm: FormValues = {
   category: 'outros',
   default_billing_type: null,
   pix_key: '',
+  pix_key_holder: '',
   bank_name: '',
   bank_agency: '',
   bank_account: '',
@@ -105,6 +106,7 @@ function SupplierFormDialog({
           category: supplier.category,
           default_billing_type: supplier.default_billing_type ?? null,
           pix_key: supplier.pix_key ?? '',
+          pix_key_holder: supplier.pix_key_holder ?? '',
           bank_name: supplier.bank_name ?? '',
           bank_agency: supplier.bank_agency ?? '',
           bank_account: supplier.bank_account ?? '',
@@ -137,6 +139,7 @@ function SupplierFormDialog({
           ...values,
           name: values.name.trim(),
           pix_key: v.pix ? values.pix_key?.trim() || null : null,
+          pix_key_holder: v.pix ? values.pix_key_holder?.trim() || null : null,
           bank_name: v.bank ? values.bank_name?.trim() || null : null,
           bank_agency: v.bankDetails ? values.bank_agency?.trim() || null : null,
           bank_account: v.bankDetails ? values.bank_account?.trim() || null : null,
@@ -209,21 +212,36 @@ function SupplierFormDialog({
             )}
           />
 
-          {/* Chave Pix — visível para: pix, transferência */}
+          {/* Chave Pix + Titular — visível para: pix, transferência */}
           {vis.pix && (
-            <Controller
-              name="pix_key"
-              control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  value={field.value ?? ''}
-                  label="Chave Pix"
-                  fullWidth
-                  placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
-                />
-              )}
-            />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <Controller
+                name="pix_key"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    value={field.value ?? ''}
+                    label="Chave Pix"
+                    fullWidth
+                    placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+                  />
+                )}
+              />
+              <Controller
+                name="pix_key_holder"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    value={field.value ?? ''}
+                    label="Titular da chave"
+                    fullWidth
+                    placeholder="Nome registrado no Pix"
+                  />
+                )}
+              />
+            </Stack>
           )}
 
           {/* Banco — visível para: boleto, débito automático, débito, transferência */}
