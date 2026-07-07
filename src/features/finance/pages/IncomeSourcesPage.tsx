@@ -42,6 +42,7 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = IncomeSourceInput
 
@@ -62,6 +63,7 @@ function SourceFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(source)
 
   const {
@@ -84,6 +86,7 @@ function SourceFormDialog({
     mutationFn: (values: FormValues) =>
       isEdit ? updateIncomeSource(source!.id, values) : createIncomeSource(values),
     onSuccess: () => {
+      show(isEdit ? 'Fonte de receita atualizada com sucesso.' : 'Fonte de receita criada com sucesso.')
       qc.invalidateQueries({ queryKey: financeKeys.incomeSources() })
       reset(emptyForm)
       onClose()
@@ -180,6 +183,7 @@ function SourceFormDialog({
 
 export default function IncomeSourcesPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<IncomeSource | null>(null)
   const [toDelete, setToDelete] = useState<IncomeSource | null>(null)
@@ -211,6 +215,7 @@ export default function IncomeSourcesPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.incomeSources() })
       setToDelete(null)
+      show('Fonte de receita excluída.')
     },
   })
 

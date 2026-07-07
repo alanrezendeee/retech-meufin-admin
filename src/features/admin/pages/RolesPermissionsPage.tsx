@@ -48,6 +48,7 @@ import { adminKeys, errorMessage, isProtectedRole, moduleLabel, moduleOf } from 
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 // ---------------------------------------------------------------------------
 // Dialog: criar/editar grupo
@@ -62,6 +63,7 @@ type RoleFormValues = {
 
 function RoleFormDialog({ role, onClose }: { role: Role | null; onClose: () => void }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(role)
   const {
     control,
@@ -93,6 +95,7 @@ function RoleFormDialog({ role, onClose }: { role: Role | null; onClose: () => v
             system: false,
           }),
     onSuccess: () => {
+      show(isEdit ? 'Grupo atualizado com sucesso.' : 'Grupo criado com sucesso.')
       qc.invalidateQueries({ queryKey: adminKeys.all })
       onClose()
     },
@@ -215,9 +218,12 @@ function PermissionsPanel({
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [permissions])
 
+  const { show } = useToast()
+
   const mutation = useMutation({
     mutationFn: () => setRolePermissions(roleId, { permission_codes: [...checked] }),
     onSuccess: () => {
+      show('Permissões salvas com sucesso.')
       qc.invalidateQueries({ queryKey: adminKeys.role(roleId) })
       qc.invalidateQueries({ queryKey: adminKeys.all })
     },
@@ -355,6 +361,7 @@ function PermissionsPanel({
 
 export default function RolesPermissionsPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [formRole, setFormRole] = useState<Role | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -390,6 +397,7 @@ export default function RolesPermissionsPage() {
       // Se o grupo removido era o selecionado, limpa a seleção manual;
       // o render volta a escolher o primeiro grupo disponível.
       if (selectedId === id) setSelectedId(null)
+      show('Grupo excluído.')
     },
   })
 

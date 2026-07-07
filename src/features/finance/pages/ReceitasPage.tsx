@@ -16,7 +16,6 @@ import {
   IconButton,
   InputAdornment,
   MenuItem,
-  Snackbar,
   Stack,
   Switch,
   Table,
@@ -79,6 +78,7 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 const now = new Date()
 
@@ -248,6 +248,7 @@ function EntryFormDialog({
   onCreatedRecurring: (count: number) => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(entry)
   const [quickSource, setQuickSource] = useState(false)
 
@@ -312,6 +313,11 @@ function EntryFormDialog({
       return { created: res.total ?? res.items?.length ?? 1 }
     },
     onSuccess: ({ created }) => {
+      if (isEdit) {
+        show('Receita atualizada com sucesso.')
+      } else if (created <= 1) {
+        show('Receita criada com sucesso.')
+      }
       qc.invalidateQueries({ queryKey: financeKeys.all })
       reset(emptyEntryForm())
       onClose()
@@ -522,6 +528,7 @@ function EntryFormDialog({
 
 export default function ReceitasPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
@@ -530,7 +537,6 @@ export default function ReceitasPage() {
   const [editing, setEditing] = useState<Entry | null>(null)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [toCancel, setToCancel] = useState<Entry | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
 
   const membersQuery = useQuery({
     queryKey: financeKeys.familyMembers(),
@@ -565,7 +571,7 @@ export default function ReceitasPage() {
     mutationFn: (id: string) => confirmEntry(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
-      setToast('Receita confirmada como recebida.')
+      show('Receita confirmada como recebida.')
     },
   })
   const deleteMutation = useMutation({
@@ -573,6 +579,7 @@ export default function ReceitasPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToDelete(null)
+      show('Receita excluída.')
     },
   })
   const cancelMutation = useMutation({
@@ -580,6 +587,7 @@ export default function ReceitasPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToCancel(null)
+      show('Receita cancelada.')
     },
   })
 
@@ -884,7 +892,7 @@ export default function ReceitasPage() {
           entry={editing}
           onClose={() => setFormOpen(false)}
           onCreatedRecurring={(count) =>
-            setToast(`${count} lançamentos previstos criados (próximos 12 meses).`)
+            show(`${count} lançamentos previstos criados (próximos 12 meses).`)
           }
         />
       )}
@@ -909,16 +917,6 @@ export default function ReceitasPage() {
         onClose={() => setToCancel(null)}
       />
 
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setToast(null)}>
-          {toast}
-        </Alert>
-      </Snackbar>
     </>
   )
 }

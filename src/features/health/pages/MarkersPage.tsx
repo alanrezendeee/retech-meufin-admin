@@ -45,6 +45,7 @@ import { errorMessage, healthKeys, MARKER_CATEGORIES, MARKER_CATEGORY_LABEL } fr
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = {
   canonical_name: string
@@ -80,6 +81,7 @@ function MarkerFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(marker)
   const [conflict, setConflict] = useState<MarkerConflict | null>(null)
 
@@ -115,6 +117,7 @@ function MarkerFormDialog({
     mutationFn: (values: FormValues) =>
       isEdit ? updateMarker(marker!.id, toInput(values)) : createMarker(toInput(values)),
     onSuccess: () => {
+      show(isEdit ? 'Marcador atualizado com sucesso.' : 'Marcador criado com sucesso.')
       qc.invalidateQueries({ queryKey: healthKeys.all })
       reset(emptyForm)
       onClose()
@@ -235,6 +238,7 @@ function MarkerFormDialog({
 
 export default function MarkersPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [page, setPage] = useState(0)
@@ -263,6 +267,7 @@ export default function MarkersPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: healthKeys.all })
       setToDelete(null)
+      show('Marcador excluído.')
     },
   })
 

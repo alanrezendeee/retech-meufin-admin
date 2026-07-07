@@ -16,7 +16,6 @@ import {
   IconButton,
   InputAdornment,
   MenuItem,
-  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -68,6 +67,7 @@ import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 import { ImportInvoiceDialog } from '../components/ImportInvoiceDialog'
+import { useToast } from '@/providers/ToastProvider'
 
 const now = new Date()
 
@@ -116,6 +116,7 @@ function InvoiceFormDialog({
   onCreatedRecurring: (count: number) => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
 
   const {
     control,
@@ -147,6 +148,9 @@ function InvoiceFormDialog({
       return { created: res.total ?? res.items?.length ?? 1 }
     },
     onSuccess: ({ created }) => {
+      if (created <= 1) {
+        show('Fatura criada com sucesso.')
+      }
       qc.invalidateQueries({ queryKey: financeKeys.all })
       reset()
       onClose()
@@ -273,6 +277,7 @@ function PurchaseFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
 
   const {
     control,
@@ -304,6 +309,7 @@ function PurchaseFormDialog({
       return createEntry(input)
     },
     onSuccess: () => {
+      show('Compra adicionada com sucesso.')
       qc.invalidateQueries({ queryKey: financeKeys.all })
       reset()
       onClose()
@@ -419,6 +425,7 @@ function PurchasesRow({
   confirmPending: boolean
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [purchaseOpen, setPurchaseOpen] = useState(false)
   const [toDeletePurchase, setToDeletePurchase] = useState<Entry | null>(null)
 
@@ -433,6 +440,7 @@ function PurchasesRow({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToDeletePurchase(null)
+      show('Compra excluída.')
     },
   })
 
@@ -611,6 +619,7 @@ function PurchasesRow({
 
 export default function FaturasPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(0)
@@ -619,7 +628,6 @@ export default function FaturasPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
 
   const cardsQuery = useQuery({
     queryKey: financeKeys.cards(),
@@ -651,7 +659,7 @@ export default function FaturasPage() {
     mutationFn: (id: string) => confirmEntry(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
-      setToast('Fatura confirmada como paga.')
+      show('Fatura confirmada como paga.')
     },
   })
   const deleteMutation = useMutation({
@@ -659,6 +667,7 @@ export default function FaturasPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToDelete(null)
+      show('Fatura excluída.')
     },
   })
 
@@ -869,7 +878,7 @@ export default function FaturasPage() {
           defaultCardId={filters.card_id}
           onClose={() => setFormOpen(false)}
           onCreatedRecurring={(count) =>
-            setToast(`${count} faturas previstas criadas até dezembro.`)
+            show(`${count} faturas previstas criadas até dezembro.`)
           }
         />
       )}
@@ -880,7 +889,7 @@ export default function FaturasPage() {
           cards={cards}
           defaultCardId={filters.card_id}
           onClose={() => setImportOpen(false)}
-          onConfirmed={(message) => setToast(message)}
+          onConfirmed={(message) => show(message)}
         />
       )}
 
@@ -893,16 +902,6 @@ export default function FaturasPage() {
         onClose={() => setToDelete(null)}
       />
 
-      <Snackbar
-        open={Boolean(toast)}
-        autoHideDuration={5000}
-        onClose={() => setToast(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setToast(null)}>
-          {toast}
-        </Alert>
-      </Snackbar>
     </>
   )
 }

@@ -37,6 +37,7 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = LabInput
 
@@ -60,6 +61,7 @@ function LabFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(lab)
 
   const {
@@ -84,6 +86,7 @@ function LabFormDialog({
   const mutation = useMutation({
     mutationFn: (values: FormValues) => (isEdit ? updateLab(lab!.id, values) : createLab(values)),
     onSuccess: () => {
+      show(isEdit ? 'Laboratório atualizado com sucesso.' : 'Laboratório criado com sucesso.')
       qc.invalidateQueries({ queryKey: healthKeys.labs() })
       reset(emptyForm)
       onClose()
@@ -201,6 +204,7 @@ function LabFormDialog({
 
 export default function LabsPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lab | null>(null)
   const [toDelete, setToDelete] = useState<Lab | null>(null)
@@ -230,6 +234,7 @@ export default function LabsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: healthKeys.labs() })
       setToDelete(null)
+      show('Laboratório excluído.')
     },
   })
 

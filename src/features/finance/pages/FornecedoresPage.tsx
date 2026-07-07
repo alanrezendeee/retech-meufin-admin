@@ -49,6 +49,7 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
+import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = SupplierInput
 
@@ -89,6 +90,7 @@ function SupplierFormDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const { show } = useToast()
   const isEdit = Boolean(supplier)
 
   const {
@@ -120,6 +122,7 @@ function SupplierFormDialog({
     mutationFn: (values: FormValues) =>
       isEdit ? updateSupplier(supplier!.id, values) : createSupplier(values),
     onSuccess: () => {
+      show(isEdit ? 'Fornecedor atualizado com sucesso.' : 'Fornecedor criado com sucesso.')
       qc.invalidateQueries({ queryKey: financeKeys.suppliers() })
       reset(emptyForm)
       onClose()
@@ -330,6 +333,7 @@ function SupplierFormDialog({
 
 export default function FornecedoresPage() {
   const qc = useQueryClient()
+  const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Supplier | null>(null)
   const [toDelete, setToDelete] = useState<Supplier | null>(null)
@@ -361,6 +365,7 @@ export default function FornecedoresPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.suppliers() })
       setToDelete(null)
+      show('Fornecedor excluído.')
     },
   })
 
