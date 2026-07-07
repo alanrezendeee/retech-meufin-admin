@@ -47,6 +47,7 @@ import {
   formatCents,
   listEntries,
   listFamilyMembers,
+  listSuppliers,
   reaisToCents,
   updateEntry,
   type Entry,
@@ -129,6 +130,7 @@ function StatCard({
 
 type EntryFormValues = {
   family_member_id: string
+  supplier_id: string
   type: string
   amount: string // reais
   due_date: string
@@ -146,6 +148,7 @@ function emptyEntryForm(): EntryFormValues {
   const d = String(now.getDate()).padStart(2, '0')
   return {
     family_member_id: '',
+    supplier_id: '',
     type: 'moradia',
     amount: '',
     due_date: `${y}-${m}-${d}`,
@@ -260,6 +263,10 @@ function EntryFormDialog({
     queryKey: financeKeys.familyMembers(),
     queryFn: listFamilyMembers,
   })
+  const suppliersQuery = useQuery({
+    queryKey: financeKeys.suppliers(),
+    queryFn: listSuppliers,
+  })
   const { activeCategories, groups } = useExpenseCategories()
   const [quickCategory, setQuickCategory] = useState(false)
 
@@ -273,6 +280,7 @@ function EntryFormDialog({
     values: entry
       ? {
           family_member_id: entry.family_member_id ?? '',
+          supplier_id: entry.supplier_id ?? '',
           type: entry.type ?? 'moradia',
           amount: (entry.amount_cents / 100).toFixed(2).replace('.', ','),
           due_date: entry.due_date,
@@ -319,6 +327,7 @@ function EntryFormDialog({
         description: values.description.trim(),
         recurrence: values.installments ? 'none' : values.recurrence,
         notes: values.notes.trim() || null,
+        supplier_id: values.supplier_id || null,
       }
       if (!isEdit && values.installments) {
         const n = Number(values.installments_count)
@@ -353,22 +362,42 @@ function EntryFormDialog({
         <Stack spacing={2.5} sx={{ mt: 1 }}>
           {mutation.isError && <ErrorState message={errorMessage(mutation.error)} />}
 
-          <Controller
-            name="family_member_id"
-            control={control}
-            render={({ field }) => (
-              <AutocompleteField
-                label="Membro da família"
-                emptyLabel="Não atribuído"
-                value={field.value}
-                onChange={field.onChange}
-                options={(membersQuery.data ?? []).map((m) => ({
-                  value: m.id,
-                  label: m.full_name,
-                }))}
-              />
-            )}
-          />
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Controller
+              name="family_member_id"
+              control={control}
+              render={({ field }) => (
+                <AutocompleteField
+                  label="Membro da família"
+                  emptyLabel="Não atribuído"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={(membersQuery.data ?? []).map((m) => ({
+                    value: m.id,
+                    label: m.full_name,
+                  }))}
+                />
+              )}
+            />
+            <Controller
+              name="supplier_id"
+              control={control}
+              render={({ field }) => (
+                <AutocompleteField
+                  label="Fornecedor"
+                  emptyLabel="Nenhum"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={(suppliersQuery.data ?? []).map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                    description: s.category,
+                  }))}
+                  placeholder="Busque por nome…"
+                />
+              )}
+            />
+          </Stack>
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <Stack spacing={1} sx={{ width: '100%' }}>
@@ -617,6 +646,10 @@ export default function DespesasPage() {
     queryKey: financeKeys.familyMembers(),
     queryFn: listFamilyMembers,
   })
+  const suppliersListQuery = useQuery({
+    queryKey: financeKeys.suppliers(),
+    queryFn: listSuppliers,
+  })
   const { activeCategories, labelOf } = useExpenseCategories()
 
   const listParams: ListEntriesParams = useMemo(() => {
@@ -665,8 +698,9 @@ export default function DespesasPage() {
 
   const memberName = (id?: string | null) =>
     (membersQuery.data ?? []).find((m) => m.id === id)?.full_name ?? '—'
-  const categoryName = (value?: string | null) =>
-    labelOf(value)
+  const categoryName = (value?: string | null) => labelOf(value)
+  const supplierName = (id?: string | null) =>
+    (suppliersListQuery.data ?? []).find((s) => s.id === id)?.name ?? null
 
   const stats = useMemo(() => {
     let previsto = 0
@@ -866,6 +900,7 @@ export default function DespesasPage() {
                   <TableCell>Data</TableCell>
                   <TableCell>Membro</TableCell>
                   <TableCell>Categoria</TableCell>
+                  <TableCell>Fornecedor</TableCell>
                   <TableCell align="right">Valor</TableCell>
                   <TableCell>Recorrência</TableCell>
                   <TableCell>Status</TableCell>
@@ -878,6 +913,9 @@ export default function DespesasPage() {
                     <TableCell>{formatDateBR(e.due_date)}</TableCell>
                     <TableCell>{memberName(e.family_member_id)}</TableCell>
                     <TableCell>{categoryName(e.type)}</TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>
+                      {supplierName(e.supplier_id) ?? '—'}
+                    </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                       {formatCents(e.amount_cents)}
                     </TableCell>
