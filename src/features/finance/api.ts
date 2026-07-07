@@ -691,6 +691,15 @@ export type SupplierCategory =
   | 'alimentacao'
   | 'transporte'
   | 'academia'
+  | 'tecnologia'
+  | 'pet'
+  | 'juridico'
+  | 'contabil'
+  | 'condominio'
+  | 'vestuario'
+  | 'beleza'
+  | 'viagem'
+  | 'entretenimento'
   | 'outros'
 
 export type SupplierBillingType =
@@ -700,6 +709,7 @@ export type SupplierBillingType =
   | 'debito_automatico'
   | 'debito'
   | 'transferencia'
+  | 'desconto_folha'
 
 export type Supplier = {
   id: string
@@ -710,6 +720,9 @@ export type Supplier = {
   default_billing_type?: SupplierBillingType | null
   pix_key?: string | null
   bank_name?: string | null
+  bank_agency?: string | null
+  bank_account?: string | null
+  bank_account_type?: string | null
   notes?: string | null
   active: boolean
   created_at?: string
@@ -722,6 +735,9 @@ export type SupplierInput = {
   default_billing_type?: SupplierBillingType | null
   pix_key?: string | null
   bank_name?: string | null
+  bank_agency?: string | null
+  bank_account?: string | null
+  bank_account_type?: string | null
   notes?: string | null
   active: boolean
 }
