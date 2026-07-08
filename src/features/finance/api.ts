@@ -326,6 +326,12 @@ export async function confirmEntry(id: string): Promise<Entry> {
   return data
 }
 
+/** Desfaz a liquidação: realizada volta a prevista, detalhes de pagamento limpos. */
+export async function reopenEntry(id: string): Promise<Entry> {
+  const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/reopen`)
+  return data
+}
+
 export async function cancelEntry(id: string): Promise<Entry> {
   const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/cancel`)
   return data
