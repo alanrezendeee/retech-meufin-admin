@@ -37,7 +37,8 @@ import {
   getFinanceDashboardMonthly,
   listFamilyMembers,
 } from '../api'
-import { errorMessage, financeKeys, MONTH_OPTIONS, yearOptions } from '../constants'
+import { errorMessage, financeKeys, MONTH_OPTIONS } from '../constants'
+import { useYearOptions } from '../hooks/useYearOptions'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -113,6 +114,7 @@ function MoneyCard({
 }
 
 export default function FinanceDashboardPage() {
+  const yearsList = useYearOptions()
   const theme = useTheme()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -206,7 +208,7 @@ export default function FinanceDashboardPage() {
               onChange={(e) => setYear(Number(e.target.value))}
               sx={{ minWidth: 100 }}
             >
-              {yearOptions().map((y) => (
+              {yearsList.map((y) => (
                 <MenuItem key={y} value={y}>
                   {y}
                 </MenuItem>

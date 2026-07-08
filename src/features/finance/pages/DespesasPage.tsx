@@ -72,7 +72,7 @@ import {
   MONTH_OPTIONS,
   RECURRENCE_LABEL,
   RECURRENCE_OPTIONS,
-  yearOptions, seriesToast } from '../constants'
+  seriesToast } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
 import {
   createExpenseCategory,
@@ -80,6 +80,7 @@ import {
   type ExpenseGroup,
 } from '../api'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
+import { useYearOptions } from '../hooks/useYearOptions'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { formatDateBR } from '@/utils/dates'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
@@ -1025,6 +1026,7 @@ function EntryFormDialog({
 // ---------------------------------------------------------------------------
 
 export default function DespesasPage() {
+  const yearsList = useYearOptions()
   const qc = useQueryClient()
   const { show } = useToast()
   const [filters, setFilters] = useState<Filters>(initialFilters)
@@ -1243,7 +1245,7 @@ export default function DespesasPage() {
                 value={filters.year}
                 onChange={(e) => setFilter('year', Number(e.target.value))}
               >
-                {yearOptions().map((y) => (
+                {yearsList.map((y) => (
                   <MenuItem key={y} value={y}>
                     {y}
                   </MenuItem>
