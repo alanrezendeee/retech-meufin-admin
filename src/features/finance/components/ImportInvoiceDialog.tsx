@@ -104,6 +104,7 @@ export function ImportInvoiceDialog({
   const [cardId, setCardId] = useState(defaultCardId || (cards[0]?.id ?? ''))
   const [file, setFile] = useState<File | null>(null)
   const [documentId, setDocumentId] = useState<string | null>(null)
+  const [pdfPassword, setPdfPassword] = useState('')
 
   // Campos da fatura (passo revisão)
   const [dueDate, setDueDate] = useState(todayIso())
@@ -122,12 +123,17 @@ export function ImportInvoiceDialog({
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error('Selecione um arquivo.')
-      const doc = await uploadInvoiceDocument(file, cardId || undefined)
-      await triggerExtraction(doc.id)
-      return doc
+      // Retry (ex.: senha do PDF): reaproveita o documento já enviado.
+      let docId = documentId
+      if (!docId) {
+        const doc = await uploadInvoiceDocument(file, cardId || undefined)
+        docId = doc.id
+      }
+      await triggerExtraction(docId, pdfPassword || undefined)
+      return docId
     },
-    onSuccess: (doc) => {
-      setDocumentId(doc.id)
+    onSuccess: (docId) => {
+      setDocumentId(docId)
       setStep(1)
     },
   })
@@ -245,9 +251,20 @@ export function ImportInvoiceDialog({
                 type="file"
                 hidden
                 accept={ACCEPTED}
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null)
+                  setDocumentId(null)
+                }}
               />
             </Button>
+            <TextField
+              type="password"
+              label="Senha do PDF (se protegido)"
+              value={pdfPassword}
+              onChange={(e) => setPdfPassword(e.target.value)}
+              fullWidth
+              helperText="Alguns bancos protegem o PDF da fatura com senha (ex.: CPF). Ela é usada só na leitura e não fica salva."
+            />
             <Typography variant="caption" color="text.secondary">
               Aceita PDF ou imagem (JPG/PNG). O conteúdo será lido por IA para sugerir as compras.
             </Typography>

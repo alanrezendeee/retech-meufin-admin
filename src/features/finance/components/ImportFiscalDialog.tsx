@@ -100,6 +100,7 @@ export function ImportFiscalDialog({
   const [step, setStep] = useState(0)
   const [file, setFile] = useState<File | null>(null)
   const [documentId, setDocumentId] = useState<string | null>(null)
+  const [pdfPassword, setPdfPassword] = useState('')
 
   // Cabeçalho do cupom (revisão)
   const [merchant, setMerchant] = useState('')
@@ -116,12 +117,17 @@ export function ImportFiscalDialog({
   const uploadMutation = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error('Selecione um arquivo.')
-      const doc = await uploadInvoiceDocument(file, undefined, 'fiscal')
-      await triggerExtraction(doc.id)
-      return doc
+      // Retry (ex.: senha do PDF): reaproveita o documento já enviado.
+      let docId = documentId
+      if (!docId) {
+        const doc = await uploadInvoiceDocument(file, undefined, 'fiscal')
+        docId = doc.id
+      }
+      await triggerExtraction(docId, pdfPassword || undefined)
+      return docId
     },
-    onSuccess: (doc) => {
-      setDocumentId(doc.id)
+    onSuccess: (docId) => {
+      setDocumentId(docId)
       setStep(1)
     },
   })
@@ -237,9 +243,20 @@ export function ImportFiscalDialog({
                 hidden
                 type="file"
                 accept={ACCEPTED}
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null)
+                  setDocumentId(null)
+                }}
               />
             </Button>
+            <TextField
+              type="password"
+              label="Senha do PDF (se protegido)"
+              value={pdfPassword}
+              onChange={(e) => setPdfPassword(e.target.value)}
+              fullWidth
+              helperText="PDFs protegidos com senha são lidos após informar a senha — usada só na leitura, não fica salva."
+            />
             <Typography variant="caption" color="text.secondary">
               NFC-e, NF-e, SAT ou cupom de supermercado. Os itens serão extraídos
               automaticamente e vinculados a uma despesa (nova ou existente).

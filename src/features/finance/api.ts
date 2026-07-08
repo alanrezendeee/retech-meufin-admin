@@ -559,8 +559,12 @@ export async function uploadInvoiceDocument(
 }
 
 /** Dispara a extração assíncrona do documento (202 Accepted). */
-export async function triggerExtraction(documentId: string): Promise<void> {
-  await meufinClient.post(`${BASE}/documents/${documentId}/extract`)
+/** Dispara a extração. pdfPassword: senha do PDF protegido (usada só em memória no backend). */
+export async function triggerExtraction(documentId: string, pdfPassword?: string): Promise<void> {
+  await meufinClient.post(
+    `${BASE}/documents/${documentId}/extract`,
+    pdfPassword ? { pdf_password: pdfPassword } : undefined,
+  )
 }
 
 /** Consulta o status/resultado da extração (polling). */
