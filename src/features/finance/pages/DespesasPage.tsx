@@ -37,6 +37,7 @@ import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
 import RepeatRoundedIcon from '@mui/icons-material/RepeatRounded'
+import CallSplitRoundedIcon from '@mui/icons-material/CallSplitRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
@@ -52,6 +53,7 @@ import {
   listSuppliers,
   reaisToCents,
   updateEntry,
+  type ConfirmEntryPayload,
   type Entry,
   type EntryInput,
   type ListEntriesParams,
@@ -257,6 +259,8 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
   const { show } = useToast()
   const [discountText, setDiscountText] = useState('')
   const [reason, setReason] = useState('')
+  const [paidText, setPaidText] = useState('')
+  const [residualDate, setResidualDate] = useState(entry.due_date)
 
   const reasonsQuery = useQuery({
     queryKey: financeKeys.discountReasons(),
@@ -264,25 +268,43 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
   })
 
   const discountCents = reaisToCents(discountText)
-  const finalCents = entry.amount_cents - discountCents
+  const expectedCents = entry.amount_cents - discountCents
+  const paidCents = reaisToCents(paidText)
+  const paidProvided = paidCents > 0
+  const residualCents = paidProvided ? expectedCents - paidCents : 0
+
   const discountInvalid =
     discountCents > 0 && (discountCents >= entry.amount_cents || !reason)
+  const paidInvalid = paidProvided && paidCents > expectedCents
+  // Entry.type é IncomeType no modelo, mas em débitos carrega o slug da
+  // categoria de despesa ('cartao' identifica fatura).
+  const isInvoice = (entry.type as string | null | undefined) === 'cartao'
+  const partialBlocked = residualCents > 0 && isInvoice
 
   const mutation = useMutation({
-    mutationFn: () =>
-      confirmEntry(
-        entry.id,
-        discountCents > 0
-          ? { discount_cents: discountCents, discount_reason: reason }
-          : undefined,
-      ),
+    mutationFn: () => {
+      const payload: ConfirmEntryPayload = {}
+      if (discountCents > 0) {
+        payload.discount_cents = discountCents
+        payload.discount_reason = reason
+      }
+      if (paidProvided && paidCents < expectedCents) {
+        payload.paid_amount_cents = paidCents
+        if (residualDate && residualDate !== entry.due_date) {
+          payload.residual_due_date = residualDate
+        }
+      }
+      return confirmEntry(entry.id, payload)
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
-      show(
-        discountCents > 0
-          ? `Pagamento confirmado com ${formatCents(discountCents)} de desconto.`
-          : 'Despesa confirmada como paga.',
-      )
+      if (residualCents > 0) {
+        show(`Pagamento parcial confirmado. Residual de ${formatCents(residualCents)} criado.`)
+      } else if (discountCents > 0) {
+        show(`Pagamento confirmado com ${formatCents(discountCents)} de desconto.`)
+      } else {
+        show('Despesa confirmada como paga.')
+      }
       onClose()
     },
   })
@@ -309,24 +331,51 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
             }
           />
           {discountCents > 0 && (
+            <AutocompleteField
+              label="Motivo do desconto"
+              value={reason}
+              onChange={setReason}
+              options={(reasonsQuery.data ?? []).map((r) => ({
+                value: r.slug,
+                label: r.name,
+                description: r.description,
+              }))}
+              placeholder="Ex.: pagamento antecipado"
+            />
+          )}
+          <MoneyField
+            label="Valor pago (opcional)"
+            value={paidText}
+            onChange={(e) => setPaidText(e.target.value)}
+            fullWidth
+            error={paidInvalid}
+            helperText={
+              paidInvalid
+                ? `Valor pago não pode ser maior que o devido (${formatCents(expectedCents)})`
+                : `Vazio = pagamento integral de ${formatCents(expectedCents)}`
+            }
+          />
+          {residualCents > 0 && !isInvoice && (
             <>
-              <AutocompleteField
-                label="Motivo do desconto"
-                value={reason}
-                onChange={setReason}
-                options={(reasonsQuery.data ?? []).map((r) => ({
-                  value: r.slug,
-                  label: r.name,
-                  description: r.description,
-                }))}
-                placeholder="Ex.: pagamento antecipado"
+              <Alert severity="info" icon={false} sx={{ py: 0.5 }}>
+                Pagamento parcial: um lançamento residual de{' '}
+                <strong>{formatCents(residualCents)}</strong> será criado.
+              </Alert>
+              <TextField
+                type="date"
+                label="Vencimento do residual"
+                value={residualDate}
+                onChange={(e) => setResidualDate(e.target.value)}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                helperText="Data original = residual nasce vencido; data futura = renegociado"
               />
-              {finalCents > 0 && (
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  Valor final: {formatCents(finalCents)}
-                </Typography>
-              )}
             </>
+          )}
+          {partialBlocked && (
+            <Alert severity="warning" sx={{ py: 0.5 }}>
+              Pagamento parcial de fatura de cartão ainda não é suportado.
+            </Alert>
           )}
         </Stack>
       </DialogContent>
@@ -338,7 +387,7 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
           variant="contained"
           color="success"
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending || discountInvalid}
+          disabled={mutation.isPending || discountInvalid || paidInvalid || partialBlocked}
         >
           Confirmar pagamento
         </Button>
@@ -1052,7 +1101,17 @@ export default function DespesasPage() {
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      {e.installment_total ? (
+                      {e.residual_of_id ? (
+                        <Tooltip title="Saldo não pago de um pagamento parcial">
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            icon={<CallSplitRoundedIcon />}
+                            label="Residual"
+                          />
+                        </Tooltip>
+                      ) : e.installment_total ? (
                         <Chip
                           size="small"
                           variant="outlined"
