@@ -1,6 +1,7 @@
 import type { NavDataSection } from '@/layouts/components/nav-filter-by-casl'
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
+import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded'
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded'
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
@@ -128,6 +129,12 @@ export const retechfinNavSections: NavDataSection[] = [
         icon: ReceiptLongRoundedIcon,
         permission: { action: 'view', subject: 'finance.invoices' },
         info: 'finance.invoices',
+      },
+      {
+        label: 'Cupons e Notas',
+        path: '/dashboard/financeiro/cupons',
+        icon: ReceiptRoundedIcon,
+        permission: { action: 'view', subject: 'finance.expenses' },
       },
       {
         label: 'Contas',

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -38,12 +39,16 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
 import RepeatRoundedIcon from '@mui/icons-material/RepeatRounded'
 import CallSplitRoundedIcon from '@mui/icons-material/CallSplitRounded'
+import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded'
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
+import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
   cancelEntry,
   confirmEntry,
   listDiscountReasons,
+  listFiscalItems,
   reopenEntry,
   createEntry,
   deleteEntry,
@@ -247,6 +252,117 @@ function QuickCategoryForm({
         </Stack>
       </Stack>
     </Box>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Linha de detalhe: compras da fatura OU itens do cupom fiscal
+// ---------------------------------------------------------------------------
+
+/** Quantidade em milésimos → "1", "0,455". */
+function formatQtyMilli(milli: number): string {
+  return (milli / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
+}
+
+function ExpenseDetailRow({
+  entry,
+  colSpan,
+  open,
+  categoryLabel,
+}: {
+  entry: Entry
+  colSpan: number
+  open: boolean
+  categoryLabel: (v?: string | null) => string
+}) {
+  const isInvoice = (entry.type as string | null | undefined) === 'cartao'
+
+  const childrenQuery = useQuery({
+    queryKey: financeKeys.entries({ parent_id: entry.id }),
+    queryFn: () => listEntries({ parent_id: entry.id, kind: 'debit', limit: 500 }),
+    enabled: open && isInvoice,
+  })
+  const fiscalQuery = useQuery({
+    queryKey: [...financeKeys.all, 'fiscal-items', entry.id] as const,
+    queryFn: () => listFiscalItems(entry.id),
+    enabled: open && !isInvoice && Boolean(entry.fiscal_document_id),
+  })
+
+  const children = childrenQuery.data?.items ?? []
+  const fiscalItems = fiscalQuery.data ?? []
+
+  return (
+    <TableRow>
+      <TableCell colSpan={colSpan} sx={{ py: 0, borderBottom: open ? undefined : 'none' }}>
+        <Collapse in={open} timeout="auto" unmountOnExit>
+          <Box sx={{ py: 1.5, pl: 4 }}>
+            {isInvoice ? (
+              childrenQuery.isLoading ? (
+                <LoadingState />
+              ) : children.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Nenhuma compra nesta fatura.
+                </Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Data da compra</TableCell>
+                      <TableCell>Descrição</TableCell>
+                      <TableCell>Categoria</TableCell>
+                      <TableCell align="right">Valor</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {children.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell>
+                          {c.purchase_date ? formatDateBR(c.purchase_date) : '—'}
+                        </TableCell>
+                        <TableCell>{c.description}</TableCell>
+                        <TableCell>{categoryLabel(c.type)}</TableCell>
+                        <TableCell align="right">{formatCents(c.amount_cents)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )
+            ) : fiscalQuery.isLoading ? (
+              <LoadingState />
+            ) : fiscalItems.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Nenhum item de cupom vinculado.
+              </Typography>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Item</TableCell>
+                    <TableCell align="right">Qtd.</TableCell>
+                    <TableCell align="right">Unit.</TableCell>
+                    <TableCell align="right">Total</TableCell>
+                    <TableCell>Categoria</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {fiscalItems.map((it) => (
+                    <TableRow key={it.id}>
+                      <TableCell>{it.description}</TableCell>
+                      <TableCell align="right">{formatQtyMilli(it.quantity_milli)}</TableCell>
+                      <TableCell align="right">
+                        {it.unit_cents ? formatCents(it.unit_cents) : '—'}
+                      </TableCell>
+                      <TableCell align="right">{formatCents(it.amount_cents)}</TableCell>
+                      <TableCell>{it.category ? categoryLabel(it.category) : '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </Box>
+        </Collapse>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -800,6 +916,7 @@ export default function DespesasPage() {
   const [toCancel, setToCancel] = useState<Entry | null>(null)
   const [toReopen, setToReopen] = useState<Entry | null>(null)
   const [toConfirm, setToConfirm] = useState<Entry | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const membersQuery = useQuery({
     queryKey: financeKeys.familyMembers(),
@@ -827,6 +944,9 @@ export default function DespesasPage() {
     if (filters.status) p.status = filters.status as ListEntriesParams['status']
     if (filters.type) p.type = filters.type as ListEntriesParams['type']
     if (query.trim()) p.query = query.trim()
+    // Agrupado por default: compras de fatura ficam dentro da fatura (expandir).
+    // Filtro por categoria vira visão plana — as compras casam individualmente.
+    if (!filters.type && !query.trim()) p.top_level = true
     return p
   }, [filters, query, page, pageSize])
 
@@ -1076,9 +1196,30 @@ export default function DespesasPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {entries.map((e) => (
-                  <TableRow key={e.id} hover>
-                    <TableCell>{formatDateBR(e.due_date)}</TableCell>
+                {entries.map((e) => {
+                  const isInvoice = (e.type as string | null | undefined) === 'cartao'
+                  const expandable = isInvoice || Boolean(e.fiscal_document_id)
+                  const isOpen = expandedId === e.id
+                  return (
+                  <Fragment key={e.id}>
+                  <TableRow hover>
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        {expandable ? (
+                          <IconButton
+                            size="small"
+                            onClick={() => setExpandedId(isOpen ? null : e.id)}
+                          >
+                            {isOpen ? (
+                              <KeyboardArrowUpRoundedIcon fontSize="small" />
+                            ) : (
+                              <KeyboardArrowDownRoundedIcon fontSize="small" />
+                            )}
+                          </IconButton>
+                        ) : null}
+                        <span>{formatDateBR(e.due_date)}</span>
+                      </Stack>
+                    </TableCell>
                     <TableCell>{memberName(e.family_member_id)}</TableCell>
                     <TableCell>{categoryName(e.type)}</TableCell>
                     <TableCell sx={{ color: 'text.secondary' }}>
@@ -1101,7 +1242,11 @@ export default function DespesasPage() {
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      {e.residual_of_id ? (
+                      {e.parent_id ? (
+                        <Tooltip title="Compra dentro de uma fatura de cartão">
+                          <Chip size="small" variant="outlined" color="info" label="Fatura" />
+                        </Tooltip>
+                      ) : e.residual_of_id ? (
                         <Tooltip title="Saldo não pago de um pagamento parcial">
                           <Chip
                             size="small"
@@ -1109,6 +1254,16 @@ export default function DespesasPage() {
                             color="warning"
                             icon={<CallSplitRoundedIcon />}
                             label="Residual"
+                          />
+                        </Tooltip>
+                      ) : e.fiscal_document_id ? (
+                        <Tooltip title="Cupom/nota fiscal vinculado — expanda para ver os itens">
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            color="success"
+                            icon={<ReceiptRoundedIcon />}
+                            label="Cupom"
                           />
                         </Tooltip>
                       ) : e.installment_total ? (
@@ -1182,7 +1337,17 @@ export default function DespesasPage() {
                       </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))}
+                  {expandable && (
+                    <ExpenseDetailRow
+                      entry={e}
+                      colSpan={8}
+                      open={isOpen}
+                      categoryLabel={categoryName}
+                    />
+                  )}
+                  </Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
           </TableContainer>
