@@ -116,6 +116,8 @@ export type Entry = {
   discount_reason?: string | null
   /** Preenchido quando este lançamento é o saldo não pago de um pagamento parcial. */
   residual_of_id?: string | null
+  /** Data em que a compra foi realizada (itens de fatura); vencimento é sempre o da fatura. */
+  purchase_date?: string | null
   supplier_id?: string | null
   created_at?: string
   updated_at?: string
@@ -144,6 +146,8 @@ export type EntryInput = {
   recurrence_group_id?: string | null
   notes?: string | null
   supplier_id?: string | null
+  /** Data da compra (YYYY-MM-DD, itens de fatura). */
+  purchase_date?: string | null
   /** Lançamento retroativo: ocorrências vencidas nascem realizadas. */
   confirm_past_occurrences?: boolean
 }
