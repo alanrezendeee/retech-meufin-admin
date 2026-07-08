@@ -265,7 +265,7 @@ function InvoiceFormDialog({
 type PurchaseFormValues = {
   description: string
   amount: string
-  due_date: string
+  purchase_date: string
   type: string
 }
 
@@ -290,7 +290,7 @@ function PurchaseFormDialog({
     values: {
       description: '',
       amount: '',
-      due_date: invoice.due_date,
+      purchase_date: invoice.due_date,
       type: 'outros',
     },
   })
@@ -301,7 +301,9 @@ function PurchaseFormDialog({
         kind: 'debit',
         status: 'prevista',
         amount_cents: reaisToCents(values.amount),
-        due_date: values.due_date,
+        // Vencimento do item é sempre o da fatura; a data escolhida é a da compra.
+        due_date: invoice.due_date,
+        purchase_date: values.purchase_date || null,
         card_id: invoice.card_id ?? null,
         parent_id: invoice.id,
         type: (values.type || null) as EntryInput['type'],
@@ -361,19 +363,19 @@ function PurchaseFormDialog({
               )}
             />
             <Controller
-              name="due_date"
+              name="purchase_date"
               control={control}
               rules={{ required: 'Informe a data' }}
               render={({ field }) => (
                 <TextField
                   {...field}
                   type="date"
-                  label="Data"
+                  label="Data da compra"
                   fullWidth
                   required
                   InputLabelProps={{ shrink: true }}
-                  error={Boolean(errors.due_date)}
-                  helperText={errors.due_date?.message}
+                  error={Boolean(errors.purchase_date)}
+                  helperText={errors.purchase_date?.message}
                 />
               )}
             />
@@ -559,7 +561,7 @@ function PurchasesRow({
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Data</TableCell>
+                      <TableCell>Data da compra</TableCell>
                       <TableCell>Descrição</TableCell>
                       <TableCell>Categoria</TableCell>
                       <TableCell align="right">Valor</TableCell>
@@ -569,7 +571,7 @@ function PurchasesRow({
                   <TableBody>
                     {purchases.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell>{formatDateBR(p.due_date)}</TableCell>
+                        <TableCell>{p.purchase_date ? formatDateBR(p.purchase_date) : '—'}</TableCell>
                         <TableCell>{p.description}</TableCell>
                         <TableCell>
                           {p.type ? EXPENSE_CATEGORY_LABEL[p.type] ?? p.type : '—'}
