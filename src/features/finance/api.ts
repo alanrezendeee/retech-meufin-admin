@@ -114,6 +114,8 @@ export type Entry = {
   payment_card_id?: string | null
   discount_cents?: number | null
   discount_reason?: string | null
+  /** Preenchido quando este lançamento é o saldo não pago de um pagamento parcial. */
+  residual_of_id?: string | null
   supplier_id?: string | null
   created_at?: string
   updated_at?: string
@@ -340,16 +342,23 @@ export async function deleteEntry(id: string): Promise<void> {
   await meufinClient.delete(`${BASE}/entries/${id}`)
 }
 
-/** Desconto opcional na confirmação: abate do valor pago e registra o motivo. */
+/**
+ * Confirmação com desconto e/ou pagamento parcial.
+ * paid_amount_cents menor que o devido gera lançamento residual automático
+ * (vencendo em residual_due_date ou na data original).
+ */
 export type ConfirmEntryPayload = {
   discount_cents?: number
   discount_reason?: string
+  paid_amount_cents?: number
+  residual_due_date?: string // "YYYY-MM-DD"
 }
 
 export async function confirmEntry(id: string, payload?: ConfirmEntryPayload): Promise<Entry> {
+  const hasBody = Boolean(payload?.discount_cents || payload?.paid_amount_cents)
   const { data } = await meufinClient.post<Entry>(
     `${BASE}/entries/${id}/confirm`,
-    payload?.discount_cents ? payload : undefined,
+    hasBody ? payload : undefined,
   )
   return data
 }
