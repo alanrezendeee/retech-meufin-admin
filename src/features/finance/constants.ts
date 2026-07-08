@@ -317,8 +317,8 @@ export const SUPPLIER_BILLING_LABEL: Record<string, string> = SUPPLIER_BILLING_O
 )
 
 /**
- * Toast da edição em série: dia do vencimento alcança a série INTEIRA
- * (passados e futuros); valor/descrição/categoria só as previstas futuras.
+ * Toast da edição em série: dia do vencimento alcança os lançamentos DESTA
+ * edição em diante; valor/descrição/categoria só as previstas futuras.
  */
 export function seriesToast(
   label: string,
@@ -334,7 +334,7 @@ export function seriesToast(
   if (dueDatesUpdated > 0) {
     const p = dueDatesUpdated > 1 ? 's' : ''
     parts.push(
-      `vencimento movido para o dia ${newDueDay ?? '—'} em ${dueDatesUpdated} ${unit}${p} da série (passadas e futuras)`,
+      `vencimento movido para o dia ${newDueDay ?? '—'} em ${dueDatesUpdated} ${unit}${p} da série (desta em diante)`,
     )
   }
   if (fieldsUpdated > 0) {
