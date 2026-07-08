@@ -88,6 +88,7 @@ import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 import { useToast } from '@/providers/ToastProvider'
+import { PurchaseEditDialog } from '../components/PurchaseEditDialog'
 
 const now = new Date()
 
@@ -276,6 +277,7 @@ function ExpenseDetailRow({
   categoryLabel: (v?: string | null) => string
 }) {
   const isInvoice = (entry.type as string | null | undefined) === 'cartao'
+  const [toEditPurchase, setToEditPurchase] = useState<Entry | null>(null)
 
   const childrenQuery = useQuery({
     queryKey: financeKeys.entries({ parent_id: entry.id }),
@@ -289,6 +291,7 @@ function ExpenseDetailRow({
   })
 
   const children = childrenQuery.data?.items ?? []
+  const childrenSum = children.reduce((acc, c) => acc + c.amount_cents, 0)
   const fiscalItems = fiscalQuery.data ?? []
 
   return (
@@ -304,6 +307,7 @@ function ExpenseDetailRow({
                   Nenhuma compra nesta fatura.
                 </Typography>
               ) : (
+                <>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -311,6 +315,7 @@ function ExpenseDetailRow({
                       <TableCell>Descrição</TableCell>
                       <TableCell>Categoria</TableCell>
                       <TableCell align="right">Valor</TableCell>
+                      <TableCell align="right">Ações</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -322,10 +327,30 @@ function ExpenseDetailRow({
                         <TableCell>{c.description}</TableCell>
                         <TableCell>{categoryLabel(c.type)}</TableCell>
                         <TableCell align="right">{formatCents(c.amount_cents)}</TableCell>
+                        <TableCell align="right">
+                          <Tooltip title="Editar compra">
+                            <IconButton size="small" onClick={() => setToEditPurchase(c)}>
+                              <EditRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
+                {children.length > 0 && (
+                  <Typography
+                    variant="caption"
+                    color={childrenSum !== entry.amount_cents ? 'warning.main' : 'text.secondary'}
+                    sx={{ display: 'block', textAlign: 'right', mt: 1 }}
+                  >
+                    Soma das compras: {formatCents(childrenSum)}
+                    {childrenSum !== entry.amount_cents
+                      ? ` — difere do total da fatura (${formatCents(entry.amount_cents)})`
+                      : ''}
+                  </Typography>
+                )}
+                </>
               )
             ) : fiscalQuery.isLoading ? (
               <LoadingState />
@@ -361,6 +386,9 @@ function ExpenseDetailRow({
             )}
           </Box>
         </Collapse>
+        {toEditPurchase && (
+          <PurchaseEditDialog purchase={toEditPurchase} onClose={() => setToEditPurchase(null)} />
+        )}
       </TableCell>
     </TableRow>
   )

@@ -30,6 +30,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
@@ -69,6 +70,7 @@ import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 import { ImportInvoiceDialog } from '../components/ImportInvoiceDialog'
+import { PurchaseEditDialog } from '../components/PurchaseEditDialog'
 import { useToast } from '@/providers/ToastProvider'
 
 const now = new Date()
@@ -436,6 +438,7 @@ function PurchasesRow({
   const { show } = useToast()
   const [purchaseOpen, setPurchaseOpen] = useState(false)
   const [toDeletePurchase, setToDeletePurchase] = useState<Entry | null>(null)
+  const [toEditPurchase, setToEditPurchase] = useState<Entry | null>(null)
 
   const purchasesQuery = useQuery({
     queryKey: financeKeys.entries({ parent_id: invoice.id }),
@@ -578,6 +581,11 @@ function PurchasesRow({
                         </TableCell>
                         <TableCell align="right">{formatCents(p.amount_cents)}</TableCell>
                         <TableCell align="right">
+                          <Tooltip title="Editar compra">
+                            <IconButton size="small" onClick={() => setToEditPurchase(p)}>
+                              <EditRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="Excluir compra">
                             <IconButton
                               size="small"
@@ -629,6 +637,10 @@ function PurchasesRow({
         onConfirm={() => toDeletePurchase && deletePurchase.mutate(toDeletePurchase.id)}
         onClose={() => setToDeletePurchase(null)}
       />
+
+      {toEditPurchase && (
+        <PurchaseEditDialog purchase={toEditPurchase} onClose={() => setToEditPurchase(null)} />
+      )}
     </>
   )
 }
