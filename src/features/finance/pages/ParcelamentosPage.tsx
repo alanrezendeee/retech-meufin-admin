@@ -205,7 +205,7 @@ export default function ParcelamentosPage() {
         <EmptyState
           icon={<TimelineRoundedIcon />}
           title="Nenhum parcelamento ativo identificado"
-          description="Importe faturas com compras parceladas (ex.: PARC 03/10) — a projeção dos meses futuros aparece aqui automaticamente."
+          description="Importe faturas com compras parceladas (ex.: PARC 03/10) ou lance despesas parceladas — o acompanhamento dos meses futuros aparece aqui automaticamente."
         />
       ) : (
         <Stack spacing={3}>
@@ -323,7 +323,7 @@ export default function ParcelamentosPage() {
                     }
                     label="Parcelamentos ativos"
                     value={String(filteredGroups.length)}
-                    hint="Identificados nas faturas importadas"
+                    hint="Em faturas de cartão e despesas parceladas"
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
