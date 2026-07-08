@@ -141,6 +141,7 @@ type EntryFormValues = {
   recurrence: EntryInput['recurrence']
   description: string
   notes: string
+  apply_to_future: boolean
 }
 
 function emptyEntryForm(): EntryFormValues {
@@ -157,6 +158,7 @@ function emptyEntryForm(): EntryFormValues {
     recurrence: 'none',
     description: '',
     notes: '',
+    apply_to_future: false,
   }
 }
 
@@ -281,12 +283,14 @@ function EntryFormDialog({
           recurrence: entry.recurrence,
           description: entry.description,
           notes: entry.notes ?? '',
+          apply_to_future: false,
         }
       : emptyEntryForm(),
   })
 
   const recurrence = useWatch({ control, name: 'recurrence' })
   const dueDateText = useWatch({ control, name: 'due_date' })
+  const applyToFuture = useWatch({ control, name: 'apply_to_future' })
   const isPastDate = useMemo(() => {
     if (!dueDateText) return false
     return dueDateText < new Date().toISOString().slice(0, 10)
@@ -308,15 +312,20 @@ function EntryFormDialog({
         notes: values.notes.trim() || null,
       }
       if (isEdit) {
+        if (values.apply_to_future) base.apply_to = 'future'
         await updateEntry(entry!.id, base)
-        return { created: 0 }
+        return { created: 0, appliedToFuture: values.apply_to_future }
       }
       const res = await createEntry(base)
-      return { created: res.total ?? res.items?.length ?? 1 }
+      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false }
     },
-    onSuccess: ({ created }) => {
+    onSuccess: ({ created, appliedToFuture }) => {
       if (isEdit) {
-        show('Receita atualizada com sucesso.')
+        show(
+          appliedToFuture
+            ? 'Receita atualizada — mudanças aplicadas às próximas ocorrências.'
+            : 'Receita atualizada com sucesso.',
+        )
       } else if (created <= 1) {
         show('Receita criada com sucesso.')
       }
@@ -485,6 +494,33 @@ function EntryFormDialog({
                 />
               )}
             />
+          )}
+
+          {isEdit && entry?.recurrence_group_id && !entry?.installment_number && (
+            <>
+              <Controller
+                name="apply_to_future"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Aplicar às próximas ocorrências desta recorrência"
+                  />
+                )}
+              />
+              {applyToFuture && (
+                <Alert severity="info" icon={<RepeatRoundedIcon />}>
+                  Dia do vencimento, valor, descrição e categoria alterados aqui serão
+                  replicados nas ocorrências <strong>previstas futuras</strong> desta série.
+                  Lançamentos já realizados ou cancelados não são alterados.
+                </Alert>
+              )}
+            </>
           )}
 
           <Controller

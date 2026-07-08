@@ -151,6 +151,7 @@ type EntryFormValues = {
   confirm_past: boolean
   description: string
   notes: string
+  apply_to_future: boolean
 }
 
 function emptyEntryForm(): EntryFormValues {
@@ -169,6 +170,7 @@ function emptyEntryForm(): EntryFormValues {
     confirm_past: false,
     description: '',
     notes: '',
+    apply_to_future: false,
   }
 }
 
@@ -602,6 +604,7 @@ function EntryFormDialog({
           confirm_past: false,
           description: entry.description,
           notes: entry.notes ?? '',
+          apply_to_future: false,
         }
       : emptyEntryForm(),
   })
@@ -611,6 +614,7 @@ function EntryFormDialog({
   const amountText = useWatch({ control, name: 'amount' })
   const installmentsCount = useWatch({ control, name: 'installments_count' })
   const dueDateText = useWatch({ control, name: 'due_date' })
+  const applyToFuture = useWatch({ control, name: 'apply_to_future' })
 
   // "15× de R$ 1.500,00 = R$ 22.500,00 no total" — mata a ambiguidade
   // parcela × total na origem.
@@ -649,15 +653,20 @@ function EntryFormDialog({
         base.confirm_past_occurrences = true
       }
       if (isEdit) {
+        if (values.apply_to_future) base.apply_to = 'future'
         await updateEntry(entry!.id, base)
-        return { created: 0 }
+        return { created: 0, appliedToFuture: values.apply_to_future }
       }
       const res = await createEntry(base)
-      return { created: res.total ?? res.items?.length ?? 1 }
+      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false }
     },
-    onSuccess: ({ created }) => {
+    onSuccess: ({ created, appliedToFuture }) => {
       if (isEdit) {
-        show('Despesa atualizada com sucesso.')
+        show(
+          appliedToFuture
+            ? 'Despesa atualizada — mudanças aplicadas às próximas ocorrências.'
+            : 'Despesa atualizada com sucesso.',
+        )
       } else if (created <= 1) {
         show('Despesa criada com sucesso.')
       }
@@ -904,6 +913,33 @@ function EntryFormDialog({
                 />
               )}
             />
+          )}
+
+          {isEdit && entry?.recurrence_group_id && !entry?.installment_number && (
+            <>
+              <Controller
+                name="apply_to_future"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={field.value}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                    label="Aplicar às próximas ocorrências desta recorrência"
+                  />
+                )}
+              />
+              {applyToFuture && (
+                <Alert severity="info" icon={<RepeatRoundedIcon />}>
+                  Dia do vencimento, valor, descrição e categoria alterados aqui serão
+                  replicados nas ocorrências <strong>previstas futuras</strong> desta série.
+                  Lançamentos já realizados ou cancelados não são alterados.
+                </Alert>
+              )}
+            </>
           )}
 
           <Controller
