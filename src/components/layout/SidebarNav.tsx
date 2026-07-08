@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react'
 import {
   alpha,
   Box,
+  ButtonBase,
+  Collapse,
   Divider,
   List,
   ListItem,
@@ -12,6 +14,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { AppLogo } from './AppLogo'
 import { SidebarUserCard } from './SidebarUserCard'
@@ -99,9 +102,32 @@ function CollapsedFlyout({
   )
 }
 
+const NAV_COLLAPSED_KEY = 'meufin-nav-collapsed-sections'
+
+function loadCollapsedSections(): Record<string, boolean> {
+  try {
+    return JSON.parse(localStorage.getItem(NAV_COLLAPSED_KEY) ?? '{}')
+  } catch {
+    return {}
+  }
+}
+
 export function SidebarNav({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const { pathname } = useLocation()
   const sections = useFilteredNavData(retechfinNavSections)
+
+  // Seções fechadas pelo usuário (persistem entre sessões).
+  const [closedSections, setClosedSections] = useState<Record<string, boolean>>(loadCollapsedSections)
+  const toggleSection = (key: string) =>
+    setClosedSections((prev) => {
+      const next = { ...prev, [key]: !prev[key] }
+      try {
+        localStorage.setItem(NAV_COLLAPSED_KEY, JSON.stringify(next))
+      } catch {
+        /* storage indisponível: estado vive só na sessão */
+      }
+      return next
+    })
 
   const renderExpandedItem = (item: NavDataItem) => {
     const { path, label, icon: Icon, soon } = item
@@ -227,18 +253,50 @@ export function SidebarNav({ onNavigate, collapsed = false }: { onNavigate?: () 
       {!collapsed && <SidebarUserCard />}
 
       <Box sx={scrollSx}>
-        {sections.map((section, i) => (
-          <Box key={section.subheader ?? `section-${i}`}>
+        {sections.map((section, i) => {
+          const sectionKey = section.subheader ?? `section-${i}`
+          const isClosed = Boolean(section.subheader && closedSections[sectionKey])
+          const activeInside = section.items.some((item) => !item.soon && pathname === item.path)
+          return (
+          <Box key={sectionKey}>
             {!collapsed && section.subheader && (
-              <Typography
-                variant="overline"
-                sx={{ px: 1.5, mb: 1, color: 'text.secondary', letterSpacing: '0.14em', fontSize: '0.65rem' }}
+              <ButtonBase
+                onClick={() => toggleSection(sectionKey)}
+                aria-expanded={!isClosed}
+                sx={{
+                  width: '100%',
+                  justifyContent: 'space-between',
+                  px: 1.5,
+                  mb: 1,
+                  py: 0.25,
+                  borderRadius: 1,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
               >
-                {section.subheader}
-              </Typography>
+                <Typography
+                  variant="overline"
+                  sx={{
+                    color: isClosed && activeInside ? 'primary.main' : 'text.secondary',
+                    letterSpacing: '0.14em',
+                    fontSize: '0.65rem',
+                  }}
+                >
+                  {section.subheader}
+                </Typography>
+                <ExpandMoreRoundedIcon
+                  fontSize="small"
+                  sx={{
+                    color: 'text.secondary',
+                    transform: isClosed ? 'rotate(-90deg)' : 'none',
+                    transition: (theme) => theme.transitions.create('transform', { duration: 150 }),
+                  }}
+                />
+              </ButtonBase>
             )}
             {collapsed && i > 0 && <Divider sx={{ my: 1, mx: 1.25, borderColor: 'divider' }} />}
-            <List disablePadding>{section.items.map((item) => renderItem(item))}</List>
+            <Collapse in={collapsed || !isClosed} timeout={200}>
+              <List disablePadding>{section.items.map((item) => renderItem(item))}</List>
+            </Collapse>
             {!collapsed && i < sections.length - 1 && (
               <Divider
                 sx={(theme) => ({
@@ -251,7 +309,8 @@ export function SidebarNav({ onNavigate, collapsed = false }: { onNavigate?: () 
               />
             )}
           </Box>
-        ))}
+          )
+        })}
       </Box>
 
       {!collapsed && (
