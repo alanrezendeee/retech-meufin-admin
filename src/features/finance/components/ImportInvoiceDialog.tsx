@@ -210,7 +210,17 @@ export function ImportInvoiceDialog({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
-      closing(`Fatura importada com ${acceptedItems.length} compra(s).`)
+      // CTA educativo: usuário novo entende que o sistema reconheceu o
+      // parcelamento e onde acompanhar o compromisso futuro.
+      const parceladas = acceptedItems.filter(
+        (i) => i.installment_number != null && i.installment_total != null,
+      ).length
+      const base = `Fatura importada com ${acceptedItems.length} compra(s).`
+      closing(
+        parceladas > 0
+          ? `${base} ${parceladas} compra(s) parcelada(s) identificada(s) — acompanhe o compromisso futuro na tela Parcelamentos.`
+          : base,
+      )
     },
   })
 
