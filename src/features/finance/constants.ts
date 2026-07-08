@@ -181,6 +181,7 @@ export const financeKeys = {
   expenseCategories: () => [...financeKeys.all, 'expense-categories'] as const,
   suppliers: () => [...financeKeys.all, 'suppliers'] as const,
   receipts: (entryId: string) => [...financeKeys.all, 'receipts', entryId] as const,
+  discountReasons: () => [...financeKeys.all, 'discount-reasons'] as const,
   dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
   dashboardMonthly: (params: Record<string, unknown>) =>
     [...financeKeys.all, 'dashboard-monthly', params] as const,

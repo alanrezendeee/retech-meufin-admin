@@ -42,6 +42,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
   cancelEntry,
   confirmEntry,
+  listDiscountReasons,
   reopenEntry,
   createEntry,
   deleteEntry,
@@ -244,6 +245,105 @@ function QuickCategoryForm({
         </Stack>
       </Stack>
     </Box>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dialog: confirmar pagamento (com desconto opcional)
+// ---------------------------------------------------------------------------
+
+function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () => void }) {
+  const qc = useQueryClient()
+  const { show } = useToast()
+  const [discountText, setDiscountText] = useState('')
+  const [reason, setReason] = useState('')
+
+  const reasonsQuery = useQuery({
+    queryKey: financeKeys.discountReasons(),
+    queryFn: listDiscountReasons,
+  })
+
+  const discountCents = reaisToCents(discountText)
+  const finalCents = entry.amount_cents - discountCents
+  const discountInvalid =
+    discountCents > 0 && (discountCents >= entry.amount_cents || !reason)
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      confirmEntry(
+        entry.id,
+        discountCents > 0
+          ? { discount_cents: discountCents, discount_reason: reason }
+          : undefined,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.all })
+      show(
+        discountCents > 0
+          ? `Pagamento confirmado com ${formatCents(discountCents)} de desconto.`
+          : 'Despesa confirmada como paga.',
+      )
+      onClose()
+    },
+  })
+
+  return (
+    <Dialog open onClose={mutation.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>Confirmar pagamento</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {mutation.isError && <ErrorState message={errorMessage(mutation.error)} />}
+          <Typography variant="body2" color="text.secondary">
+            {entry.description} — {formatCents(entry.amount_cents)}
+          </Typography>
+          <MoneyField
+            label="Desconto (opcional)"
+            value={discountText}
+            onChange={(e) => setDiscountText(e.target.value)}
+            fullWidth
+            error={discountCents > 0 && discountCents >= entry.amount_cents}
+            helperText={
+              discountCents > 0 && discountCents >= entry.amount_cents
+                ? 'Desconto não pode ser maior ou igual ao valor da despesa'
+                : undefined
+            }
+          />
+          {discountCents > 0 && (
+            <>
+              <AutocompleteField
+                label="Motivo do desconto"
+                value={reason}
+                onChange={setReason}
+                options={(reasonsQuery.data ?? []).map((r) => ({
+                  value: r.slug,
+                  label: r.name,
+                  description: r.description,
+                }))}
+                placeholder="Ex.: pagamento antecipado"
+              />
+              {finalCents > 0 && (
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  Valor final: {formatCents(finalCents)}
+                </Typography>
+              )}
+            </>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button color="inherit" onClick={onClose} disabled={mutation.isPending}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          color="success"
+          onClick={() => mutation.mutate()}
+          disabled={mutation.isPending || discountInvalid}
+        >
+          Confirmar pagamento
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
@@ -650,6 +750,7 @@ export default function DespesasPage() {
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [toCancel, setToCancel] = useState<Entry | null>(null)
   const [toReopen, setToReopen] = useState<Entry | null>(null)
+  const [toConfirm, setToConfirm] = useState<Entry | null>(null)
 
   const membersQuery = useQuery({
     queryKey: financeKeys.familyMembers(),
@@ -658,6 +759,10 @@ export default function DespesasPage() {
   const suppliersListQuery = useQuery({
     queryKey: financeKeys.suppliers(),
     queryFn: listSuppliers,
+  })
+  const discountReasonsQuery = useQuery({
+    queryKey: financeKeys.discountReasons(),
+    queryFn: listDiscountReasons,
   })
   const { activeCategories, labelOf } = useExpenseCategories()
 
@@ -681,13 +786,6 @@ export default function DespesasPage() {
     queryFn: () => listEntries(listParams),
   })
 
-  const confirmMutation = useMutation({
-    mutationFn: (id: string) => confirmEntry(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: financeKeys.all })
-      show('Despesa confirmada como paga.')
-    },
-  })
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteEntry(id),
     onSuccess: () => {
@@ -720,6 +818,8 @@ export default function DespesasPage() {
   const categoryName = (value?: string | null) => labelOf(value)
   const supplierName = (id?: string | null) =>
     (suppliersListQuery.data ?? []).find((s) => s.id === id)?.name ?? null
+  const discountReasonName = (slug?: string | null) =>
+    (discountReasonsQuery.data ?? []).find((r) => r.slug === slug)?.name ?? slug ?? '—'
 
   const stats = useMemo(() => {
     let previsto = 0
@@ -937,6 +1037,19 @@ export default function DespesasPage() {
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                       {formatCents(e.amount_cents)}
+                      {e.discount_cents ? (
+                        <Tooltip
+                          title={`Desconto: ${discountReasonName(e.discount_reason)} — pago ${formatCents(e.paid_amount_cents ?? e.amount_cents - e.discount_cents)}`}
+                        >
+                          <Typography
+                            variant="caption"
+                            display="block"
+                            sx={{ color: 'success.main', fontWeight: 600 }}
+                          >
+                            −{formatCents(e.discount_cents)}
+                          </Typography>
+                        </Tooltip>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       {e.installment_total ? (
@@ -969,8 +1082,7 @@ export default function DespesasPage() {
                           <IconButton
                             size="small"
                             color="success"
-                            disabled={confirmMutation.isPending}
-                            onClick={() => confirmMutation.mutate(e.id)}
+                            onClick={() => setToConfirm(e)}
                           >
                             <CheckCircleRoundedIcon fontSize="small" />
                           </IconButton>
@@ -1056,6 +1168,10 @@ export default function DespesasPage() {
         onConfirm={() => toCancel && cancelMutation.mutate(toCancel.id)}
         onClose={() => setToCancel(null)}
       />
+
+      {toConfirm && (
+        <ConfirmPaymentDialog entry={toConfirm} onClose={() => setToConfirm(null)} />
+      )}
 
       <ConfirmDialog
         open={Boolean(toReopen)}
