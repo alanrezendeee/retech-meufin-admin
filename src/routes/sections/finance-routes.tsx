@@ -10,6 +10,7 @@ import ContasDoDiaPage from '@/features/finance/pages/ContasDoDiaPage'
 import CategoriasPage from '@/features/finance/pages/CategoriasPage'
 import FinanceDashboardPage from '@/features/finance/pages/FinanceDashboardPage'
 import FornecedoresPage from '@/features/finance/pages/FornecedoresPage'
+import CuponsPage from '@/features/finance/pages/CuponsPage'
 
 function guarded(subject: string, node: ReactNode): ReactNode {
   return (
@@ -35,4 +36,5 @@ export const financeRoutes: { path: string; element: ReactNode }[] = [
   { path: 'financeiro/contas-do-dia', element: guarded('finance.payables', <ContasDoDiaPage />) },
   { path: 'financeiro/categorias', element: guarded('finance.categories', <CategoriasPage />) },
   { path: 'financeiro/fornecedores', element: guarded('finance.suppliers', <FornecedoresPage />) },
+  { path: 'financeiro/cupons', element: guarded('finance.expenses', <CuponsPage />) },
 ]

@@ -118,6 +118,8 @@ export type Entry = {
   residual_of_id?: string | null
   /** Data em que a compra foi realizada (itens de fatura); vencimento é sempre o da fatura. */
   purchase_date?: string | null
+  /** Cupom/nota fiscal vinculado (detalhamento item a item). */
+  fiscal_document_id?: string | null
   supplier_id?: string | null
   created_at?: string
   updated_at?: string
@@ -186,6 +188,10 @@ export type FamilyMemberLite = {
 export type FinanceDocument = {
   id: string
   card_id?: string | null
+  entry_id?: string | null
+  file_name?: string
+  original_file_name?: string
+  extraction_status?: ExtractionStatusValue
   filename?: string | null
   content_type?: string | null
   created_at?: string
@@ -206,6 +212,26 @@ export type PurchaseSuggestion = {
   raw_text?: string | null
 }
 
+/** Item de cupom/nota fiscal sugerido pela extração (centavos; qty em milésimos). */
+export type FiscalItemSuggestion = {
+  description: string
+  quantity_milli: number
+  unit_cents: number
+  amount_cents: number
+  category?: string | null
+  raw_text?: string | null
+}
+
+/** Cupom/nota fiscal estruturado sugerido pela extração. */
+export type FiscalSuggestion = {
+  merchant?: string
+  cnpj?: string
+  date?: string // YYYY-MM-DD
+  total_cents: number
+  items: FiscalItemSuggestion[]
+  warnings?: string[]
+}
+
 /** Retorno do endpoint de status de extração. */
 export type ExtractionStatus = {
   status: ExtractionStatusValue
@@ -214,6 +240,41 @@ export type ExtractionStatus = {
   started_at?: string | null
   finished_at?: string | null
   purchases?: PurchaseSuggestion[]
+  fiscal?: FiscalSuggestion | null
+}
+
+/** Item de cupom/nota fiscal persistido, vinculado a uma despesa. */
+export type FiscalItem = {
+  id: string
+  entry_id: string
+  document_id: string
+  description: string
+  quantity_milli: number
+  unit_cents: number
+  amount_cents: number
+  category?: string | null
+}
+
+/** Payload de confirmação do cupom: vincula a despesa existente OU cria nova. */
+export type ConfirmFiscalPayload = {
+  entry_id?: string
+  new_entry?: {
+    description: string
+    amount_cents: number
+    due_date: string // YYYY-MM-DD
+    status?: 'prevista' | 'realizada'
+    type?: string | null
+    family_member_id?: string | null
+    supplier_id?: string | null
+    purchase_date?: string | null
+  }
+  items: Array<{
+    description: string
+    quantity_milli: number
+    unit_cents: number
+    amount_cents: number
+    category?: string | null
+  }>
 }
 
 /** Item da fatura no confirm — dinheiro trafega como inteiro de CENTAVOS (regra do sistema). */
@@ -454,12 +515,42 @@ export async function listFamilyMembers(): Promise<FamilyMemberLite[]> {
  * Envia o arquivo (PDF/imagem) da fatura. Multipart: `file` + `card_id?`.
  * Retorna o documento criado (com id).
  */
+/** Lista documentos fiscais (cupons/notas) importados. */
+export async function listFiscalDocuments(params: {
+  limit: number
+  offset: number
+}): Promise<Paginated<FinanceDocument>> {
+  const { data } = await meufinClient.get<Paginated<FinanceDocument>>(`${BASE}/documents`, {
+    params: { ...params, kind: 'fiscal' },
+  })
+  return data
+}
+
+/** Confirma o cupom/nota fiscal: grava itens e vincula à despesa. */
+export async function confirmFiscal(
+  documentId: string,
+  payload: ConfirmFiscalPayload,
+): Promise<{ entry: Entry; items: FiscalItem[]; items_total: number }> {
+  const { data } = await meufinClient.post(`${BASE}/documents/${documentId}/fiscal-confirm`, payload)
+  return data
+}
+
+/** Detalhamento fiscal (itens de cupom/nota) de um lançamento. */
+export async function listFiscalItems(entryId: string): Promise<FiscalItem[]> {
+  const { data } = await meufinClient.get<Paginated<FiscalItem>>(
+    `${BASE}/entries/${entryId}/fiscal-items`,
+  )
+  return data.items
+}
+
 export async function uploadInvoiceDocument(
   file: File,
-  cardId?: string
+  cardId?: string,
+  kind: 'import' | 'fiscal' = 'import'
 ): Promise<FinanceDocument> {
   const form = new FormData()
   form.append('file', file)
+  form.append('kind', kind)
   if (cardId) form.append('card_id', cardId)
   const { data } = await meufinClient.post<FinanceDocument>(`${BASE}/documents`, form, {
     headers: { 'Content-Type': 'multipart/form-data' },
