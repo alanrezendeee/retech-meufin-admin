@@ -473,6 +473,38 @@ export async function cancelEntry(id: string): Promise<Entry> {
 // Cartões de Crédito (cards)
 // ---------------------------------------------------------------------------
 
+/** Parcelamento ativo identificado nas faturas (projeção calculada). */
+export type InstallmentGroup = {
+  description: string
+  card_id?: string | null
+  category?: string | null
+  installment_cents: number
+  installment_total: number
+  last_known_number: number
+  remaining_count: number
+  remaining_cents: number
+  last_due_date: string // YYYY-MM-DD
+  ends_at: string // YYYY-MM
+}
+
+export type MonthlyCommitment = {
+  month: string // YYYY-MM
+  total_cents: number
+  count: number
+}
+
+export type InstallmentsProjection = {
+  groups: InstallmentGroup[]
+  monthly: MonthlyCommitment[]
+  remaining_total_cents: number
+}
+
+/** Projeção de compromissos parcelados dentro de faturas (não são lançamentos). */
+export async function getInstallmentsProjection(): Promise<InstallmentsProjection> {
+  const { data } = await meufinClient.get<InstallmentsProjection>(`${BASE}/installments`)
+  return data
+}
+
 /** Catálogo global de bandeiras (fixo, curado no backend). */
 export async function listCardBrands(): Promise<CardBrand[]> {
   const { data } = await meufinClient.get<Paginated<CardBrand>>(`${BASE}/card-brands`)
