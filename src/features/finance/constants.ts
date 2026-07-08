@@ -99,19 +99,31 @@ export const EXPENSE_CATEGORY_LABEL: Record<string, string> = EXPENSE_CATEGORY_O
   {} as Record<string, string>
 )
 
-/** Bandeira/emissor do cartão (campo opcional `brand`). */
-export const CARD_BRAND_OPTIONS: Option<string>[] = [
+/** Bancos/instituições emissoras de cartão (campo `bank`). A bandeira
+ * (Visa, Mastercard...) vem do catálogo global GET /finance/card-brands. */
+export const CARD_BANK_OPTIONS: Option<string>[] = [
   { value: 'nubank', label: 'Nubank' },
   { value: 'inter', label: 'Inter' },
   { value: 'santander', label: 'Santander' },
   { value: 'itau', label: 'Itaú' },
   { value: 'bradesco', label: 'Bradesco' },
+  { value: 'banco_do_brasil', label: 'Banco do Brasil' },
+  { value: 'caixa', label: 'Caixa' },
   { value: 'c6', label: 'C6' },
+  { value: 'btg', label: 'BTG Pactual' },
+  { value: 'xp', label: 'XP' },
   { value: 'mercado_pago', label: 'Mercado Pago' },
+  { value: 'picpay', label: 'PicPay' },
+  { value: 'neon', label: 'Neon' },
+  { value: 'pan', label: 'Banco Pan' },
+  { value: 'original', label: 'Original' },
+  { value: 'safra', label: 'Safra' },
+  { value: 'sicoob', label: 'Sicoob' },
+  { value: 'sicredi', label: 'Sicredi' },
   { value: 'outro', label: 'Outro' },
 ]
 
-export const CARD_BRAND_LABEL: Record<string, string> = CARD_BRAND_OPTIONS.reduce(
+export const CARD_BANK_LABEL: Record<string, string> = CARD_BANK_OPTIONS.reduce(
   (acc, o) => ({ ...acc, [o.value]: o.label }),
   {} as Record<string, string>
 )
@@ -182,6 +194,7 @@ export const financeKeys = {
   suppliers: () => [...financeKeys.all, 'suppliers'] as const,
   receipts: (entryId: string) => [...financeKeys.all, 'receipts', entryId] as const,
   discountReasons: () => [...financeKeys.all, 'discount-reasons'] as const,
+  cardBrands: () => [...financeKeys.all, 'card-brands'] as const,
   dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
   dashboardMonthly: (params: Record<string, unknown>) =>
     [...financeKeys.all, 'dashboard-monthly', params] as const,

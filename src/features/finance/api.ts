@@ -46,7 +46,10 @@ export type IncomeSourceInput = {
 export type CreditCard = {
   id: string
   name: string
+  /** Bandeira: slug do catálogo global (visa, mastercard, elo...). */
   brand?: string | null
+  /** Banco/instituição emissora (nubank, itau...). */
+  bank?: string | null
   closing_day?: number | null
   due_day?: number | null
   active: boolean
@@ -58,10 +61,17 @@ export type CreditCard = {
 export type CreditCardInput = {
   name: string
   brand?: string | null
+  bank?: string | null
   closing_day?: number | null
   due_day?: number | null
   active: boolean
   notes?: string | null
+}
+
+/** Bandeira de cartão — catálogo global fixo servido pela API. */
+export type CardBrand = {
+  slug: string
+  name: string
 }
 
 export type EntryKind = 'credit' | 'debit'
@@ -364,6 +374,12 @@ export async function cancelEntry(id: string): Promise<Entry> {
 // ---------------------------------------------------------------------------
 // Cartões de Crédito (cards)
 // ---------------------------------------------------------------------------
+
+/** Catálogo global de bandeiras (fixo, curado no backend). */
+export async function listCardBrands(): Promise<CardBrand[]> {
+  const { data } = await meufinClient.get<Paginated<CardBrand>>(`${BASE}/card-brands`)
+  return data.items
+}
 
 export async function listCards(): Promise<CreditCard[]> {
   const { data } = await meufinClient.get<Paginated<CreditCard>>(`${BASE}/cards`, {
