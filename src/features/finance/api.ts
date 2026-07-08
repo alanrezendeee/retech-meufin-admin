@@ -575,6 +575,12 @@ export async function listFamilyMembers(): Promise<FamilyMemberLite[]> {
 export async function listFiscalDocuments(params: {
   limit: number
   offset: number
+  /** Busca pelo nome original do arquivo. */
+  q?: string
+  /** Status de extração (pending | processing | extracted | failed | not_required). */
+  status?: string
+  /** Vínculo com despesa: true = vinculados, false = sem vínculo. */
+  linked?: boolean
 }): Promise<Paginated<FinanceDocument>> {
   const { data } = await meufinClient.get<Paginated<FinanceDocument>>(`${BASE}/documents`, {
     params: { ...params, kind: 'fiscal' },
