@@ -102,9 +102,18 @@ export type Entry = {
   payment_method?: PaymentMethod | null
   payment_account_id?: string | null
   payment_card_id?: string | null
+  discount_cents?: number | null
+  discount_reason?: string | null
   supplier_id?: string | null
   created_at?: string
   updated_at?: string
+}
+
+/** Motivo de desconto — catálogo global fixo servido pela API. */
+export type DiscountReason = {
+  slug: string
+  name: string
+  description: string
 }
 
 export type EntryInput = {
@@ -321,9 +330,24 @@ export async function deleteEntry(id: string): Promise<void> {
   await meufinClient.delete(`${BASE}/entries/${id}`)
 }
 
-export async function confirmEntry(id: string): Promise<Entry> {
-  const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/confirm`)
+/** Desconto opcional na confirmação: abate do valor pago e registra o motivo. */
+export type ConfirmEntryPayload = {
+  discount_cents?: number
+  discount_reason?: string
+}
+
+export async function confirmEntry(id: string, payload?: ConfirmEntryPayload): Promise<Entry> {
+  const { data } = await meufinClient.post<Entry>(
+    `${BASE}/entries/${id}/confirm`,
+    payload?.discount_cents ? payload : undefined,
+  )
   return data
+}
+
+/** Catálogo global de motivos de desconto (fixo, curado no backend). */
+export async function listDiscountReasons(): Promise<DiscountReason[]> {
+  const { data } = await meufinClient.get<Paginated<DiscountReason>>(`${BASE}/discount-reasons`)
+  return data.items
 }
 
 /** Desfaz a liquidação: realizada volta a prevista, detalhes de pagamento limpos. */
