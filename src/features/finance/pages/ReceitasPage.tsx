@@ -71,7 +71,8 @@ import {
   RECURRENCE_LABEL,
   RECURRENCE_OPTIONS,
   SOURCE_KIND_OPTIONS,
-  yearOptions, seriesToast } from '../constants'
+  seriesToast } from '../constants'
+import { useYearOptions } from '../hooks/useYearOptions'
 import { MoneyField } from '@/components/fields/MoneyField'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { formatDateBR } from '@/utils/dates'
@@ -583,6 +584,7 @@ function EntryFormDialog({
 // ---------------------------------------------------------------------------
 
 export default function ReceitasPage() {
+  const yearsList = useYearOptions()
   const qc = useQueryClient()
   const { show } = useToast()
   const [filters, setFilters] = useState<Filters>(initialFilters)
@@ -795,7 +797,7 @@ export default function ReceitasPage() {
                 value={filters.year}
                 onChange={(e) => setFilter('year', Number(e.target.value))}
               >
-                {yearOptions().map((y) => (
+                {yearsList.map((y) => (
                   <MenuItem key={y} value={y}>
                     {y}
                   </MenuItem>

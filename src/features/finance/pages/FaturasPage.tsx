@@ -61,8 +61,8 @@ import {
   EXPENSE_CATEGORY_OPTIONS,
   financeKeys,
   MONTH_OPTIONS,
-  yearOptions,
 } from '../constants'
+import { useYearOptions } from '../hooks/useYearOptions'
 import { MoneyField } from '@/components/fields/MoneyField'
 import { formatDateBR } from '@/utils/dates'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
@@ -650,6 +650,7 @@ function PurchasesRow({
 // ---------------------------------------------------------------------------
 
 export default function FaturasPage() {
+  const yearsList = useYearOptions()
   const qc = useQueryClient()
   const { show } = useToast()
   const [filters, setFilters] = useState<Filters>(initialFilters)
@@ -828,7 +829,7 @@ export default function FaturasPage() {
                 value={filters.year}
                 onChange={(e) => setFilter('year', Number(e.target.value))}
               >
-                {yearOptions().map((y) => (
+                {yearsList.map((y) => (
                   <MenuItem key={y} value={y}>
                     {y}
                   </MenuItem>

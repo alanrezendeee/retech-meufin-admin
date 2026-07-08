@@ -486,6 +486,14 @@ export async function reopenEntry(id: string): Promise<Entry> {
   return data
 }
 
+/** Menor e maior ano de vencimento do workspace (0 quando não há lançamentos). */
+export async function getEntryYearBounds(): Promise<{ min_year: number; max_year: number }> {
+  const { data } = await meufinClient.get<{ min_year: number; max_year: number }>(
+    `${BASE}/entries/year-bounds`,
+  )
+  return data
+}
+
 export async function cancelEntry(id: string): Promise<Entry> {
   const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/cancel`)
   return data

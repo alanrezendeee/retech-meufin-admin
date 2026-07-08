@@ -205,6 +205,7 @@ export const financeKeys = {
   incomeSources: () => [...financeKeys.all, 'income-sources'] as const,
   cards: () => [...financeKeys.all, 'cards'] as const,
   entries: (params: Record<string, unknown>) => [...financeKeys.all, 'entries', params] as const,
+  yearBounds: () => [...financeKeys.all, 'year-bounds'] as const,
   invoices: (params: Record<string, unknown>) => [...financeKeys.all, 'invoices', params] as const,
   familyMembers: () => [...financeKeys.all, 'family-members'] as const,
   accounts: () => [...financeKeys.all, 'accounts'] as const,
