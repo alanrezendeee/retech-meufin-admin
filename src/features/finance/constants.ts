@@ -317,30 +317,32 @@ export const SUPPLIER_BILLING_LABEL: Record<string, string> = SUPPLIER_BILLING_O
 )
 
 /**
- * Toast da edição em série ("aplicar às próximas"): explicita quantas
- * ocorrências/parcelas futuras mudaram e que passadas/realizadas ficam como estão.
+ * Toast da edição em série: dia do vencimento alcança a série INTEIRA
+ * (passados e futuros); valor/descrição/categoria só as previstas futuras.
  */
 export function seriesToast(
   label: string,
-  appliedToFuture: boolean,
-  seriesUpdated: number,
-  dueDateChanged: boolean,
+  appliedToSeries: boolean,
+  dueDatesUpdated: number,
+  fieldsUpdated: number,
+  newDueDay: number | null,
   isInstallment: boolean,
 ): string {
-  if (!appliedToFuture) return `${label} atualizada com sucesso.`
+  if (!appliedToSeries) return `${label} atualizada com sucesso.`
   const unit = isInstallment ? 'parcela' : 'ocorrência'
-  if (seriesUpdated <= 0) {
-    return `${label} atualizada — nenhuma ${unit} futura para atualizar.`
-  }
-  const plural = seriesUpdated > 1 ? 's' : ''
-  if (dueDateChanged) {
-    return (
-      `${label} atualizada — data de vencimento ajustada em ${seriesUpdated} ${unit}${plural} ` +
-      `futura${plural}. Vencimentos passados e lançamentos já realizados não foram alterados.`
+  const parts: string[] = []
+  if (dueDatesUpdated > 0) {
+    const p = dueDatesUpdated > 1 ? 's' : ''
+    parts.push(
+      `vencimento movido para o dia ${newDueDay ?? '—'} em ${dueDatesUpdated} ${unit}${p} da série (passadas e futuras)`,
     )
   }
-  return (
-    `${label} atualizada — alterações aplicadas a ${seriesUpdated} ${unit}${plural} ` +
-    `futura${plural}. Lançamentos passados não foram alterados.`
-  )
+  if (fieldsUpdated > 0) {
+    const p = fieldsUpdated > 1 ? 's' : ''
+    parts.push(`demais alterações aplicadas a ${fieldsUpdated} ${unit}${p} prevista${p} futura${p}`)
+  }
+  if (parts.length === 0) {
+    return `${label} atualizada — nenhum outro lançamento da série precisou mudar.`
+  }
+  return `${label} atualizada — ${parts.join('; ')}.`
 }

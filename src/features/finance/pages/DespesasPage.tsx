@@ -677,16 +677,25 @@ function EntryFormDialog({
         return {
           created: 0,
           appliedToFuture: values.apply_to_future,
-          seriesUpdated: updated.series_updated ?? 0,
-          dueDateChanged: values.due_date !== entry!.due_date,
+          dueDatesUpdated: updated.series_due_dates_updated ?? 0,
+          fieldsUpdated: updated.series_fields_updated ?? 0,
+          newDueDay: Number(values.due_date.slice(8, 10)) || null,
         }
       }
       const res = await createEntry(base)
-      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false, seriesUpdated: 0, dueDateChanged: false }
+      return {
+        created: res.total ?? res.items?.length ?? 1,
+        appliedToFuture: false,
+        dueDatesUpdated: 0,
+        fieldsUpdated: 0,
+        newDueDay: null,
+      }
     },
-    onSuccess: ({ created, appliedToFuture, seriesUpdated, dueDateChanged }) => {
+    onSuccess: ({ created, appliedToFuture, dueDatesUpdated, fieldsUpdated, newDueDay }) => {
       if (isEdit) {
-        show(seriesToast('Despesa', appliedToFuture, seriesUpdated, dueDateChanged, isInstallmentEntry))
+        show(
+          seriesToast('Despesa', appliedToFuture, dueDatesUpdated, fieldsUpdated, newDueDay, isInstallmentEntry),
+        )
       } else if (created <= 1) {
         show('Despesa criada com sucesso.')
       }
@@ -964,10 +973,11 @@ function EntryFormDialog({
               />
               {applyToFuture && (
                 <Alert severity="info" icon={<RepeatRoundedIcon />}>
-                  Dia do vencimento, valor, descrição e categoria alterados aqui serão
-                  replicados nas {isInstallmentEntry ? 'parcelas' : 'ocorrências'}{' '}
-                  <strong>previstas futuras</strong> desta série. Lançamentos já realizados
-                  ou cancelados não são alterados.
+                  <strong>Data de vencimento</strong>: o novo dia é aplicado a{' '}
+                  <strong>todas</strong> as {isInstallmentEntry ? 'parcelas' : 'ocorrências'}{' '}
+                  da série (passadas e futuras, inclusive realizadas), cada uma no seu mês.
+                  Valor, descrição e categoria: apenas nas previstas futuras. Canceladas
+                  ficam de fora.
                 </Alert>
               )}
             </>
