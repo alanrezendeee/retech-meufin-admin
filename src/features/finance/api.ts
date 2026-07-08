@@ -423,8 +423,15 @@ export async function createEntry(input: EntryInput): Promise<Paginated<Entry>> 
   return data
 }
 
-export async function updateEntry(id: string, input: Partial<EntryInput>): Promise<Entry> {
-  const { data } = await meufinClient.put<Entry>(`${BASE}/entries/${id}`, input)
+/** Com apply_to='future', a API devolve também series_updated (nº de ocorrências/parcelas futuras alteradas). */
+export async function updateEntry(
+  id: string,
+  input: Partial<EntryInput>,
+): Promise<Entry & { series_updated?: number }> {
+  const { data } = await meufinClient.put<Entry & { series_updated?: number }>(
+    `${BASE}/entries/${id}`,
+    input,
+  )
   return data
 }
 

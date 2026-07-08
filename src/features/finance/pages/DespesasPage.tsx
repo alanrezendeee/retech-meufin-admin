@@ -72,8 +72,7 @@ import {
   MONTH_OPTIONS,
   RECURRENCE_LABEL,
   RECURRENCE_OPTIONS,
-  yearOptions,
-} from '../constants'
+  yearOptions, seriesToast } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
 import {
   createExpenseCategory,
@@ -674,19 +673,20 @@ function EntryFormDialog({
       }
       if (isEdit) {
         if (values.apply_to_future) base.apply_to = 'future'
-        await updateEntry(entry!.id, base)
-        return { created: 0, appliedToFuture: values.apply_to_future }
+        const updated = await updateEntry(entry!.id, base)
+        return {
+          created: 0,
+          appliedToFuture: values.apply_to_future,
+          seriesUpdated: updated.series_updated ?? 0,
+          dueDateChanged: values.due_date !== entry!.due_date,
+        }
       }
       const res = await createEntry(base)
-      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false }
+      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false, seriesUpdated: 0, dueDateChanged: false }
     },
-    onSuccess: ({ created, appliedToFuture }) => {
+    onSuccess: ({ created, appliedToFuture, seriesUpdated, dueDateChanged }) => {
       if (isEdit) {
-        show(
-          appliedToFuture
-            ? 'Despesa atualizada — mudanças aplicadas às próximas ocorrências.'
-            : 'Despesa atualizada com sucesso.',
-        )
+        show(seriesToast('Despesa', appliedToFuture, seriesUpdated, dueDateChanged, isInstallmentEntry))
       } else if (created <= 1) {
         show('Despesa criada com sucesso.')
       }
