@@ -488,6 +488,8 @@ export async function cancelEntry(id: string): Promise<Entry> {
 /** Parcelamento ativo identificado nas faturas (projeção calculada). */
 export type InstallmentGroup = {
   description: string
+  /** 'invoice' = compra em fatura (projeção); 'expense' = despesa parcelada (parcelas reais). */
+  source: 'invoice' | 'expense'
   card_id?: string | null
   category?: string | null
   installment_cents: number
