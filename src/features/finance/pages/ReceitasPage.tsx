@@ -290,6 +290,8 @@ function EntryFormDialog({
   const recurrence = useWatch({ control, name: 'recurrence' })
   const dueDateText = useWatch({ control, name: 'due_date' })
   const applyToFuture = useWatch({ control, name: 'apply_to_future' })
+  const editDueDate = useWatch({ control, name: 'due_date' })
+  const dueDateDirty = Boolean(isEdit && entry && editDueDate && editDueDate !== entry.due_date)
   const isPastDate = useMemo(() => {
     if (!dueDateText) return false
     return dueDateText < new Date().toISOString().slice(0, 10)
@@ -501,6 +503,14 @@ function EntryFormDialog({
                 />
               )}
             />
+          )}
+
+          {isEdit && entry?.recurrence_group_id && !entry?.installment_number && dueDateDirty && !applyToFuture && (
+            <Alert severity="warning" icon={<RepeatRoundedIcon />}>
+              A data de vencimento mudou, mas com a opção abaixo desligada a alteração
+              vale <strong>só para este lançamento</strong>. Para mover também as
+              próximas ocorrências, ligue &quot;Aplicar às próximas&quot;.
+            </Alert>
           )}
 
           {isEdit && entry?.recurrence_group_id && !entry?.installment_number && (
