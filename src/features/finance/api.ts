@@ -153,6 +153,11 @@ export type EntryInput = {
   /** Parcela da compra em fatura (update): ausente preserva; 0 limpa. */
   installment_number?: number
   installment_total?: number
+  /**
+   * Update em série: 'future' propaga dia do vencimento, valor, descrição e
+   * categoria às ocorrências previstas futuras da recorrência. Default 'one'.
+   */
+  apply_to?: 'one' | 'future'
   /** Lançamento retroativo: ocorrências vencidas nascem realizadas. */
   confirm_past_occurrences?: boolean
 }
