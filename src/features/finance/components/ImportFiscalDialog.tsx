@@ -255,7 +255,7 @@ export function ImportFiscalDialog({
               value={pdfPassword}
               onChange={(e) => setPdfPassword(e.target.value)}
               fullWidth
-              helperText="PDFs protegidos com senha são lidos após informar a senha — usada só na leitura, não fica salva."
+              helperText="Só preencha se o PDF pedir senha (costuma ser os primeiros dígitos do CPF/CNPJ). Usada só na leitura; não fica salva."
             />
             <Typography variant="caption" color="text.secondary">
               NFC-e, NF-e, SAT ou cupom de supermercado. Os itens serão extraídos

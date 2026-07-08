@@ -263,7 +263,7 @@ export function ImportInvoiceDialog({
               value={pdfPassword}
               onChange={(e) => setPdfPassword(e.target.value)}
               fullWidth
-              helperText="Alguns bancos protegem o PDF da fatura com senha (ex.: CPF). Ela é usada só na leitura e não fica salva."
+              helperText="A maioria das faturas abre sem senha — deixe em branco. Quando o banco protege o PDF, a senha costuma ser os primeiros dígitos do seu CPF ou CNPJ (ex.: 4 primeiros do CNPJ). Usada só na leitura; não fica salva."
             />
             <Typography variant="caption" color="text.secondary">
               Aceita PDF ou imagem (JPG/PNG). O conteúdo será lido por IA para sugerir as compras.
