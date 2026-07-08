@@ -32,12 +32,13 @@ import { Controller, useForm } from 'react-hook-form'
 import {
   createCard,
   deleteCard,
+  listCardBrands,
   listCardsPaged,
   updateCard,
   type CreditCard,
   type CreditCardInput,
 } from '../api'
-import { CARD_BRAND_LABEL, CARD_BRAND_OPTIONS, errorMessage, financeKeys } from '../constants'
+import { CARD_BANK_LABEL, CARD_BANK_OPTIONS, errorMessage, financeKeys } from '../constants'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
@@ -46,6 +47,7 @@ import { useToast } from '@/providers/ToastProvider'
 
 type FormValues = {
   name: string
+  bank: string
   brand: string
   closing_day: string
   due_day: string
@@ -55,6 +57,7 @@ type FormValues = {
 
 const emptyForm: FormValues = {
   name: '',
+  bank: '',
   brand: '',
   closing_day: '',
   due_day: '',
@@ -81,6 +84,11 @@ function CardFormDialog({
   const { show } = useToast()
   const isEdit = Boolean(card)
 
+  const brandsQuery = useQuery({
+    queryKey: financeKeys.cardBrands(),
+    queryFn: listCardBrands,
+  })
+
   const {
     control,
     handleSubmit,
@@ -90,6 +98,7 @@ function CardFormDialog({
     values: card
       ? {
           name: card.name,
+          bank: card.bank ?? '',
           brand: card.brand ?? '',
           closing_day: card.closing_day != null ? String(card.closing_day) : '',
           due_day: card.due_day != null ? String(card.due_day) : '',
@@ -103,6 +112,7 @@ function CardFormDialog({
     mutationFn: (values: FormValues) => {
       const input: CreditCardInput = {
         name: values.name.trim(),
+        bank: values.bank || null,
         brand: values.brand || null,
         closing_day: toDayNumber(values.closing_day),
         due_day: toDayNumber(values.due_day),
@@ -149,22 +159,40 @@ function CardFormDialog({
               />
             )}
           />
-          <Controller
-            name="brand"
-            control={control}
-            render={({ field }) => (
-              <TextField {...field} select label="Bandeira" fullWidth>
-                <MenuItem value="">
-                  <em>Não informada</em>
-                </MenuItem>
-                {CARD_BRAND_OPTIONS.map((o) => (
-                  <MenuItem key={o.value} value={o.value}>
-                    {o.label}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Controller
+              name="bank"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} select label="Banco" fullWidth>
+                  <MenuItem value="">
+                    <em>Não informado</em>
                   </MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
+                  {CARD_BANK_OPTIONS.map((o) => (
+                    <MenuItem key={o.value} value={o.value}>
+                      {o.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+            <Controller
+              name="brand"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} select label="Bandeira" fullWidth>
+                  <MenuItem value="">
+                    <em>Não informada</em>
+                  </MenuItem>
+                  {(brandsQuery.data ?? []).map((b) => (
+                    <MenuItem key={b.slug} value={b.slug}>
+                      {b.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          </Stack>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <Controller
               name="closing_day"
@@ -238,6 +266,14 @@ function CardFormDialog({
 export default function CartoesPage() {
   const qc = useQueryClient()
   const { show } = useToast()
+
+  const brandsQuery = useQuery({
+    queryKey: financeKeys.cardBrands(),
+    queryFn: listCardBrands,
+  })
+  const brandName = (slug: string) =>
+    (brandsQuery.data ?? []).find((b) => b.slug === slug)?.name ?? slug
+
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<CreditCard | null>(null)
   const [toDelete, setToDelete] = useState<CreditCard | null>(null)
@@ -359,6 +395,7 @@ export default function CartoesPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Nome</TableCell>
+                  <TableCell>Banco</TableCell>
                   <TableCell>Bandeira</TableCell>
                   <TableCell align="center">Fechamento</TableCell>
                   <TableCell align="center">Vencimento</TableCell>
@@ -370,7 +407,8 @@ export default function CartoesPage() {
                 {cards.map((c) => (
                   <TableRow key={c.id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{c.name}</TableCell>
-                    <TableCell>{c.brand ? CARD_BRAND_LABEL[c.brand] ?? c.brand : '—'}</TableCell>
+                    <TableCell>{c.bank ? CARD_BANK_LABEL[c.bank] ?? c.bank : '—'}</TableCell>
+                    <TableCell>{c.brand ? brandName(c.brand) : '—'}</TableCell>
                     <TableCell align="center">
                       {c.closing_day != null ? `Dia ${c.closing_day}` : '—'}
                     </TableCell>
