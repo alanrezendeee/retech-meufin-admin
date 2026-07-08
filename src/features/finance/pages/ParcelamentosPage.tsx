@@ -121,6 +121,7 @@ export default function ParcelamentosPage() {
   const [query, setQuery] = useState('')
   const [cardFilter, setCardFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
 
   const projectionQuery = useQuery({
     queryKey: [...financeKeys.all, 'installments-projection'] as const,
@@ -137,7 +138,7 @@ export default function ParcelamentosPage() {
   const proj = projectionQuery.data
   const groups = useMemo(() => proj?.groups ?? [], [proj])
 
-  const hasFilters = Boolean(query.trim() || cardFilter || categoryFilter)
+  const hasFilters = Boolean(query.trim() || cardFilter || categoryFilter || sourceFilter)
 
   const filteredGroups = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -145,9 +146,10 @@ export default function ParcelamentosPage() {
       if (q && !g.description.toLowerCase().includes(q)) return false
       if (cardFilter && g.card_id !== cardFilter) return false
       if (categoryFilter && g.category !== categoryFilter) return false
+      if (sourceFilter && g.source !== sourceFilter) return false
       return true
     })
-  }, [groups, query, cardFilter, categoryFilter])
+  }, [groups, query, cardFilter, categoryFilter, sourceFilter])
 
   // Com filtros, o mensal é reconstruído a partir dos grupos filtrados; sem
   // filtros, usa a projeção do backend direto.
@@ -182,13 +184,14 @@ export default function ParcelamentosPage() {
     setQuery('')
     setCardFilter('')
     setCategoryFilter('')
+    setSourceFilter('')
   }
 
   return (
     <>
       <PageHeader
         title="Parcelamentos"
-        subtitle="Compromissos parcelados dentro das faturas de cartão — projeção calculada a partir das compras importadas (não são lançamentos)."
+        subtitle="Compromissos parcelados — compras em fatura de cartão (projeção calculada) e despesas parceladas diretas (parcelas previstas reais)."
       />
 
       {projectionQuery.isLoading ? (
@@ -209,7 +212,7 @@ export default function ParcelamentosPage() {
           <Card>
             <CardContent>
               <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 5 }}>
                   <TextField
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -225,7 +228,7 @@ export default function ParcelamentosPage() {
                     }}
                   />
                 </Grid>
-                <Grid size={{ xs: 6, sm: 3, md: 4 }}>
+                <Grid size={{ xs: 6, sm: 3, md: 3 }}>
                   <TextField
                     select
                     label="Cartão"
@@ -242,7 +245,7 @@ export default function ParcelamentosPage() {
                     ))}
                   </TextField>
                 </Grid>
-                <Grid size={{ xs: 6, sm: 3, md: 4 }}>
+                <Grid size={{ xs: 6, sm: 3, md: 2 }}>
                   <AutocompleteField
                     label="Categoria"
                     size="small"
@@ -255,6 +258,20 @@ export default function ParcelamentosPage() {
                       description: cat.group_name,
                     }))}
                   />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                  <TextField
+                    select
+                    label="Origem"
+                    fullWidth
+                    size="small"
+                    value={sourceFilter}
+                    onChange={(e) => setSourceFilter(e.target.value)}
+                  >
+                    <MenuItem value="">Todas</MenuItem>
+                    <MenuItem value="invoice">Fatura de cartão</MenuItem>
+                    <MenuItem value="expense">Despesa parcelada</MenuItem>
+                  </TextField>
                 </Grid>
               </Grid>
             </CardContent>
@@ -397,6 +414,7 @@ export default function ParcelamentosPage() {
                     <TableHead>
                       <TableRow>
                         <TableCell>Descrição</TableCell>
+                        <TableCell>Origem</TableCell>
                         <TableCell>Cartão</TableCell>
                         <TableCell>Categoria</TableCell>
                         <TableCell sx={{ minWidth: 180 }}>Progresso</TableCell>
@@ -414,6 +432,14 @@ export default function ParcelamentosPage() {
                           <TableRow key={i} hover>
                             <TableCell sx={{ fontWeight: 600 }}>
                               {g.description}
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                color={g.source === 'expense' ? 'info' : 'default'}
+                                label={g.source === 'expense' ? 'Despesa' : 'Fatura'}
+                              />
                             </TableCell>
                             <TableCell>{cardName(g.card_id)}</TableCell>
                             <TableCell>
