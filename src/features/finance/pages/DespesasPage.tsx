@@ -33,6 +33,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
+import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
 import RepeatRoundedIcon from '@mui/icons-material/RepeatRounded'
@@ -41,6 +42,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
   cancelEntry,
   confirmEntry,
+  reopenEntry,
   createEntry,
   deleteEntry,
   formatCents,
@@ -647,6 +649,7 @@ export default function DespesasPage() {
   const [editing, setEditing] = useState<Entry | null>(null)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [toCancel, setToCancel] = useState<Entry | null>(null)
+  const [toReopen, setToReopen] = useState<Entry | null>(null)
 
   const membersQuery = useQuery({
     queryKey: financeKeys.familyMembers(),
@@ -699,6 +702,14 @@ export default function DespesasPage() {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToCancel(null)
       show('Despesa cancelada.')
+    },
+  })
+  const reopenMutation = useMutation({
+    mutationFn: (id: string) => reopenEntry(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.all })
+      setToReopen(null)
+      show('Pagamento desfeito. Despesa voltou a prevista.')
     },
   })
 
@@ -965,6 +976,18 @@ export default function DespesasPage() {
                           </IconButton>
                         </Tooltip>
                       )}
+                      {e.status === 'realizada' && (
+                        <Tooltip title="Desfazer pagamento">
+                          <IconButton
+                            size="small"
+                            color="warning"
+                            disabled={reopenMutation.isPending}
+                            onClick={() => setToReopen(e)}
+                          >
+                            <UndoRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <Tooltip title="Editar">
                         <IconButton size="small" onClick={() => openEdit(e)}>
                           <EditRoundedIcon fontSize="small" />
@@ -1034,6 +1057,16 @@ export default function DespesasPage() {
         onClose={() => setToCancel(null)}
       />
 
+      <ConfirmDialog
+        open={Boolean(toReopen)}
+        title="Desfazer pagamento"
+        description={`Desfazer o pagamento de "${toReopen?.description}"? A despesa volta a prevista e os dados de pagamento são limpos.`}
+        confirmLabel="Desfazer pagamento"
+        cancelLabel="Voltar"
+        loading={reopenMutation.isPending}
+        onConfirm={() => toReopen && reopenMutation.mutate(toReopen.id)}
+        onClose={() => setToReopen(null)}
+      />
     </>
   )
 }

@@ -31,6 +31,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
@@ -39,6 +40,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import {
   confirmEntry,
+  reopenEntry,
   createEntry,
   deleteEntry,
   formatCents,
@@ -413,16 +415,20 @@ function PurchasesRow({
   expanded,
   onToggle,
   onConfirm,
+  onReopen,
   onDelete,
   confirmPending,
+  reopenPending,
 }: {
   invoice: Entry
   cardName: string
   expanded: boolean
   onToggle: () => void
   onConfirm: () => void
+  onReopen: () => void
   onDelete: () => void
   confirmPending: boolean
+  reopenPending: boolean
 }) {
   const qc = useQueryClient()
   const { show } = useToast()
@@ -493,6 +499,18 @@ function PurchasesRow({
                 onClick={onConfirm}
               >
                 <CheckCircleRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          {invoice.status === 'realizada' && (
+            <Tooltip title="Desfazer pagamento">
+              <IconButton
+                size="small"
+                color="warning"
+                disabled={reopenPending}
+                onClick={onReopen}
+              >
+                <UndoRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
@@ -627,6 +645,7 @@ export default function FaturasPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
+  const [toReopen, setToReopen] = useState<Entry | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
 
   const cardsQuery = useQuery({
@@ -668,6 +687,14 @@ export default function FaturasPage() {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToDelete(null)
       show('Fatura excluída.')
+    },
+  })
+  const reopenMutation = useMutation({
+    mutationFn: (id: string) => reopenEntry(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: financeKeys.all })
+      setToReopen(null)
+      show('Pagamento desfeito. Fatura voltou a prevista.')
     },
   })
 
@@ -843,8 +870,10 @@ export default function FaturasPage() {
                     expanded={expanded === inv.id}
                     onToggle={() => setExpanded((cur) => (cur === inv.id ? null : inv.id))}
                     onConfirm={() => confirmMutation.mutate(inv.id)}
+                    onReopen={() => setToReopen(inv)}
                     onDelete={() => setToDelete(inv)}
                     confirmPending={confirmMutation.isPending}
+                    reopenPending={reopenMutation.isPending}
                   />
                 ))}
               </TableBody>
@@ -902,6 +931,16 @@ export default function FaturasPage() {
         onClose={() => setToDelete(null)}
       />
 
+      <ConfirmDialog
+        open={Boolean(toReopen)}
+        title="Desfazer pagamento"
+        description={`Desfazer o pagamento da fatura de "${cardName(toReopen?.card_id)}"? A fatura e as compras vinculadas voltam a previstas.`}
+        confirmLabel="Desfazer pagamento"
+        cancelLabel="Voltar"
+        loading={reopenMutation.isPending}
+        onConfirm={() => toReopen && reopenMutation.mutate(toReopen.id)}
+        onClose={() => setToReopen(null)}
+      />
     </>
   )
 }
