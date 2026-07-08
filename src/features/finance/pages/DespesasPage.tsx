@@ -614,6 +614,8 @@ function EntryFormDialog({
   const installmentsCount = useWatch({ control, name: 'installments_count' })
   const dueDateText = useWatch({ control, name: 'due_date' })
   const applyToFuture = useWatch({ control, name: 'apply_to_future' })
+  const editDueDate = useWatch({ control, name: 'due_date' })
+  const dueDateDirty = Boolean(isEdit && entry && editDueDate && editDueDate !== entry.due_date)
   const isInstallmentEntry = Boolean(entry?.installment_number && entry?.installment_total)
 
   // "Parcela 7 de 48 · 41 restantes de R$ 1.898,77 · termina em jun/2030"
@@ -948,6 +950,14 @@ function EntryFormDialog({
                 />
               )}
             />
+          )}
+
+          {isEdit && entry?.recurrence_group_id && dueDateDirty && !applyToFuture && (
+            <Alert severity="warning" icon={<RepeatRoundedIcon />}>
+              A data de vencimento mudou, mas com a opção abaixo desligada a alteração
+              vale <strong>só para este lançamento</strong>. Para mover também 
+              {isInstallmentEntry ? 'as próximas parcelas' : 'as próximas ocorrências'}, ligue &quot;Aplicar às próximas&quot;.
+            </Alert>
           )}
 
           {isEdit && entry?.recurrence_group_id && (
