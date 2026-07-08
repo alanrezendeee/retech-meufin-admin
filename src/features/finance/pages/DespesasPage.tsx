@@ -72,8 +72,7 @@ import {
   MONTH_OPTIONS,
   RECURRENCE_LABEL,
   RECURRENCE_OPTIONS,
-  yearOptions,
-} from '../constants'
+  yearOptions, seriesToast } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
 import {
   createExpenseCategory,
@@ -615,6 +614,26 @@ function EntryFormDialog({
   const installmentsCount = useWatch({ control, name: 'installments_count' })
   const dueDateText = useWatch({ control, name: 'due_date' })
   const applyToFuture = useWatch({ control, name: 'apply_to_future' })
+  const isInstallmentEntry = Boolean(entry?.installment_number && entry?.installment_total)
+
+  // "Parcela 7 de 48 · 41 restantes de R$ 1.898,77 · termina em jun/2030"
+  const installmentSummary = useMemo(() => {
+    if (!entry?.installment_number || !entry?.installment_total) return ''
+    const num = entry.installment_number
+    const total = entry.installment_total
+    const remaining = total - num
+    const due = new Date(`${entry.due_date}T00:00:00`)
+    const end = new Date(due.getFullYear(), due.getMonth() + remaining, 1)
+    const endLabel = end.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+    const per = entry.amount_cents
+    if (remaining <= 0) {
+      return `Parcela ${num} de ${total} — última parcela deste parcelamento.`
+    }
+    return (
+      `Parcela ${num} de ${total} — restam ${remaining} de ${formatCents(per)} ` +
+      `(${formatCents(per * remaining)}), terminando em ${endLabel}.`
+    )
+  }, [entry])
 
   // "15× de R$ 1.500,00 = R$ 22.500,00 no total" — mata a ambiguidade
   // parcela × total na origem.
@@ -654,19 +673,20 @@ function EntryFormDialog({
       }
       if (isEdit) {
         if (values.apply_to_future) base.apply_to = 'future'
-        await updateEntry(entry!.id, base)
-        return { created: 0, appliedToFuture: values.apply_to_future }
+        const updated = await updateEntry(entry!.id, base)
+        return {
+          created: 0,
+          appliedToFuture: values.apply_to_future,
+          seriesUpdated: updated.series_updated ?? 0,
+          dueDateChanged: values.due_date !== entry!.due_date,
+        }
       }
       const res = await createEntry(base)
-      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false }
+      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false, seriesUpdated: 0, dueDateChanged: false }
     },
-    onSuccess: ({ created, appliedToFuture }) => {
+    onSuccess: ({ created, appliedToFuture, seriesUpdated, dueDateChanged }) => {
       if (isEdit) {
-        show(
-          appliedToFuture
-            ? 'Despesa atualizada — mudanças aplicadas às próximas ocorrências.'
-            : 'Despesa atualizada com sucesso.',
-        )
+        show(seriesToast('Despesa', appliedToFuture, seriesUpdated, dueDateChanged, isInstallmentEntry))
       } else if (created <= 1) {
         show('Despesa criada com sucesso.')
       }
@@ -687,6 +707,12 @@ function EntryFormDialog({
       <DialogContent>
         <Stack spacing={2.5} sx={{ mt: 1 }}>
           {mutation.isError && <ErrorState message={errorMessage(mutation.error)} />}
+
+          {isEdit && installmentSummary && (
+            <Alert severity="info" icon={<RepeatRoundedIcon />}>
+              {installmentSummary}
+            </Alert>
+          )}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <Controller
@@ -915,7 +941,7 @@ function EntryFormDialog({
             />
           )}
 
-          {isEdit && entry?.recurrence_group_id && !entry?.installment_number && (
+          {isEdit && entry?.recurrence_group_id && (
             <>
               <Controller
                 name="apply_to_future"
@@ -928,15 +954,20 @@ function EntryFormDialog({
                         onChange={(e) => field.onChange(e.target.checked)}
                       />
                     }
-                    label="Aplicar às próximas ocorrências desta recorrência"
+                    label={
+                      isInstallmentEntry
+                        ? 'Aplicar às próximas parcelas'
+                        : 'Aplicar às próximas ocorrências desta recorrência'
+                    }
                   />
                 )}
               />
               {applyToFuture && (
                 <Alert severity="info" icon={<RepeatRoundedIcon />}>
                   Dia do vencimento, valor, descrição e categoria alterados aqui serão
-                  replicados nas ocorrências <strong>previstas futuras</strong> desta série.
-                  Lançamentos já realizados ou cancelados não são alterados.
+                  replicados nas {isInstallmentEntry ? 'parcelas' : 'ocorrências'}{' '}
+                  <strong>previstas futuras</strong> desta série. Lançamentos já realizados
+                  ou cancelados não são alterados.
                 </Alert>
               )}
             </>
