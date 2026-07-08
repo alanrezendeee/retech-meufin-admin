@@ -423,12 +423,22 @@ export async function createEntry(input: EntryInput): Promise<Paginated<Entry>> 
   return data
 }
 
-/** Com apply_to='future', a API devolve também series_updated (nº de ocorrências/parcelas futuras alteradas). */
+/**
+ * Com apply_to='future', a API devolve o alcance da edição em série:
+ * series_updated (total), series_due_dates_updated (dia do vencimento — série
+ * inteira) e series_fields_updated (valor/descrição/categoria — previstas futuras).
+ */
+export type SeriesUpdateResult = {
+  series_updated?: number
+  series_due_dates_updated?: number
+  series_fields_updated?: number
+}
+
 export async function updateEntry(
   id: string,
   input: Partial<EntryInput>,
-): Promise<Entry & { series_updated?: number }> {
-  const { data } = await meufinClient.put<Entry & { series_updated?: number }>(
+): Promise<Entry & SeriesUpdateResult> {
+  const { data } = await meufinClient.put<Entry & SeriesUpdateResult>(
     `${BASE}/entries/${id}`,
     input,
   )
