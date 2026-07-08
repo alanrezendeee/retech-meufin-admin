@@ -71,8 +71,7 @@ import {
   RECURRENCE_LABEL,
   RECURRENCE_OPTIONS,
   SOURCE_KIND_OPTIONS,
-  yearOptions,
-} from '../constants'
+  yearOptions, seriesToast } from '../constants'
 import { MoneyField } from '@/components/fields/MoneyField'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { formatDateBR } from '@/utils/dates'
@@ -313,19 +312,20 @@ function EntryFormDialog({
       }
       if (isEdit) {
         if (values.apply_to_future) base.apply_to = 'future'
-        await updateEntry(entry!.id, base)
-        return { created: 0, appliedToFuture: values.apply_to_future }
+        const updated = await updateEntry(entry!.id, base)
+        return {
+          created: 0,
+          appliedToFuture: values.apply_to_future,
+          seriesUpdated: updated.series_updated ?? 0,
+          dueDateChanged: values.due_date !== entry!.due_date,
+        }
       }
       const res = await createEntry(base)
-      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false }
+      return { created: res.total ?? res.items?.length ?? 1, appliedToFuture: false, seriesUpdated: 0, dueDateChanged: false }
     },
-    onSuccess: ({ created, appliedToFuture }) => {
+    onSuccess: ({ created, appliedToFuture, seriesUpdated, dueDateChanged }) => {
       if (isEdit) {
-        show(
-          appliedToFuture
-            ? 'Receita atualizada — mudanças aplicadas às próximas ocorrências.'
-            : 'Receita atualizada com sucesso.',
-        )
+        show(seriesToast('Receita', appliedToFuture, seriesUpdated, dueDateChanged, false))
       } else if (created <= 1) {
         show('Receita criada com sucesso.')
       }

@@ -315,3 +315,32 @@ export const SUPPLIER_BILLING_LABEL: Record<string, string> = SUPPLIER_BILLING_O
   (acc, o) => ({ ...acc, [o.value]: o.label }),
   {} as Record<string, string>
 )
+
+/**
+ * Toast da edição em série ("aplicar às próximas"): explicita quantas
+ * ocorrências/parcelas futuras mudaram e que passadas/realizadas ficam como estão.
+ */
+export function seriesToast(
+  label: string,
+  appliedToFuture: boolean,
+  seriesUpdated: number,
+  dueDateChanged: boolean,
+  isInstallment: boolean,
+): string {
+  if (!appliedToFuture) return `${label} atualizada com sucesso.`
+  const unit = isInstallment ? 'parcela' : 'ocorrência'
+  if (seriesUpdated <= 0) {
+    return `${label} atualizada — nenhuma ${unit} futura para atualizar.`
+  }
+  const plural = seriesUpdated > 1 ? 's' : ''
+  if (dueDateChanged) {
+    return (
+      `${label} atualizada — data de vencimento ajustada em ${seriesUpdated} ${unit}${plural} ` +
+      `futura${plural}. Vencimentos passados e lançamentos já realizados não foram alterados.`
+    )
+  }
+  return (
+    `${label} atualizada — alterações aplicadas a ${seriesUpdated} ${unit}${plural} ` +
+    `futura${plural}. Lançamentos passados não foram alterados.`
+  )
+}
