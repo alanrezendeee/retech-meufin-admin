@@ -74,7 +74,9 @@ function suggestionToReview(p: PurchaseSuggestion): ReviewItem {
   return {
     accepted: true,
     description: p.description ?? '',
-    amount: String(centsToReais(p.amount_cents ?? 0)).replace('.', ','),
+    // toFixed(2) preserva zeros finais: 15070 → "150,70". String(150.7) viraria
+    // "150,7" e a máscara do MoneyField (que lê só dígitos) exibiria 15,07.
+    amount: centsToReais(p.amount_cents ?? 0).toFixed(2).replace('.', ','),
     date: p.date ?? '',
     category: p.category ?? 'outros',
     installment_number: p.installment_number ?? null,
