@@ -39,9 +39,18 @@ export function PurchaseEditDialog({
   )
   const [category, setCategory] = useState((purchase.type as string | null) ?? '')
   const [purchaseDate, setPurchaseDate] = useState(purchase.purchase_date ?? '')
+  const [installmentNumber, setInstallmentNumber] = useState(
+    purchase.installment_number != null ? String(purchase.installment_number) : '',
+  )
+  const [installmentTotal, setInstallmentTotal] = useState(
+    purchase.installment_total != null ? String(purchase.installment_total) : '',
+  )
 
   const amountCents = reaisToCents(amountText)
-  const invalid = !description.trim() || amountCents <= 0
+  const instNumber = installmentNumber ? Math.trunc(Number(installmentNumber)) : 0
+  const instTotal = installmentTotal ? Math.trunc(Number(installmentTotal)) : 0
+  const installmentsInvalid = instNumber > 0 && instTotal > 0 && instNumber > instTotal
+  const invalid = !description.trim() || amountCents <= 0 || installmentsInvalid
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -58,6 +67,9 @@ export function PurchaseEditDialog({
         notes: purchase.notes ?? null,
         supplier_id: purchase.supplier_id ?? null,
         purchase_date: purchaseDate || null,
+        // 0 = limpar parcela no backend (campo vazio)
+        installment_number: instNumber,
+        installment_total: instTotal,
       }
       return updateEntry(purchase.id, input)
     },
@@ -107,6 +119,31 @@ export function PurchaseEditDialog({
             options={activeCategories.map((c) => ({ value: c.slug, label: c.name }))}
             placeholder="Busque pela categoria"
           />
+          <Stack direction="row" spacing={2}>
+            <TextField
+              type="number"
+              label="Parcela nº"
+              value={installmentNumber}
+              onChange={(e) => setInstallmentNumber(e.target.value)}
+              fullWidth
+              inputProps={{ min: 1 }}
+              error={installmentsInvalid}
+            />
+            <TextField
+              type="number"
+              label="de (total)"
+              value={installmentTotal}
+              onChange={(e) => setInstallmentTotal(e.target.value)}
+              fullWidth
+              inputProps={{ min: 1 }}
+              error={installmentsInvalid}
+              helperText={
+                installmentsInvalid
+                  ? 'Nº maior que o total'
+                  : 'Vazio = compra não parcelada'
+              }
+            />
+          </Stack>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
