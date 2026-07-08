@@ -28,6 +28,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   centsToReais,
   confirmInvoice,
+  type InvoiceMetaSuggestion,
   formatCents,
   getExtractionStatus,
   reaisToCents,
@@ -113,6 +114,10 @@ export function ImportInvoiceDialog({
 
   // Itens em revisão
   const [items, setItems] = useState<ReviewItem[]>([])
+  // Agregados extraídos (total a pagar, fatura anterior, créditos)
+  const [invoiceMeta, setInvoiceMeta] = useState<InvoiceMetaSuggestion | null>(null)
+  // Total a pagar editável (string da máscara); vazio = usar soma dos itens
+  const [totalText, setTotalText] = useState('')
 
   const closing = (msg?: string) => {
     if (msg) onConfirmed(msg)
@@ -163,6 +168,11 @@ export function ImportInvoiceDialog({
   ) {
     setPopulatedFor(documentId)
     setItems((status.purchases ?? []).map(suggestionToReview))
+    const meta = status.invoice ?? null
+    setInvoiceMeta(meta)
+    if (meta?.total_cents && meta.total_cents > 0) {
+      setTotalText((meta.total_cents / 100).toFixed(2).replace('.', ','))
+    }
     if (!description) {
       setDescription(file?.name?.replace(/\.[^.]+$/, '') || 'Fatura importada')
     }
@@ -187,11 +197,14 @@ export function ImportInvoiceDialog({
         installment_number: i.installment_number ?? undefined,
         installment_total: i.installment_total ?? undefined,
       }))
+      const totalCents = reaisToCents(totalText)
       return confirmInvoice(documentId, {
         card_id: cardId || undefined,
         due_date: dueDate,
         description: description.trim() || 'Fatura importada',
         status: invoiceStatus,
+        // Total a pagar informado; vazio = soma dos itens (comportamento padrão)
+        amount_cents: totalCents > 0 ? totalCents : undefined,
         items: payloadItems,
       })
     },
@@ -408,6 +421,50 @@ export function ImportInvoiceDialog({
               {acceptedItems.length} de {items.length} compra(s) selecionada(s). Soma:{' '}
               <strong>{formatCents(acceptedTotalCents)}</strong>
             </Typography>
+
+            <MoneyField
+              label="Total da fatura (a pagar)"
+              value={totalText}
+              onChange={(e) => setTotalText(e.target.value)}
+              sx={{ maxWidth: 280 }}
+              helperText="Vazio = soma das compras. Em faturas com créditos/pagamentos, use o valor do boleto."
+            />
+
+            {(invoiceMeta?.credits?.length ?? 0) > 0 && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                  Pagamentos e créditos do ciclo (não viram lançamentos)
+                </Typography>
+                {invoiceMeta!.credits.map((c, i) => (
+                  <Typography key={i} variant="body2" color="text.secondary">
+                    {c.date ? `${c.date.slice(8, 10)}/${c.date.slice(5, 7)} — ` : ''}
+                    {c.description}: −{formatCents(c.amount_cents)}
+                  </Typography>
+                ))}
+                {(() => {
+                  const creditsSum = invoiceMeta!.credits.reduce(
+                    (acc, c) => acc + c.amount_cents,
+                    0,
+                  )
+                  const prev = invoiceMeta?.previous_balance_cents ?? 0
+                  const expected = prev - creditsSum + acceptedTotalCents
+                  const informed = reaisToCents(totalText)
+                  const closes = informed > 0 && Math.abs(expected - informed) < 100
+                  return (
+                    <Alert severity={closes ? 'success' : 'warning'} sx={{ mt: 1, py: 0.5 }}>
+                      Fatura anterior {formatCents(prev)} − créditos {formatCents(creditsSum)} +
+                      compras {formatCents(acceptedTotalCents)} ={' '}
+                      <strong>{formatCents(expected)}</strong>
+                      {closes
+                        ? ' — bate com o total informado.'
+                        : informed > 0
+                          ? ` — difere do total informado (${formatCents(informed)}). Confira itens e créditos.`
+                          : ' — informe o total a pagar acima.'}
+                    </Alert>
+                  )
+                })()}
+              </Box>
+            )}
           </Box>
         )}
       </DialogContent>
