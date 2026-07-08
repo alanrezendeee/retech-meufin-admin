@@ -39,6 +39,7 @@ import {
   type CreditCardInput,
 } from '../api'
 import { CARD_BANK_LABEL, CARD_BANK_OPTIONS, errorMessage, financeKeys } from '../constants'
+import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
@@ -164,16 +165,16 @@ function CardFormDialog({
               name="bank"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="Banco" fullWidth>
-                  <MenuItem value="">
-                    <em>Não informado</em>
-                  </MenuItem>
-                  {CARD_BANK_OPTIONS.map((o) => (
-                    <MenuItem key={o.value} value={o.value}>
-                      {o.label}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <AutocompleteField
+                  label="Banco"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={CARD_BANK_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  }))}
+                  placeholder="Busque pelo nome (ex.: Carrefour)"
+                />
               )}
             />
             <Controller
