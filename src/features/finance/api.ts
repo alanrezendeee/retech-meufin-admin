@@ -232,6 +232,20 @@ export type FiscalSuggestion = {
   warnings?: string[]
 }
 
+/** Pagamento/estorno/crédito do ciclo (não é compra). Valor absoluto em centavos. */
+export type InvoiceCreditSuggestion = {
+  description: string
+  date?: string | null
+  amount_cents: number
+}
+
+/** Agregados da fatura p/ reconciliação: total a pagar, fatura anterior, créditos. */
+export type InvoiceMetaSuggestion = {
+  total_cents?: number | null
+  previous_balance_cents?: number | null
+  credits: InvoiceCreditSuggestion[]
+}
+
 /** Retorno do endpoint de status de extração. */
 export type ExtractionStatus = {
   status: ExtractionStatusValue
@@ -240,6 +254,7 @@ export type ExtractionStatus = {
   started_at?: string | null
   finished_at?: string | null
   purchases?: PurchaseSuggestion[]
+  invoice?: InvoiceMetaSuggestion | null
   fiscal?: FiscalSuggestion | null
 }
 
@@ -293,6 +308,8 @@ export type ConfirmInvoicePayload = {
   due_date: string // "YYYY-MM-DD"
   description: string
   status: 'prevista' | 'realizada'
+  /** TOTAL A PAGAR da fatura (difere da soma das compras quando há créditos). Ausente = soma dos itens. */
+  amount_cents?: number
   items: ConfirmInvoiceItem[]
 }
 
