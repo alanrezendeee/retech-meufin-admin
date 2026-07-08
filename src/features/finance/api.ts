@@ -434,10 +434,14 @@ export type ConfirmEntryPayload = {
   discount_reason?: string
   paid_amount_cents?: number
   residual_due_date?: string // "YYYY-MM-DD"
+  /** Data em que o pagamento foi feito ("YYYY-MM-DD"); ausente = agora. */
+  paid_at?: string
 }
 
 export async function confirmEntry(id: string, payload?: ConfirmEntryPayload): Promise<Entry> {
-  const hasBody = Boolean(payload?.discount_cents || payload?.paid_amount_cents)
+  const hasBody = Boolean(
+    payload?.discount_cents || payload?.paid_amount_cents || payload?.paid_at,
+  )
   const { data } = await meufinClient.post<Entry>(
     `${BASE}/entries/${id}/confirm`,
     hasBody ? payload : undefined,
