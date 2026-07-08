@@ -405,6 +405,10 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
   const [reason, setReason] = useState('')
   const [paidText, setPaidText] = useState('')
   const [residualDate, setResidualDate] = useState(entry.due_date)
+  const [paidDate, setPaidDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
 
   const reasonsQuery = useQuery({
     queryKey: financeKeys.discountReasons(),
@@ -428,6 +432,9 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
   const mutation = useMutation({
     mutationFn: () => {
       const payload: ConfirmEntryPayload = {}
+      if (paidDate) {
+        payload.paid_at = paidDate
+      }
       if (discountCents > 0) {
         payload.discount_cents = discountCents
         payload.discount_reason = reason
@@ -462,6 +469,15 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
           <Typography variant="body2" color="text.secondary">
             {entry.description} — {formatCents(entry.amount_cents)}
           </Typography>
+          <TextField
+            type="date"
+            label="Data do pagamento"
+            value={paidDate}
+            onChange={(e) => setPaidDate(e.target.value)}
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            helperText="Quando o pagamento foi feito (padrão: hoje)"
+          />
           <MoneyField
             label="Desconto (opcional)"
             value={discountText}
