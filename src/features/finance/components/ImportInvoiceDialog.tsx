@@ -405,9 +405,37 @@ export function ImportInvoiceDialog({
                           />
                         </TableCell>
                         <TableCell>
-                          {it.installment_total
-                            ? `${it.installment_number ?? '?'}/${it.installment_total}`
-                            : '—'}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <TextField
+                              variant="standard"
+                              type="number"
+                              value={it.installment_number ?? ''}
+                              onChange={(e) =>
+                                setItem(idx, {
+                                  installment_number: e.target.value
+                                    ? Math.max(1, Math.trunc(Number(e.target.value)))
+                                    : null,
+                                })
+                              }
+                              inputProps={{ min: 1, style: { width: 34, textAlign: 'center' } }}
+                              placeholder="nº"
+                            />
+                            <span>/</span>
+                            <TextField
+                              variant="standard"
+                              type="number"
+                              value={it.installment_total ?? ''}
+                              onChange={(e) =>
+                                setItem(idx, {
+                                  installment_total: e.target.value
+                                    ? Math.max(1, Math.trunc(Number(e.target.value)))
+                                    : null,
+                                })
+                              }
+                              inputProps={{ min: 1, style: { width: 34, textAlign: 'center' } }}
+                              placeholder="total"
+                            />
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}

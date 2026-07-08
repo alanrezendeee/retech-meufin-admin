@@ -150,6 +150,9 @@ export type EntryInput = {
   supplier_id?: string | null
   /** Data da compra (YYYY-MM-DD, itens de fatura). */
   purchase_date?: string | null
+  /** Parcela da compra em fatura (update): ausente preserva; 0 limpa. */
+  installment_number?: number
+  installment_total?: number
   /** Lançamento retroativo: ocorrências vencidas nascem realizadas. */
   confirm_past_occurrences?: boolean
 }
