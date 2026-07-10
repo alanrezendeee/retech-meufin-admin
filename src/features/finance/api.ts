@@ -494,6 +494,17 @@ export async function getEntryYearBounds(): Promise<{ min_year: number; max_year
   return data
 }
 
+/** Corrige o total de um parcelamento (15x → 12x): exclui/cria/atualiza parcelas. */
+export async function resizeInstallments(
+  id: string,
+  newTotal: number,
+): Promise<{ new_total: number; removed: number; created: number; updated: number }> {
+  const { data } = await meufinClient.post(`${BASE}/entries/${id}/resize-installments`, {
+    new_total: newTotal,
+  })
+  return data
+}
+
 export async function cancelEntry(id: string): Promise<Entry> {
   const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/cancel`)
   return data
