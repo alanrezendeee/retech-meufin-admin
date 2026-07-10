@@ -57,6 +57,7 @@ import {
   listFamilyMembers,
   listSuppliers,
   reaisToCents,
+  resizeInstallments,
   updateEntry,
   type ConfirmEntryPayload,
   type Entry,
@@ -615,6 +616,8 @@ function EntryFormDialog({
   const installmentsCount = useWatch({ control, name: 'installments_count' })
   const dueDateText = useWatch({ control, name: 'due_date' })
   const applyToFuture = useWatch({ control, name: 'apply_to_future' })
+  const [resizeTotal, setResizeTotal] = useState('')
+  const [resizeArmed, setResizeArmed] = useState(false)
   const editDueDate = useWatch({ control, name: 'due_date' })
   const dueDateDirty = Boolean(isEdit && entry && editDueDate && editDueDate !== entry.due_date)
   const isInstallmentEntry = Boolean(entry?.installment_number && entry?.installment_total)
@@ -709,6 +712,35 @@ function EntryFormDialog({
     },
   })
 
+  const resizeMutation = useMutation({
+    mutationFn: async () => {
+      const n = Math.trunc(Number(resizeTotal))
+      if (!Number.isFinite(n) || n < 1) throw new Error('Informe um total válido de parcelas.')
+      return resizeInstallments(entry!.id, n)
+    },
+    onSuccess: (r) => {
+      const parts: string[] = []
+      if (r.removed > 0) parts.push(`${r.removed} parcela(s) excluída(s)`)
+      if (r.created > 0) parts.push(`${r.created} parcela(s) criada(s)`)
+      parts.push(`${r.updated} atualizada(s)`)
+      show(`Parcelamento ajustado para ${r.new_total}x — ${parts.join(', ')}.`)
+      qc.invalidateQueries({ queryKey: financeKeys.all })
+      setResizeTotal('')
+      setResizeArmed(false)
+      onClose()
+    },
+  })
+
+  // Delta do redimensionamento para o aviso de confirmação.
+  const resizeDelta = useMemo(() => {
+    const n = Math.trunc(Number(resizeTotal))
+    const current = entry?.installment_total ?? 0
+    if (!Number.isFinite(n) || n < 1 || !current || n === current) return null
+    return n < current
+      ? { kind: 'shrink' as const, count: current - n, target: n }
+      : { kind: 'grow' as const, count: n - current, target: n }
+  }, [resizeTotal, entry])
+
   const submit = handleSubmit((values) => mutation.mutate(values))
 
   return (
@@ -724,6 +756,54 @@ function EntryFormDialog({
             <Alert severity="info" icon={<RepeatRoundedIcon />}>
               {installmentSummary}
             </Alert>
+          )}
+
+          {isEdit && entry?.recurrence_group_id && entry?.installment_total && (
+            <Stack spacing={1}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  type="number"
+                  label="Corrigir total de parcelas"
+                  size="small"
+                  value={resizeTotal}
+                  onChange={(e) => {
+                    setResizeTotal(e.target.value)
+                    setResizeArmed(false)
+                  }}
+                  inputProps={{ min: 1 }}
+                  sx={{ width: 200 }}
+                  helperText={`Total atual: ${entry.installment_total}x`}
+                />
+                {!resizeArmed ? (
+                  <Button
+                    variant="outlined"
+                    disabled={!resizeDelta || resizeMutation.isPending}
+                    onClick={() => setResizeArmed(true)}
+                  >
+                    Redimensionar…
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    color={resizeDelta?.kind === 'shrink' ? 'error' : 'primary'}
+                    disabled={resizeMutation.isPending}
+                    onClick={() => resizeMutation.mutate()}
+                  >
+                    Confirmar {resizeDelta?.target}x
+                  </Button>
+                )}
+              </Stack>
+              {resizeArmed && resizeDelta && (
+                <Alert severity={resizeDelta.kind === 'shrink' ? 'warning' : 'info'}>
+                  {resizeDelta.kind === 'shrink'
+                    ? `As ${resizeDelta.count} última(s) parcela(s) prevista(s) serão excluídas e as demais passam a exibir "de ${resizeDelta.target}". Parcelas já realizadas acima do novo total bloqueiam a operação.`
+                    : `${resizeDelta.count} nova(s) parcela(s) prevista(s) serão criadas seguindo o dia e o valor da última, e todas passam a exibir "de ${resizeDelta.target}".`}
+                </Alert>
+              )}
+              {resizeMutation.isError && (
+                <ErrorState message={errorMessage(resizeMutation.error)} />
+              )}
+            </Stack>
           )}
 
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
