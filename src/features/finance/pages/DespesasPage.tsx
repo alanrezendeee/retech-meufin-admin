@@ -760,7 +760,11 @@ function EntryFormDialog({
 
           {isEdit && entry?.recurrence_group_id && entry?.installment_total && (
             <Stack spacing={1}>
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={1.5}
+                alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+              >
                 <TextField
                   type="number"
                   label="Corrigir total de parcelas"
@@ -771,7 +775,7 @@ function EntryFormDialog({
                     setResizeArmed(false)
                   }}
                   inputProps={{ min: 1 }}
-                  sx={{ width: 200 }}
+                  sx={{ width: { xs: '100%', sm: 260 } }}
                   helperText={`Total atual: ${entry.installment_total}x`}
                 />
                 {!resizeArmed ? (
@@ -779,6 +783,7 @@ function EntryFormDialog({
                     variant="outlined"
                     disabled={!resizeDelta || resizeMutation.isPending}
                     onClick={() => setResizeArmed(true)}
+                    sx={{ height: 40, flexShrink: 0, whiteSpace: 'nowrap' }}
                   >
                     Redimensionar…
                   </Button>
@@ -788,6 +793,7 @@ function EntryFormDialog({
                     color={resizeDelta?.kind === 'shrink' ? 'error' : 'primary'}
                     disabled={resizeMutation.isPending}
                     onClick={() => resizeMutation.mutate()}
+                    sx={{ height: 40, flexShrink: 0, whiteSpace: 'nowrap' }}
                   >
                     Confirmar {resizeDelta?.target}x
                   </Button>
