@@ -25,6 +25,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import { MoneyField } from '@/components/fields/MoneyField'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
@@ -130,12 +131,12 @@ function mapVehicleToForm(v: Vehicle): FormValues {
     fipe_year_code: v.fipe_year_code ?? '',
     fipe_code: v.fipe_code ?? '',
     acquisition_date: v.acquisition_date ?? '',
-    acquisition_price: v.acquisition_price != null ? String(v.acquisition_price) : '',
+    acquisition_price: v.acquisition_price != null ? String(Math.round(v.acquisition_price * 100)) : '',
     current_odometer: String(v.current_odometer),
     notes: v.notes ?? '',
     status: v.status,
     sold_at: v.sold_at ?? '',
-    sold_price: v.sold_price != null ? String(v.sold_price) : '',
+    sold_price: v.sold_price != null ? String(Math.round(v.sold_price * 100)) : '',
     active: v.status === 'active',
   }
 }
@@ -224,7 +225,9 @@ function VehicleFormDialog({
           fipe_year_code: values.fipe_year_code || null,
           fipe_code: values.fipe_code || null,
           acquisition_date: values.acquisition_date || null,
-          acquisition_price: values.acquisition_price ? parseFloat(values.acquisition_price) : null,
+          acquisition_price: values.acquisition_price
+            ? parseFloat(values.acquisition_price.replace(/\./g, '').replace(',', '.'))
+            : null,
           current_odometer: parseInt(values.current_odometer) || 0,
           notes: values.notes.trim() || null,
         }
@@ -235,7 +238,7 @@ function VehicleFormDialog({
             sold_at: values.status === 'sold' ? values.sold_at || null : null,
             sold_price:
               values.status === 'sold' && values.sold_price
-                ? parseFloat(values.sold_price)
+                ? parseFloat(values.sold_price.replace(/\./g, '').replace(',', '.'))
                 : null,
           }
           return updateVehicle(vehicle.id, upd)
@@ -586,16 +589,7 @@ function VehicleFormDialog({
               name="acquisition_price"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Valor de aquisição (R$)"
-                  fullWidth
-                  type="number"
-                  inputProps={{ min: 0, step: '0.01' }}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-                  }}
-                />
+                <MoneyField {...field} label="Valor de aquisição" fullWidth />
               )}
             />
             <Controller
@@ -653,16 +647,7 @@ function VehicleFormDialog({
                       name="sold_price"
                       control={control}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
-                          label="Valor de venda (R$)"
-                          fullWidth
-                          type="number"
-                          inputProps={{ min: 0, step: '0.01' }}
-                          InputProps={{
-                            startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-                          }}
-                        />
+                        <MoneyField {...field} label="Valor de venda" fullWidth />
                       )}
                     />
                   </>
