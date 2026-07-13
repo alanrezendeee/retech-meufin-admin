@@ -6,6 +6,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -14,6 +15,7 @@ import {
   Grid,
   IconButton,
   InputAdornment,
+  LinearProgress,
   MenuItem,
   Stack,
   Switch,
@@ -37,6 +39,9 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import SpeedRoundedIcon from '@mui/icons-material/SpeedRounded'
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
+import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
+import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -51,18 +56,31 @@ import {
 } from 'recharts'
 import {
   createMaintenance,
+  createSchedule,
+  createServiceOrder,
   deleteMaintenance,
+  deleteSchedule,
+  deleteServiceOrder,
   getDepreciation,
   getFipeHistory,
   getVehicle,
   getVehicleAlerts,
+  getVehicleAnalytics,
   listMaintenance,
+  listSchedules,
+  listServiceOrders,
   listVehiclePlans,
   updateMaintenance,
   updateOdometer,
+  updateSchedule,
+  updateServiceOrder,
   updateVehiclePlan,
   type Maintenance,
   type MaintenanceInput,
+  type MaintenanceSchedule,
+  type ScheduleAlertStatus,
+  type ServiceOrder,
+  type ServiceOrderItemInput,
   type VehiclePlan,
 } from '../api'
 import {
@@ -74,6 +92,11 @@ import {
   formatMoney,
   FUEL_TYPE_LABEL,
   MAINTENANCE_TYPE_OPTIONS,
+  OS_ITEM_CATEGORY_LABEL,
+  OS_ITEM_CATEGORY_OPTIONS,
+  PAYMENT_METHOD_OPTIONS,
+  SCHEDULE_ALERT_STATUS_COLOR,
+  SCHEDULE_ALERT_STATUS_LABEL,
   vehicleKeys,
   VEHICLE_STATUS_COLOR,
   VEHICLE_STATUS_LABEL,
@@ -929,6 +952,789 @@ function FipeHistoryTab({ vehicleId }: { vehicleId: string }) {
   )
 }
 
+// ─── Service Orders tab ───────────────────────────────────────────────────────
+
+type OSItemFormRow = {
+  item_type: 'product' | 'service'
+  category: string
+  description: string
+  quantity: string
+  unit_price_cents: string
+  replacement_interval_km: string
+  replacement_interval_months: string
+  warranty_expires_km: string
+  notes: string
+}
+
+const emptyItemRow: OSItemFormRow = {
+  item_type: 'product',
+  category: 'outros',
+  description: '',
+  quantity: '1',
+  unit_price_cents: '0',
+  replacement_interval_km: '',
+  replacement_interval_months: '',
+  warranty_expires_km: '',
+  notes: '',
+}
+
+type OSFormValues = {
+  service_date: string
+  km_at_service: string
+  os_number: string
+  supplier_id: string
+  payment_method: string
+  technician: string
+  notes: string
+}
+
+function ServiceOrderDialog({
+  open,
+  vehicleId,
+  currentKM,
+  order,
+  onClose,
+}: {
+  open: boolean
+  vehicleId: string
+  currentKM: number
+  order: ServiceOrder | null
+  onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const { show } = useToast()
+  const isEdit = Boolean(order)
+  const [items, setItems] = useState<OSItemFormRow[]>(() =>
+    order
+      ? order.items.map((it) => ({
+          item_type: it.item_type,
+          category: it.category,
+          description: it.description,
+          quantity: String(it.quantity),
+          unit_price_cents: String(it.unit_price_cents),
+          replacement_interval_km: it.replacement_interval_km != null ? String(it.replacement_interval_km) : '',
+          replacement_interval_months:
+            it.replacement_interval_months != null ? String(it.replacement_interval_months) : '',
+          warranty_expires_km: it.warranty_expires_km != null ? String(it.warranty_expires_km) : '',
+          notes: it.notes ?? '',
+        }))
+      : [{ ...emptyItemRow }],
+  )
+
+  const today = new Date().toISOString().slice(0, 10)
+  const { register, handleSubmit, formState: { errors } } = useForm<OSFormValues>({
+    defaultValues: order
+      ? {
+          service_date: order.service_date,
+          km_at_service: String(order.km_at_service),
+          os_number: order.os_number ?? '',
+          supplier_id: order.supplier_id ?? '',
+          payment_method: order.payment_method ?? '',
+          technician: order.technician ?? '',
+          notes: order.notes ?? '',
+        }
+      : { service_date: today, km_at_service: String(currentKM), os_number: '', supplier_id: '', payment_method: '', technician: '', notes: '' },
+  })
+
+  const mutation = useMutation({
+    mutationFn: (values: OSFormValues) => {
+      const parsedItems: ServiceOrderItemInput[] = items.map((r) => ({
+        item_type: r.item_type,
+        category: r.category as never,
+        description: r.description,
+        quantity: parseFloat(r.quantity) || 1,
+        unit_price_cents: parseInt(r.unit_price_cents) || 0,
+        replacement_interval_km: r.replacement_interval_km ? parseInt(r.replacement_interval_km) : null,
+        replacement_interval_months: r.replacement_interval_months ? parseInt(r.replacement_interval_months) : null,
+        warranty_expires_km: r.warranty_expires_km ? parseInt(r.warranty_expires_km) : null,
+        notes: r.notes || null,
+      }))
+      const base = {
+        service_date: values.service_date,
+        km_at_service: parseInt(values.km_at_service) || 0,
+        os_number: values.os_number || null,
+        supplier_id: values.supplier_id || null,
+        payment_method: values.payment_method || null,
+        technician: values.technician || null,
+        notes: values.notes || null,
+        status: 'completed' as const,
+      }
+      if (isEdit && order) {
+        return updateServiceOrder(vehicleId, order.id, base)
+      }
+      return createServiceOrder(vehicleId, { ...base, items: parsedItems })
+    },
+    onSuccess: () => {
+      show(isEdit ? 'OS atualizada.' : 'OS registrada.')
+      qc.invalidateQueries({ queryKey: vehicleKeys.serviceOrders(vehicleId) })
+      qc.invalidateQueries({ queryKey: vehicleKeys.schedules(vehicleId) })
+      qc.invalidateQueries({ queryKey: vehicleKeys.analytics(vehicleId, 12) })
+      onClose()
+    },
+  })
+
+  const total = items.reduce((sum, r) => {
+    const qty = parseFloat(r.quantity) || 0
+    const price = parseInt(r.unit_price_cents) || 0
+    return sum + qty * price
+  }, 0)
+
+  return (
+    <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} maxWidth="lg" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        {isEdit ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}
+      </DialogTitle>
+      <DialogContent>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          {mutation.isError && <ErrorState message={errorMessage(mutation.error)} />}
+
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                {...register('service_date', { required: 'Obrigatório' })}
+                label="Data do serviço"
+                type="date"
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+                error={Boolean(errors.service_date)}
+                helperText={errors.service_date?.message}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+              <TextField
+                {...register('km_at_service')}
+                label="Km no serviço"
+                type="number"
+                fullWidth
+                inputProps={{ min: 0 }}
+                InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+              <TextField {...register('os_number')} label="Nº da OS" fullWidth />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField {...register('technician')} label="Técnico / Mecânico" fullWidth />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+              <TextField {...register('payment_method')} label="Forma de pagamento" select fullWidth>
+                <MenuItem value="">—</MenuItem>
+                {PAYMENT_METHOD_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField {...register('notes')} label="Observações" fullWidth multiline minRows={1} />
+            </Grid>
+          </Grid>
+
+          <Divider />
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="subtitle2" fontWeight={700}>Itens</Typography>
+            <Button size="small" startIcon={<AddRoundedIcon />} onClick={() => setItems((p) => [...p, { ...emptyItemRow }])}>
+              Adicionar item
+            </Button>
+          </Stack>
+
+          {items.map((row, idx) => (
+            <Card key={idx} variant="outlined" sx={{ p: 1.5 }}>
+              <Grid container spacing={1.5} alignItems="flex-start">
+                <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                  <TextField
+                    select fullWidth size="small" label="Tipo"
+                    value={row.item_type}
+                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, item_type: e.target.value as 'product' | 'service' } : r))}
+                  >
+                    <MenuItem value="product">Produto/Peça</MenuItem>
+                    <MenuItem value="service">Serviço</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                  <TextField
+                    select fullWidth size="small" label="Categoria"
+                    value={row.category}
+                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, category: e.target.value } : r))}
+                  >
+                    {OS_ITEM_CATEGORY_OPTIONS.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                  <TextField
+                    fullWidth size="small" label="Descrição" required
+                    value={row.description}
+                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
+                  />
+                </Grid>
+                <Grid size={{ xs: 4, sm: 2, md: 1 }}>
+                  <TextField
+                    fullWidth size="small" label="Qtd" type="number" inputProps={{ min: 0, step: '0.001' }}
+                    value={row.quantity}
+                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, quantity: e.target.value } : r))}
+                  />
+                </Grid>
+                <Grid size={{ xs: 8, sm: 4, md: 2 }}>
+                  <TextField
+                    fullWidth size="small" label="Preço unit. (centavos)" type="number" inputProps={{ min: 0 }}
+                    value={row.unit_price_cents}
+                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, unit_price_cents: e.target.value } : r))}
+                    helperText={row.unit_price_cents ? formatMoney((parseInt(row.unit_price_cents) || 0) / 100) : ''}
+                  />
+                </Grid>
+                <Grid size={{ xs: 4, sm: 0, md: 1 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <IconButton size="small" color="error" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}>
+                    <DeleteOutlineRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Grid>
+
+                {row.item_type === 'product' && (
+                  <>
+                    <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                      <TextField
+                        fullWidth size="small" label="Intervalo km troca" type="number" inputProps={{ min: 0 }}
+                        value={row.replacement_interval_km}
+                        onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, replacement_interval_km: e.target.value } : r))}
+                        InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                      <TextField
+                        fullWidth size="small" label="Intervalo meses troca" type="number" inputProps={{ min: 0 }}
+                        value={row.replacement_interval_months}
+                        onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, replacement_interval_months: e.target.value } : r))}
+                        InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                      <TextField
+                        fullWidth size="small" label="Garantia (km)" type="number" inputProps={{ min: 0 }}
+                        value={row.warranty_expires_km}
+                        onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, warranty_expires_km: e.target.value } : r))}
+                        InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }}
+                      />
+                    </Grid>
+                  </>
+                )}
+              </Grid>
+            </Card>
+          ))}
+
+          <Stack direction="row" justifyContent="flex-end">
+            <Typography variant="subtitle2" fontWeight={700}>
+              Total: {formatMoney(total / 100)}
+            </Typography>
+          </Stack>
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} color="inherit" disabled={mutation.isPending}>Cancelar</Button>
+        <Button onClick={handleSubmit((v) => mutation.mutate(v))} variant="contained" disabled={mutation.isPending}>
+          {isEdit ? 'Salvar' : 'Registrar OS'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function ServiceOrdersTab({ vehicleId, currentKM }: { vehicleId: string; currentKM: number }) {
+  const qc = useQueryClient()
+  const { show } = useToast()
+  const [formOpen, setFormOpen] = useState(false)
+  const [editing, setEditing] = useState<ServiceOrder | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [toDelete, setToDelete] = useState<ServiceOrder | null>(null)
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: vehicleKeys.serviceOrders(vehicleId),
+    queryFn: () => listServiceOrders(vehicleId),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteServiceOrder(vehicleId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vehicleKeys.serviceOrders(vehicleId) })
+      qc.invalidateQueries({ queryKey: vehicleKeys.analytics(vehicleId, 12) })
+      setToDelete(null)
+      show('OS excluída.')
+    },
+  })
+
+  if (isLoading) return <LoadingState />
+  if (isError) return <ErrorState message={errorMessage(error)} onRetry={refetch} />
+
+  return (
+    <>
+      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddRoundedIcon />}
+          onClick={() => { setEditing(null); setFormOpen(true) }}
+        >
+          Nova OS
+        </Button>
+      </Stack>
+
+      {(!data || data.length === 0) ? (
+        <EmptyState
+          icon={<SpeedRoundedIcon />}
+          title="Nenhuma Ordem de Serviço"
+          description="Registre a primeira OS para rastrear custos e manutenções."
+          action={
+            <Button variant="contained" size="small" startIcon={<AddRoundedIcon />}
+              onClick={() => { setEditing(null); setFormOpen(true) }}>
+              Nova OS
+            </Button>
+          }
+        />
+      ) : (
+        <Stack spacing={1.5}>
+          {data.map((order) => (
+            <Card key={order.id}>
+              <CardContent sx={{ pb: '12px !important' }}>
+                <Stack direction="row" alignItems="flex-start" spacing={1}>
+                  <Box flex={1}>
+                    <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" useFlexGap>
+                      <Typography variant="subtitle2" fontWeight={700}>
+                        {formatDate(order.service_date)}
+                      </Typography>
+                      {order.os_number && (
+                        <Typography variant="caption" color="text.secondary">OS #{order.os_number}</Typography>
+                      )}
+                      <Chip
+                        size="small"
+                        label={order.status === 'completed' ? 'Concluída' : order.status === 'draft' ? 'Rascunho' : 'Cancelada'}
+                        color={order.status === 'completed' ? 'success' : order.status === 'draft' ? 'default' : 'error'}
+                        variant="outlined"
+                      />
+                    </Stack>
+                    <Stack direction="row" spacing={2} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>{formatKM(order.km_at_service)}</strong>
+                      </Typography>
+                      <Typography variant="body2" color="primary.main" fontWeight={700}>
+                        {formatMoney(order.total_cents / 100)}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {order.items.length} item(ns)
+                      </Typography>
+                      {order.technician && (
+                        <Typography variant="body2" color="text.secondary">· {order.technician}</Typography>
+                      )}
+                    </Stack>
+                  </Box>
+                  <Stack direction="row" spacing={0.5}>
+                    <Tooltip title="Editar">
+                      <IconButton size="small" onClick={() => { setEditing(order); setFormOpen(true) }}>
+                        <EditRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Excluir">
+                      <IconButton size="small" color="error" onClick={() => setToDelete(order)}>
+                        <DeleteOutlineRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={expanded === order.id ? 'Fechar itens' : 'Ver itens'}>
+                      <IconButton size="small" onClick={() => setExpanded((p) => p === order.id ? null : order.id)}>
+                        {expanded === order.id ? <ExpandLessRoundedIcon fontSize="small" /> : <ExpandMoreRoundedIcon fontSize="small" />}
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </Stack>
+
+                <Collapse in={expanded === order.id} unmountOnExit>
+                  <Divider sx={{ my: 1.5 }} />
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Tipo</TableCell>
+                          <TableCell>Descrição</TableCell>
+                          <TableCell>Qtd</TableCell>
+                          <TableCell>Unit.</TableCell>
+                          <TableCell>Total</TableCell>
+                          <TableCell>Próx. troca</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {order.items.map((item) => (
+                          <TableRow key={item.id} hover>
+                            <TableCell>
+                              <Chip size="small" label={OS_ITEM_CATEGORY_LABEL[item.category] ?? item.category} variant="outlined" />
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={500}>{item.description}</Typography>
+                              {item.item_type === 'product' && item.km_at_installation != null && (
+                                <Typography variant="caption" color="text.secondary">
+                                  Instalado: {formatKM(item.km_at_installation)}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ color: 'text.secondary' }}>{item.quantity}</TableCell>
+                            <TableCell sx={{ color: 'text.secondary' }}>{formatMoney(item.unit_price_cents / 100)}</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>{formatMoney(item.total_price_cents / 100)}</TableCell>
+                            <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                              {item.next_due_km != null && <div>{formatKM(item.next_due_km)}</div>}
+                              {item.next_due_date && <div>{formatDate(item.next_due_date)}</div>}
+                              {item.next_due_km == null && !item.next_due_date && '—'}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Collapse>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      )}
+
+      {formOpen && (
+        <ServiceOrderDialog
+          open={formOpen}
+          vehicleId={vehicleId}
+          currentKM={currentKM}
+          order={editing}
+          onClose={() => setFormOpen(false)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title="Excluir OS"
+        description={`Excluir a OS de ${toDelete ? formatDate(toDelete.service_date) : ''}? Todos os itens serão removidos.`}
+        loading={deleteMutation.isPending}
+        onConfirm={() => toDelete && deleteMutation.mutate(toDelete.id)}
+        onClose={() => setToDelete(null)}
+      />
+    </>
+  )
+}
+
+// ─── Schedules tab ────────────────────────────────────────────────────────────
+
+function SchedulesTab({ vehicleId }: { vehicleId: string }) {
+  const qc = useQueryClient()
+  const { show } = useToast()
+  const [formOpen, setFormOpen] = useState(false)
+  const [toDelete, setToDelete] = useState<MaintenanceSchedule | null>(null)
+
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: vehicleKeys.schedules(vehicleId),
+    queryFn: () => listSchedules(vehicleId),
+  })
+
+  const completeMutation = useMutation({
+    mutationFn: (sched: MaintenanceSchedule) =>
+      updateSchedule(vehicleId, sched.id, {
+        description: sched.description,
+        category: sched.category,
+        scheduled_km: sched.scheduled_km,
+        scheduled_date: sched.scheduled_date,
+        alert_status: 'done' as ScheduleAlertStatus,
+        completed_at: new Date().toISOString().slice(0, 10),
+        notes: sched.notes,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vehicleKeys.schedules(vehicleId) })
+      show('Agendamento marcado como concluído.')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteSchedule(vehicleId, id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vehicleKeys.schedules(vehicleId) })
+      setToDelete(null)
+      show('Agendamento excluído.')
+    },
+  })
+
+  const [newSched, setNewSched] = useState({ description: '', category: 'outros', scheduled_km: '', scheduled_date: '', notes: '' })
+  const createMutation = useMutation({
+    mutationFn: () => createSchedule(vehicleId, {
+      description: newSched.description,
+      category: newSched.category as never,
+      scheduled_km: newSched.scheduled_km ? parseInt(newSched.scheduled_km) : null,
+      scheduled_date: newSched.scheduled_date || null,
+      notes: newSched.notes || null,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vehicleKeys.schedules(vehicleId) })
+      show('Agendamento criado.')
+      setNewSched({ description: '', category: 'outros', scheduled_km: '', scheduled_date: '', notes: '' })
+      setFormOpen(false)
+    },
+  })
+
+  if (isLoading) return <LoadingState />
+  if (isError) return <ErrorState message={errorMessage(error)} onRetry={refetch} />
+
+  return (
+    <>
+      <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+        <Button variant="contained" size="small" startIcon={<AddRoundedIcon />} onClick={() => setFormOpen(true)}>
+          Novo agendamento
+        </Button>
+      </Stack>
+
+      {(!data || data.length === 0) ? (
+        <EmptyState
+          icon={<WarningAmberRoundedIcon />}
+          title="Nenhum agendamento"
+          description="Os agendamentos são criados automaticamente ao registrar peças com intervalo de troca, ou manualmente."
+          action={
+            <Button variant="contained" size="small" startIcon={<AddRoundedIcon />} onClick={() => setFormOpen(true)}>
+              Novo agendamento
+            </Button>
+          }
+        />
+      ) : (
+        <Card>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Descrição</TableCell>
+                  <TableCell>Categoria</TableCell>
+                  <TableCell>Km previsto</TableCell>
+                  <TableCell>Data prevista</TableCell>
+                  <TableCell>Concluído em</TableCell>
+                  <TableCell align="right">Ações</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.map((s) => (
+                  <TableRow key={s.id} hover sx={{ opacity: s.alert_status === 'cancelled' || s.alert_status === 'done' ? 0.6 : 1 }}>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={SCHEDULE_ALERT_STATUS_LABEL[s.alert_status]}
+                        color={SCHEDULE_ALERT_STATUS_COLOR[s.alert_status]}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>{s.description}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>
+                      {OS_ITEM_CATEGORY_LABEL[s.category] ?? s.category}
+                    </TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>
+                      {s.scheduled_km != null ? formatKM(s.scheduled_km) : '—'}
+                    </TableCell>
+                    <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                      {formatDate(s.scheduled_date)}
+                    </TableCell>
+                    <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                      {formatDate(s.completed_at)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {s.alert_status !== 'done' && s.alert_status !== 'cancelled' && (
+                        <Tooltip title="Marcar como concluído">
+                          <IconButton size="small" color="success" onClick={() => completeMutation.mutate(s)} disabled={completeMutation.isPending}>
+                            <CheckCircleOutlineRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Excluir">
+                        <IconButton size="small" color="error" onClick={() => setToDelete(s)}>
+                          <DeleteOutlineRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Card>
+      )}
+
+      {/* Quick create dialog */}
+      <Dialog open={formOpen} onClose={() => setFormOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Novo agendamento</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            {createMutation.isError && <ErrorState message={errorMessage(createMutation.error)} />}
+            <TextField
+              label="Descrição" fullWidth required
+              value={newSched.description}
+              onChange={(e) => setNewSched((p) => ({ ...p, description: e.target.value }))}
+            />
+            <TextField
+              label="Categoria" select fullWidth
+              value={newSched.category}
+              onChange={(e) => setNewSched((p) => ({ ...p, category: e.target.value }))}
+            >
+              {OS_ITEM_CATEGORY_OPTIONS.map((o) => (
+                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+              ))}
+            </TextField>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Km previsto" type="number" fullWidth
+                value={newSched.scheduled_km}
+                onChange={(e) => setNewSched((p) => ({ ...p, scheduled_km: e.target.value }))}
+                InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }}
+              />
+              <TextField
+                label="Data prevista" type="date" fullWidth
+                InputLabelProps={{ shrink: true }}
+                value={newSched.scheduled_date}
+                onChange={(e) => setNewSched((p) => ({ ...p, scheduled_date: e.target.value }))}
+              />
+            </Stack>
+            <TextField
+              label="Observações" fullWidth multiline minRows={2}
+              value={newSched.notes}
+              onChange={(e) => setNewSched((p) => ({ ...p, notes: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setFormOpen(false)} color="inherit">Cancelar</Button>
+          <Button onClick={() => createMutation.mutate()} variant="contained" disabled={!newSched.description || createMutation.isPending}>
+            Criar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title="Excluir agendamento"
+        description={`Excluir "${toDelete?.description}"?`}
+        loading={deleteMutation.isPending}
+        onConfirm={() => toDelete && deleteMutation.mutate(toDelete.id)}
+        onClose={() => setToDelete(null)}
+      />
+    </>
+  )
+}
+
+// ─── Analytics tab ────────────────────────────────────────────────────────────
+
+function AnalyticsTab({ vehicleId }: { vehicleId: string }) {
+  const theme = useTheme()
+  const [months, setMonths] = useState(12)
+  const { data, isLoading, isError, error, refetch } = useQuery({
+    queryKey: vehicleKeys.analytics(vehicleId, months),
+    queryFn: () => getVehicleAnalytics(vehicleId, months),
+  })
+
+  if (isLoading) return <LoadingState />
+  if (isError) return <ErrorState message={errorMessage(error)} onRetry={refetch} />
+  if (!data) return null
+
+  const monthlyMax = Math.max(...(data.monthly_spending.map((m) => m.total_cents)), 1)
+
+  return (
+    <Stack spacing={3}>
+      <Stack direction="row" justifyContent="flex-end">
+        <TextField
+          select size="small" label="Período" value={months}
+          onChange={(e) => setMonths(Number(e.target.value))}
+          sx={{ width: 160 }}
+        >
+          <MenuItem value={3}>3 meses</MenuItem>
+          <MenuItem value={6}>6 meses</MenuItem>
+          <MenuItem value={12}>12 meses</MenuItem>
+          <MenuItem value={24}>24 meses</MenuItem>
+        </TextField>
+      </Stack>
+
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <MetricCard label="Total gasto" value={formatMoney(data.total_spent_cents / 100)} />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <MetricCard label="Em peças" value={formatMoney(data.total_products_cents / 100)} />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <MetricCard label="Em serviços" value={formatMoney(data.total_services_cents / 100)} />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <MetricCard
+            label="Custo por km"
+            value={data.cost_per_km != null ? `R$ ${data.cost_per_km.toFixed(2)}/km` : '—'}
+          />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <MetricCard label="Total de OS" value={String(data.total_os_count)} />
+        </Grid>
+        <Grid size={{ xs: 6, sm: 4, md: 2 }}>
+          <MetricCard label="Ticket médio OS" value={formatMoney(data.avg_cost_per_os_cents / 100)} />
+        </Grid>
+      </Grid>
+
+      {data.monthly_spending.length > 0 && (
+        <Card>
+          <CardContent>
+            <Typography variant="subtitle2" fontWeight={700} gutterBottom>Gasto mensal</Typography>
+            <Stack spacing={1}>
+              {data.monthly_spending.map((m) => (
+                <Box key={m.month}>
+                  <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.25 }}>
+                    <Typography variant="caption" color="text.secondary">{m.month}</Typography>
+                    <Typography variant="caption" fontWeight={700}>{formatMoney(m.total_cents / 100)}</Typography>
+                  </Stack>
+                  <LinearProgress
+                    variant="determinate"
+                    value={(m.total_cents / monthlyMax) * 100}
+                    sx={{ height: 8, borderRadius: 4, bgcolor: alpha(theme.palette.primary.main, 0.1), '& .MuiLinearProgress-bar': { borderRadius: 4 } }}
+                  />
+                </Box>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
+      <Grid container spacing={2}>
+        {data.spending_by_category.length > 0 && (
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>Por categoria</Typography>
+                <Stack spacing={1}>
+                  {data.spending_by_category.slice(0, 8).map((c) => (
+                    <Stack key={c.category} direction="row" justifyContent="space-between">
+                      <Typography variant="body2">{OS_ITEM_CATEGORY_LABEL[c.category as never] ?? c.category}</Typography>
+                      <Typography variant="body2" fontWeight={600}>{formatMoney(c.total_cents / 100)}</Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+
+        {data.spending_by_supplier.length > 0 && (
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card>
+              <CardContent>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>Por fornecedor</Typography>
+                <Stack spacing={1}>
+                  {data.spending_by_supplier.slice(0, 8).map((s) => (
+                    <Stack key={s.supplier_id || s.supplier_name} direction="row" justifyContent="space-between">
+                      <Typography variant="body2">{s.supplier_name}</Typography>
+                      <Typography variant="body2" fontWeight={600}>{formatMoney(s.total_cents / 100)}</Typography>
+                    </Stack>
+                  ))}
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        )}
+      </Grid>
+    </Stack>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function VehicleDetailPage() {
@@ -1012,20 +1818,26 @@ export default function VehicleDetailPage() {
 
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="Manutenções" />
-          <Tab label="Planos" />
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
+          <Tab label="Ordens de Serviço" />
+          <Tab label="Agendamentos" />
+          <Tab label="Analytics" />
           <Tab label="Alertas" />
           <Tab label="Depreciação" />
           <Tab label="Histórico FIPE" />
+          <Tab label="Manutenções" />
+          <Tab label="Planos" />
         </Tabs>
       </Box>
 
-      {tab === 0 && <MaintenanceTab vehicleId={vehicle.id} />}
-      {tab === 1 && <PlansTab vehicleId={vehicle.id} />}
-      {tab === 2 && <AlertsTab vehicleId={vehicle.id} />}
-      {tab === 3 && <DepreciationTab vehicleId={vehicle.id} />}
-      {tab === 4 && <FipeHistoryTab vehicleId={vehicle.id} />}
+      {tab === 0 && <ServiceOrdersTab vehicleId={vehicle.id} currentKM={vehicle.current_odometer} />}
+      {tab === 1 && <SchedulesTab vehicleId={vehicle.id} />}
+      {tab === 2 && <AnalyticsTab vehicleId={vehicle.id} />}
+      {tab === 3 && <AlertsTab vehicleId={vehicle.id} />}
+      {tab === 4 && <DepreciationTab vehicleId={vehicle.id} />}
+      {tab === 5 && <FipeHistoryTab vehicleId={vehicle.id} />}
+      {tab === 6 && <MaintenanceTab vehicleId={vehicle.id} />}
+      {tab === 7 && <PlansTab vehicleId={vehicle.id} />}
 
       <OdometerDialog
         open={odometerOpen}
