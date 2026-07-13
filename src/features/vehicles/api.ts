@@ -144,6 +144,132 @@ export type DepreciationReport = {
 
 export type Paginated<T> = { items: T[]; total: number }
 
+// ─── Service Orders ────────────────────────────────────────────────────────────
+
+export type OSStatus = 'draft' | 'completed' | 'cancelled'
+export type OSItemType = 'product' | 'service'
+export type OSItemCategory =
+  | 'motor' | 'freios' | 'suspensao' | 'transmissao' | 'arrefecimento'
+  | 'eletrico' | 'pneus' | 'ar_condicionado' | 'carroceria' | 'servico' | 'outros'
+export type ScheduleAlertStatus = 'pending' | 'due_soon' | 'overdue' | 'done' | 'cancelled'
+
+export type ServiceOrderItem = {
+  id: string
+  service_order_id: string
+  item_type: OSItemType
+  category: OSItemCategory
+  description: string
+  quantity: number
+  unit_price_cents: number
+  total_price_cents: number
+  km_at_installation?: number | null
+  replacement_interval_km?: number | null
+  replacement_interval_months?: number | null
+  next_due_km?: number | null
+  next_due_date?: string | null
+  warranty_expires_date?: string | null
+  warranty_expires_km?: number | null
+  notes?: string | null
+  created_at: string
+}
+
+export type ServiceOrder = {
+  id: string
+  vehicle_id: string
+  supplier_id?: string | null
+  os_number?: string | null
+  service_date: string
+  km_at_service: number
+  total_products_cents: number
+  total_services_cents: number
+  total_cents: number
+  payment_method?: string | null
+  technician?: string | null
+  notes?: string | null
+  status: OSStatus
+  items: ServiceOrderItem[]
+  created_at: string
+  updated_at: string
+}
+
+export type ServiceOrderInput = {
+  supplier_id?: string | null
+  os_number?: string | null
+  service_date: string
+  km_at_service: number
+  payment_method?: string | null
+  technician?: string | null
+  notes?: string | null
+  status?: OSStatus
+  items?: ServiceOrderItemInput[]
+}
+
+export type ServiceOrderItemInput = {
+  item_type: OSItemType
+  category?: OSItemCategory
+  description: string
+  quantity?: number
+  unit_price_cents?: number
+  km_at_installation?: number | null
+  replacement_interval_km?: number | null
+  replacement_interval_months?: number | null
+  warranty_expires_date?: string | null
+  warranty_expires_km?: number | null
+  notes?: string | null
+}
+
+export type MaintenanceCatalogItem = {
+  id: string
+  category: OSItemCategory
+  item_type: OSItemType
+  name: string
+  description?: string | null
+  default_interval_km?: number | null
+  default_interval_months?: number | null
+  default_warranty_months?: number | null
+}
+
+export type MaintenanceSchedule = {
+  id: string
+  vehicle_id: string
+  service_order_item_id?: string | null
+  description: string
+  category: OSItemCategory
+  scheduled_km?: number | null
+  scheduled_date?: string | null
+  alert_status: ScheduleAlertStatus
+  completed_at?: string | null
+  notes?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type ScheduleInput = {
+  service_order_item_id?: string | null
+  description: string
+  category?: OSItemCategory
+  scheduled_km?: number | null
+  scheduled_date?: string | null
+  notes?: string | null
+}
+
+export type ScheduleUpdateInput = ScheduleInput & {
+  alert_status?: ScheduleAlertStatus
+  completed_at?: string | null
+}
+
+export type VehicleAnalytics = {
+  total_spent_cents: number
+  total_products_cents: number
+  total_services_cents: number
+  cost_per_km?: number | null
+  total_os_count: number
+  avg_cost_per_os_cents: number
+  spending_by_category: { category: string; total_cents: number }[]
+  spending_by_supplier: { supplier_id: string; supplier_name: string; total_cents: number }[]
+  monthly_spending: { month: string; total_cents: number }[]
+}
+
 // FIPE raw types (parallelum JSON field names)
 export type FipeBrand = { codigo: string; nome: string }
 export type FipeModel = { codigo: number; nome: string }
@@ -295,6 +421,115 @@ export async function getFipePrice(
 ): Promise<FipePrice> {
   const { data } = await meufinClient.get<FipePrice>(`${BASE}/fipe/price`, {
     params: { type: vehicleType, brand_code: brandCode, model_code: modelCode, year_code: yearCode },
+  })
+  return data
+}
+
+// ─── Service Orders ────────────────────────────────────────────────────────────
+
+export async function listServiceOrders(vehicleId: string): Promise<ServiceOrder[]> {
+  const { data } = await meufinClient.get<{ items: ServiceOrder[] }>(`${BASE}/${vehicleId}/service-orders`)
+  return data.items
+}
+
+export async function createServiceOrder(vehicleId: string, input: ServiceOrderInput): Promise<ServiceOrder> {
+  const { data } = await meufinClient.post<ServiceOrder>(`${BASE}/${vehicleId}/service-orders`, input)
+  return data
+}
+
+export async function getServiceOrder(vehicleId: string, osId: string): Promise<ServiceOrder> {
+  const { data } = await meufinClient.get<ServiceOrder>(`${BASE}/${vehicleId}/service-orders/${osId}`)
+  return data
+}
+
+export async function updateServiceOrder(
+  vehicleId: string,
+  osId: string,
+  input: Omit<ServiceOrderInput, 'items'>,
+): Promise<ServiceOrder> {
+  const { data } = await meufinClient.put<ServiceOrder>(`${BASE}/${vehicleId}/service-orders/${osId}`, input)
+  return data
+}
+
+export async function deleteServiceOrder(vehicleId: string, osId: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/${vehicleId}/service-orders/${osId}`)
+}
+
+export async function addOSItem(
+  vehicleId: string,
+  osId: string,
+  input: ServiceOrderItemInput,
+): Promise<ServiceOrderItem> {
+  const { data } = await meufinClient.post<ServiceOrderItem>(
+    `${BASE}/${vehicleId}/service-orders/${osId}/items`,
+    input,
+  )
+  return data
+}
+
+export async function updateOSItem(
+  vehicleId: string,
+  osId: string,
+  itemId: string,
+  input: ServiceOrderItemInput,
+): Promise<ServiceOrderItem> {
+  const { data } = await meufinClient.put<ServiceOrderItem>(
+    `${BASE}/${vehicleId}/service-orders/${osId}/items/${itemId}`,
+    input,
+  )
+  return data
+}
+
+export async function deleteOSItem(vehicleId: string, osId: string, itemId: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/${vehicleId}/service-orders/${osId}/items/${itemId}`)
+}
+
+// ─── Catalog ──────────────────────────────────────────────────────────────────
+
+export async function searchCatalog(
+  query?: string,
+  category?: string,
+  limit = 20,
+): Promise<MaintenanceCatalogItem[]> {
+  const { data } = await meufinClient.get<{ items: MaintenanceCatalogItem[] }>(`${BASE}/maintenance/catalog`, {
+    params: { q: query, category, limit },
+  })
+  return data.items
+}
+
+// ─── Schedules ────────────────────────────────────────────────────────────────
+
+export async function listSchedules(vehicleId: string): Promise<MaintenanceSchedule[]> {
+  const { data } = await meufinClient.get<{ items: MaintenanceSchedule[] }>(`${BASE}/${vehicleId}/schedules`)
+  return data.items
+}
+
+export async function createSchedule(vehicleId: string, input: ScheduleInput): Promise<MaintenanceSchedule> {
+  const { data } = await meufinClient.post<MaintenanceSchedule>(`${BASE}/${vehicleId}/schedules`, input)
+  return data
+}
+
+export async function updateSchedule(
+  vehicleId: string,
+  schedId: string,
+  input: ScheduleUpdateInput,
+): Promise<MaintenanceSchedule> {
+  const { data } = await meufinClient.put<MaintenanceSchedule>(
+    `${BASE}/${vehicleId}/schedules/${schedId}`,
+    input,
+  )
+  return data
+}
+
+export async function deleteSchedule(vehicleId: string, schedId: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/${vehicleId}/schedules/${schedId}`)
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export async function getVehicleAnalytics(vehicleId: string, months = 12): Promise<VehicleAnalytics> {
+  const { data } = await meufinClient.get<VehicleAnalytics>(`${BASE}/${vehicleId}/analytics`, {
+    params: { months },
   })
   return data
 }
