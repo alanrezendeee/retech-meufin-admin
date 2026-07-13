@@ -1,0 +1,130 @@
+import type { AlertStatus, FuelType, VehicleStatus } from './api'
+
+export const vehicleKeys = {
+  all: ['vehicles'] as const,
+  list: (params: Record<string, unknown>) => [...vehicleKeys.all, 'list', params] as const,
+  detail: (id: string) => [...vehicleKeys.all, 'detail', id] as const,
+  maintenance: (vehicleId: string) => [...vehicleKeys.all, 'maintenance', vehicleId] as const,
+  plans: (vehicleId: string) => [...vehicleKeys.all, 'plans', vehicleId] as const,
+  alerts: (vehicleId: string) => [...vehicleKeys.all, 'alerts', vehicleId] as const,
+  depreciation: (vehicleId: string) => [...vehicleKeys.all, 'depreciation', vehicleId] as const,
+  fipeHistory: (vehicleId: string) => [...vehicleKeys.all, 'fipe-history', vehicleId] as const,
+  fipeBrands: (type: string) => [...vehicleKeys.all, 'fipe', 'brands', type] as const,
+  fipeModels: (type: string, brand: string) => [...vehicleKeys.all, 'fipe', 'models', type, brand] as const,
+  fipeYears: (type: string, brand: string, model: string) =>
+    [...vehicleKeys.all, 'fipe', 'years', type, brand, model] as const,
+  fipePrice: (type: string, brand: string, model: string, year: string) =>
+    [...vehicleKeys.all, 'fipe', 'price', type, brand, model, year] as const,
+}
+
+export const FUEL_TYPE_OPTIONS: { value: FuelType; label: string }[] = [
+  { value: 'flex', label: 'Flex' },
+  { value: 'gasolina', label: 'Gasolina' },
+  { value: 'etanol', label: 'Etanol' },
+  { value: 'diesel', label: 'Diesel' },
+  { value: 'eletrico', label: 'Elétrico' },
+  { value: 'hibrido', label: 'Híbrido' },
+]
+
+export const FUEL_TYPE_LABEL: Record<FuelType, string> = FUEL_TYPE_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<FuelType, string>,
+)
+
+export const VEHICLE_STATUS_OPTIONS: { value: VehicleStatus; label: string }[] = [
+  { value: 'active', label: 'Ativo' },
+  { value: 'sold', label: 'Vendido' },
+  { value: 'inactive', label: 'Inativo' },
+]
+
+export const VEHICLE_STATUS_LABEL: Record<VehicleStatus, string> = VEHICLE_STATUS_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<VehicleStatus, string>,
+)
+
+export const VEHICLE_STATUS_COLOR: Record<VehicleStatus, 'success' | 'default' | 'warning'> = {
+  active: 'success',
+  sold: 'warning',
+  inactive: 'default',
+}
+
+export const FIPE_VEHICLE_TYPE_OPTIONS = [
+  { value: 'carros', label: 'Carro' },
+  { value: 'motos', label: 'Moto' },
+  { value: 'caminhoes', label: 'Caminhão' },
+]
+
+export const FIPE_VEHICLE_TYPE_LABEL: Record<string, string> = {
+  carros: 'Carro',
+  motos: 'Moto',
+  caminhoes: 'Caminhão',
+}
+
+export const ALERT_STATUS_COLOR: Record<AlertStatus, 'error' | 'warning' | 'success' | 'default'> = {
+  overdue: 'error',
+  due_soon: 'warning',
+  ok: 'success',
+  unknown: 'default',
+}
+
+export const ALERT_STATUS_LABEL: Record<AlertStatus, string> = {
+  overdue: 'Vencido',
+  due_soon: 'Próximo do vencimento',
+  ok: 'Em dia',
+  unknown: 'Sem histórico',
+}
+
+export const MAINTENANCE_TYPE_OPTIONS = [
+  { value: 'Troca de óleo', label: 'Troca de óleo' },
+  { value: 'Revisão preventiva', label: 'Revisão preventiva' },
+  { value: 'Rodízio de pneus', label: 'Rodízio de pneus' },
+  { value: 'Alinhamento e balanceamento', label: 'Alinhamento e balanceamento' },
+  { value: 'Filtro de ar', label: 'Filtro de ar' },
+  { value: 'Filtro de cabine', label: 'Filtro de cabine' },
+  { value: 'Fluido de freio', label: 'Fluido de freio' },
+  { value: 'Pastilhas de freio', label: 'Pastilhas de freio' },
+  { value: 'Correia dentada', label: 'Correia dentada' },
+  { value: 'Velas de ignição', label: 'Velas de ignição' },
+  { value: 'Fluido de arrefecimento', label: 'Fluido de arrefecimento' },
+  { value: 'Outro', label: 'Outro' },
+]
+
+export function formatMoney(v?: number | null): string {
+  if (v == null) return '—'
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+export function formatKM(v?: number | null): string {
+  if (v == null) return '—'
+  return `${v.toLocaleString('pt-BR')} km`
+}
+
+export function formatDate(s?: string | null): string {
+  if (!s) return '—'
+  const [y, m, d] = s.split('-')
+  return `${d}/${m}/${y}`
+}
+
+export function parseFipeValue(s: string): number {
+  return parseFloat(s.replace('R$ ', '').replace(/\./g, '').replace(',', '.')) || 0
+}
+
+export function vehicleLabel(v: { make: string; model: string; year_model: number }): string {
+  return `${v.make} ${v.model} ${v.year_model}`
+}
+
+export function errorMessage(err: unknown, fallback = 'Ocorreu um erro. Tente novamente.'): string {
+  if (typeof err === 'object' && err != null) {
+    const anyErr = err as {
+      response?: { data?: { error?: string | { message?: string }; message?: string } }
+      message?: string
+    }
+    const apiErr = anyErr.response?.data?.error
+    if (typeof apiErr === 'string' && apiErr) return apiErr
+    if (apiErr && typeof apiErr === 'object' && typeof apiErr.message === 'string' && apiErr.message) {
+      return apiErr.message
+    }
+    return anyErr.response?.data?.message ?? anyErr.message ?? fallback
+  }
+  return fallback
+}

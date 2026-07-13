@@ -22,6 +22,8 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded'
+import GarageRoundedIcon from '@mui/icons-material/GarageRounded'
+import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded'
 
 /**
  * Menu RetechFin Admin — subjects alinhados ao manifest / abilities da API de auth (retechauth-api).
@@ -198,6 +200,23 @@ export const retechfinNavSections: NavDataSection[] = [
         icon: FolderSharedRoundedIcon,
         soon: true,
         permission: { action: 'view', subject: 'health.documents' },
+      },
+    ],
+  },
+  {
+    subheader: 'Frota Familiar',
+    items: [
+      {
+        label: 'Dashboard Frota',
+        path: '/dashboard/frota',
+        icon: GarageRoundedIcon,
+        permission: { action: 'view', subject: 'vehicles.dashboard' },
+      },
+      {
+        label: 'Veículos',
+        path: '/dashboard/frota/veiculos',
+        icon: DirectionsCarRoundedIcon,
+        permission: { action: 'view', subject: 'vehicles.list' },
       },
     ],
   },
