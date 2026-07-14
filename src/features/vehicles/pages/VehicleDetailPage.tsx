@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Alert,
   Autocomplete,
@@ -105,6 +105,7 @@ import {
   VEHICLE_STATUS_COLOR,
   VEHICLE_STATUS_LABEL,
 } from '../constants'
+import { listSuppliers, type Supplier } from '@/features/finance/api'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { ErrorState, LoadingState, EmptyState } from '@/features/health/components/StateViews'
 import { useToast } from '@/providers/ToastProvider'
@@ -348,6 +349,21 @@ function MaintenanceFormDialog({
       : emptyMaintenanceForm,
   })
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: listSuppliers,
+  })
+
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
+
+  useEffect(() => {
+    if (item?.supplier_id && suppliers.length > 0) {
+      setSelectedSupplier(suppliers.find((s) => s.id === item.supplier_id) ?? null)
+    } else if (!item) {
+      setSelectedSupplier(null)
+    }
+  }, [item, suppliers])
+
   const mutation = useMutation({
     mutationFn: (values: MaintenanceFormValues) => {
       const parsedItems: MaintenanceItemInput[] = itemRows.map((r) => ({
@@ -368,6 +384,7 @@ function MaintenanceFormDialog({
         title: values.title.trim(),
         service_date: values.service_date || null,
         odometer_at_service: values.odometer_at_service ? parseInt(values.odometer_at_service) : null,
+        supplier_id: selectedSupplier?.id ?? null,
         os_number: values.os_number || null,
         technician: values.technician || null,
         payment_method: values.payment_method || null,
@@ -381,6 +398,7 @@ function MaintenanceFormDialog({
       qc.invalidateQueries({ queryKey: vehicleKeys.maintenance(vehicleId) })
       qc.invalidateQueries({ queryKey: vehicleKeys.alerts(vehicleId) })
       reset(emptyMaintenanceForm)
+      setSelectedSupplier(null)
       onClose()
     },
   })
@@ -515,6 +533,18 @@ function MaintenanceFormDialog({
                       <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                     ))}
                   </TextField>
+                )}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Autocomplete
+                options={suppliers}
+                getOptionLabel={(s) => s.name}
+                value={selectedSupplier}
+                onChange={(_, v) => setSelectedSupplier(v)}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                renderInput={(params) => (
+                  <TextField {...params} label="Fornecedor / Oficina" fullWidth />
                 )}
               />
             </Grid>
@@ -741,6 +771,13 @@ function MaintenanceTab({ vehicleId, currentKM }: { vehicleId: string; currentKM
     queryFn: () => listMaintenance(vehicleId),
   })
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: listSuppliers,
+  })
+
+  const supplierName = (id?: string | null) => suppliers.find((s) => s.id === id)?.name
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteMaintenance(vehicleId, id),
     onSuccess: () => {
@@ -818,6 +855,9 @@ function MaintenanceTab({ vehicleId, currentKM }: { vehicleId: string; currentKM
                       <Typography variant="body2" color="text.secondary">
                         {m.items.length} item(ns)
                       </Typography>
+                      {m.supplier_id && supplierName(m.supplier_id) && (
+                        <Typography variant="body2" color="text.secondary">· {supplierName(m.supplier_id)}</Typography>
+                      )}
                       {m.technician && (
                         <Typography variant="body2" color="text.secondary">· {m.technician}</Typography>
                       )}
