@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Alert,
   Autocomplete,
@@ -105,6 +105,7 @@ import {
   VEHICLE_STATUS_COLOR,
   VEHICLE_STATUS_LABEL,
 } from '../constants'
+import { listSuppliers, type Supplier } from '@/features/finance/api'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { ErrorState, LoadingState, EmptyState } from '@/features/health/components/StateViews'
 import { useToast } from '@/providers/ToastProvider'
@@ -348,6 +349,21 @@ function MaintenanceFormDialog({
       : emptyMaintenanceForm,
   })
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: listSuppliers,
+  })
+
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null)
+
+  useEffect(() => {
+    if (item?.supplier_id && suppliers.length > 0) {
+      setSelectedSupplier(suppliers.find((s) => s.id === item.supplier_id) ?? null)
+    } else if (!item) {
+      setSelectedSupplier(null)
+    }
+  }, [item, suppliers])
+
   const mutation = useMutation({
     mutationFn: (values: MaintenanceFormValues) => {
       const parsedItems: MaintenanceItemInput[] = itemRows.map((r) => ({
@@ -368,6 +384,7 @@ function MaintenanceFormDialog({
         title: values.title.trim(),
         service_date: values.service_date || null,
         odometer_at_service: values.odometer_at_service ? parseInt(values.odometer_at_service) : null,
+        supplier_id: selectedSupplier?.id ?? null,
         os_number: values.os_number || null,
         technician: values.technician || null,
         payment_method: values.payment_method || null,
@@ -381,6 +398,7 @@ function MaintenanceFormDialog({
       qc.invalidateQueries({ queryKey: vehicleKeys.maintenance(vehicleId) })
       qc.invalidateQueries({ queryKey: vehicleKeys.alerts(vehicleId) })
       reset(emptyMaintenanceForm)
+      setSelectedSupplier(null)
       onClose()
     },
   })
@@ -515,6 +533,18 @@ function MaintenanceFormDialog({
                       <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                     ))}
                   </TextField>
+                )}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+              <Autocomplete
+                options={suppliers}
+                getOptionLabel={(s) => s.name}
+                value={selectedSupplier}
+                onChange={(_, v) => setSelectedSupplier(v)}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                renderInput={(params) => (
+                  <TextField {...params} label="Fornecedor / Oficina" fullWidth />
                 )}
               />
             </Grid>
@@ -741,6 +771,13 @@ function MaintenanceTab({ vehicleId, currentKM }: { vehicleId: string; currentKM
     queryFn: () => listMaintenance(vehicleId),
   })
 
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: listSuppliers,
+  })
+
+  const supplierName = (id?: string | null) => suppliers.find((s) => s.id === id)?.name
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteMaintenance(vehicleId, id),
     onSuccess: () => {
@@ -818,6 +855,9 @@ function MaintenanceTab({ vehicleId, currentKM }: { vehicleId: string; currentKM
                       <Typography variant="body2" color="text.secondary">
                         {m.items.length} item(ns)
                       </Typography>
+                      {m.supplier_id && supplierName(m.supplier_id) && (
+                        <Typography variant="body2" color="text.secondary">· {supplierName(m.supplier_id)}</Typography>
+                      )}
                       {m.technician && (
                         <Typography variant="body2" color="text.secondary">· {m.technician}</Typography>
                       )}
@@ -1337,10 +1377,16 @@ function SchedulesTab({ vehicleId }: { vehicleId: string }) {
   const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
   const [toDelete, setToDelete] = useState<MaintenanceSchedule | null>(null)
+  const [linkedMaintenance, setLinkedMaintenance] = useState<Maintenance | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: vehicleKeys.schedules(vehicleId),
     queryFn: () => listSchedules(vehicleId),
+  })
+
+  const { data: maintenances = [] } = useQuery({
+    queryKey: vehicleKeys.maintenance(vehicleId),
+    queryFn: () => listMaintenance(vehicleId),
   })
 
   const completeMutation = useMutation({
@@ -1369,11 +1415,11 @@ function SchedulesTab({ vehicleId }: { vehicleId: string }) {
     },
   })
 
-  const [newSched, setNewSched] = useState({ description: '', category: 'outros', scheduled_km: '', scheduled_date: '', notes: '' })
+  const [newSched, setNewSched] = useState({ description: '', scheduled_km: '', scheduled_date: '', notes: '' })
   const createMutation = useMutation({
     mutationFn: () => createSchedule(vehicleId, {
+      maintenance_id: linkedMaintenance?.id ?? null,
       description: newSched.description,
-      category: newSched.category as never,
       scheduled_km: newSched.scheduled_km ? parseInt(newSched.scheduled_km) : null,
       scheduled_date: newSched.scheduled_date || null,
       notes: newSched.notes || null,
@@ -1381,7 +1427,8 @@ function SchedulesTab({ vehicleId }: { vehicleId: string }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: vehicleKeys.schedules(vehicleId) })
       show('Agendamento criado.')
-      setNewSched({ description: '', category: 'outros', scheduled_km: '', scheduled_date: '', notes: '' })
+      setNewSched({ description: '', scheduled_km: '', scheduled_date: '', notes: '' })
+      setLinkedMaintenance(null)
       setFormOpen(false)
     },
   })
@@ -1416,7 +1463,7 @@ function SchedulesTab({ vehicleId }: { vehicleId: string }) {
                 <TableRow>
                   <TableCell>Status</TableCell>
                   <TableCell>Descrição</TableCell>
-                  <TableCell>Categoria</TableCell>
+                  <TableCell>Manutenção vinculada</TableCell>
                   <TableCell>Km previsto</TableCell>
                   <TableCell>Data prevista</TableCell>
                   <TableCell>Concluído em</TableCell>
@@ -1437,7 +1484,9 @@ function SchedulesTab({ vehicleId }: { vehicleId: string }) {
                       <Typography variant="body2" fontWeight={500}>{s.description}</Typography>
                     </TableCell>
                     <TableCell sx={{ color: 'text.secondary' }}>
-                      {OS_ITEM_CATEGORY_LABEL[s.category] ?? s.category}
+                      {s.maintenance_id
+                        ? maintenances.find((m) => m.id === s.maintenance_id)?.title ?? '—'
+                        : '—'}
                     </TableCell>
                     <TableCell sx={{ color: 'text.secondary' }}>
                       {s.scheduled_km != null ? formatKM(s.scheduled_km) : '—'}
@@ -1476,20 +1525,24 @@ function SchedulesTab({ vehicleId }: { vehicleId: string }) {
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             {createMutation.isError && <ErrorState message={errorMessage(createMutation.error)} />}
+            <Autocomplete
+              options={maintenances}
+              getOptionLabel={(m) => `${m.title}${m.service_date ? ` — ${formatDate(m.service_date)}` : ` (${MAINTENANCE_STATUS_LABEL[m.status]})`}`}
+              value={linkedMaintenance}
+              onChange={(_, v) => {
+                setLinkedMaintenance(v)
+                if (v) setNewSched((p) => ({ ...p, description: v.title }))
+              }}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              renderInput={(params) => (
+                <TextField {...params} label="Manutenção vinculada" helperText="Opcional — vincule a uma manutenção já registrada" />
+              )}
+            />
             <TextField
               label="Descrição" fullWidth required
               value={newSched.description}
               onChange={(e) => setNewSched((p) => ({ ...p, description: e.target.value }))}
             />
-            <TextField
-              label="Categoria" select fullWidth
-              value={newSched.category}
-              onChange={(e) => setNewSched((p) => ({ ...p, category: e.target.value }))}
-            >
-              {OS_ITEM_CATEGORY_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-              ))}
-            </TextField>
             <Stack direction="row" spacing={2}>
               <TextField
                 label="Km previsto" type="number" fullWidth
