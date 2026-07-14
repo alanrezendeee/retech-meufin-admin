@@ -219,6 +219,7 @@ export type MaintenanceCatalogItem = {
 export type MaintenanceSchedule = {
   id: string
   vehicle_id: string
+  maintenance_id?: string | null
   maintenance_item_id?: string | null
   description: string
   category: OSItemCategory
@@ -232,6 +233,7 @@ export type MaintenanceSchedule = {
 }
 
 export type ScheduleInput = {
+  maintenance_id?: string | null
   maintenance_item_id?: string | null
   description: string
   category?: OSItemCategory
