@@ -1,4 +1,4 @@
-import type { AlertStatus, FuelType, OSItemCategory, ScheduleAlertStatus, VehicleStatus } from './api'
+import type { AlertStatus, FuelType, MaintenanceStatus, OSItemCategory, ScheduleAlertStatus, VehicleStatus } from './api'
 
 export const vehicleKeys = {
   all: ['vehicles'] as const,
@@ -15,8 +15,6 @@ export const vehicleKeys = {
     [...vehicleKeys.all, 'fipe', 'years', type, brand, model] as const,
   fipePrice: (type: string, brand: string, model: string, year: string) =>
     [...vehicleKeys.all, 'fipe', 'price', type, brand, model, year] as const,
-  serviceOrders: (vehicleId: string) => [...vehicleKeys.all, 'service-orders', vehicleId] as const,
-  serviceOrder: (vehicleId: string, osId: string) => [...vehicleKeys.all, 'service-orders', vehicleId, osId] as const,
   catalog: (q: string, category: string) => [...vehicleKeys.all, 'catalog', q, category] as const,
   schedules: (vehicleId: string) => [...vehicleKeys.all, 'schedules', vehicleId] as const,
   analytics: (vehicleId: string, months: number) => [...vehicleKeys.all, 'analytics', vehicleId, months] as const,
@@ -154,6 +152,26 @@ export const SCHEDULE_ALERT_STATUS_COLOR: Record<
   done: 'success',
   cancelled: 'default',
 }
+
+export const MAINTENANCE_STATUS_LABEL: Record<MaintenanceStatus, string> = {
+  orcado: 'Orçado',
+  agendado: 'Agendado',
+  em_andamento: 'Em andamento',
+  realizado: 'Realizado',
+  cancelado: 'Cancelado',
+}
+
+export const MAINTENANCE_STATUS_COLOR: Record<MaintenanceStatus, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
+  orcado: 'default',
+  agendado: 'info',
+  em_andamento: 'warning',
+  realizado: 'success',
+  cancelado: 'error',
+}
+
+export const MAINTENANCE_STATUS_OPTIONS = Object.entries(MAINTENANCE_STATUS_LABEL).map(
+  ([value, label]) => ({ value: value as MaintenanceStatus, label })
+)
 
 export const PAYMENT_METHOD_OPTIONS = [
   { value: 'pix', label: 'Pix' },
