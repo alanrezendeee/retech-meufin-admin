@@ -156,6 +156,7 @@ export type ScheduleAlertStatus = 'pending' | 'due_soon' | 'overdue' | 'done' | 
 export type ServiceOrderItem = {
   id: string
   service_order_id: string
+  catalog_item_id?: string | null
   item_type: OSItemType
   category: OSItemCategory
   description: string
@@ -205,6 +206,7 @@ export type ServiceOrderInput = {
 }
 
 export type ServiceOrderItemInput = {
+  catalog_item_id?: string | null
   item_type: OSItemType
   category?: OSItemCategory
   description: string

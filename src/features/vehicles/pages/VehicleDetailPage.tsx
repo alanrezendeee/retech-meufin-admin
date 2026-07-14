@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -70,14 +71,17 @@ import {
   listSchedules,
   listServiceOrders,
   listVehiclePlans,
+  searchCatalog,
   updateMaintenance,
   updateOdometer,
   updateSchedule,
   updateServiceOrder,
   updateVehiclePlan,
+  type MaintenanceCatalogItem,
   type Maintenance,
   type MaintenanceInput,
   type MaintenanceSchedule,
+  type OSItemCategory,
   type ScheduleAlertStatus,
   type ServiceOrder,
   type ServiceOrderItemInput,
@@ -955,11 +959,12 @@ function FipeHistoryTab({ vehicleId }: { vehicleId: string }) {
 // ─── Service Orders tab ───────────────────────────────────────────────────────
 
 type OSItemFormRow = {
+  catalog_item_id?: string
   item_type: 'product' | 'service'
   category: string
   description: string
   quantity: string
-  unit_price_cents: string
+  unit_price_cents: string  // stored as integer cents string
   replacement_interval_km: string
   replacement_interval_months: string
   warranty_expires_km: string
@@ -967,8 +972,9 @@ type OSItemFormRow = {
 }
 
 const emptyItemRow: OSItemFormRow = {
+  catalog_item_id: undefined,
   item_type: 'product',
-  category: 'outros',
+  category: 'motor',
   description: '',
   quantity: '1',
   unit_price_cents: '0',
@@ -976,6 +982,80 @@ const emptyItemRow: OSItemFormRow = {
   replacement_interval_months: '',
   warranty_expires_km: '',
   notes: '',
+}
+
+function CatalogAutocomplete({
+  defaultValue,
+  onSelect,
+  onType,
+}: {
+  defaultValue: string
+  onSelect: (item: MaintenanceCatalogItem) => void
+  onType: (text: string) => void
+}) {
+  const [inputVal, setInputVal] = useState(defaultValue)
+  const [open, setOpen] = useState(false)
+
+  const { data: opts = [] } = useQuery({
+    queryKey: vehicleKeys.catalog(inputVal, ''),
+    queryFn: () => searchCatalog(inputVal, '', 30),
+    enabled: open && inputVal.length >= 1,
+    staleTime: 60_000,
+    placeholderData: (prev: MaintenanceCatalogItem[] | undefined) => prev ?? [],
+  })
+
+  return (
+    <Autocomplete
+      freeSolo
+      open={open}
+      onOpen={() => setOpen(true)}
+      onClose={() => setOpen(false)}
+      options={opts}
+      getOptionLabel={(o) => (typeof o === 'string' ? o : o.name)}
+      groupBy={(o) =>
+        typeof o === 'string' ? '' : (OS_ITEM_CATEGORY_LABEL[o.category as OSItemCategory] ?? o.category)
+      }
+      filterOptions={(x) => x}
+      noOptionsText={inputVal.length < 1 ? 'Digite para buscar' : 'Nenhum item encontrado'}
+      inputValue={inputVal}
+      onInputChange={(_, v, reason) => {
+        setInputVal(v)
+        if (reason === 'input') onType(v)
+      }}
+      onChange={(_, v) => {
+        if (v && typeof v !== 'string') {
+          setInputVal(v.name)
+          onSelect(v)
+        } else if (v === null) {
+          setInputVal('')
+          onType('')
+        }
+      }}
+      renderOption={(props, o) => {
+        const item = o as MaintenanceCatalogItem
+        return (
+          <Box component="li" {...props} key={item.id}>
+            <Stack>
+              <Typography variant="body2" fontWeight={500}>{item.name}</Typography>
+              {item.description && (
+                <Typography variant="caption" color="text.secondary">{item.description}</Typography>
+              )}
+            </Stack>
+          </Box>
+        )
+      }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          size="small"
+          label="Item / Serviço *"
+          required
+          placeholder="Buscar no catálogo..."
+          helperText="Selecione do catálogo ou descreva livremente"
+        />
+      )}
+    />
+  )
 }
 
 type OSFormValues = {
@@ -1007,6 +1087,7 @@ function ServiceOrderDialog({
   const [items, setItems] = useState<OSItemFormRow[]>(() =>
     order
       ? order.items.map((it) => ({
+          catalog_item_id: it.catalog_item_id ?? undefined,
           item_type: it.item_type,
           category: it.category,
           description: it.description,
@@ -1039,6 +1120,7 @@ function ServiceOrderDialog({
   const mutation = useMutation({
     mutationFn: (values: OSFormValues) => {
       const parsedItems: ServiceOrderItemInput[] = items.map((r) => ({
+        catalog_item_id: r.catalog_item_id ?? null,
         item_type: r.item_type,
         category: r.category as never,
         description: r.description,
@@ -1140,85 +1222,171 @@ function ServiceOrderDialog({
 
           {items.map((row, idx) => (
             <Card key={idx} variant="outlined" sx={{ p: 1.5 }}>
-              <Grid container spacing={1.5} alignItems="flex-start">
-                <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-                  <TextField
-                    select fullWidth size="small" label="Tipo"
-                    value={row.item_type}
-                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, item_type: e.target.value as 'product' | 'service' } : r))}
-                  >
-                    <MenuItem value="product">Produto/Peça</MenuItem>
-                    <MenuItem value="service">Serviço</MenuItem>
-                  </TextField>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3, md: 2 }}>
-                  <TextField
-                    select fullWidth size="small" label="Categoria"
-                    value={row.category}
-                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, category: e.target.value } : r))}
-                  >
-                    {OS_ITEM_CATEGORY_OPTIONS.map((o) => (
-                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                  <TextField
-                    fullWidth size="small" label="Descrição" required
-                    value={row.description}
-                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
-                  />
-                </Grid>
-                <Grid size={{ xs: 4, sm: 2, md: 1 }}>
-                  <TextField
-                    fullWidth size="small" label="Qtd" type="number" inputProps={{ min: 0, step: '0.001' }}
-                    value={row.quantity}
-                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, quantity: e.target.value } : r))}
-                  />
-                </Grid>
-                <Grid size={{ xs: 8, sm: 4, md: 2 }}>
-                  <TextField
-                    fullWidth size="small" label="Preço unit. (centavos)" type="number" inputProps={{ min: 0 }}
-                    value={row.unit_price_cents}
-                    onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, unit_price_cents: e.target.value } : r))}
-                    helperText={row.unit_price_cents ? formatMoney((parseInt(row.unit_price_cents) || 0) / 100) : ''}
-                  />
-                </Grid>
-                <Grid size={{ xs: 4, sm: 0, md: 1 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                  <IconButton size="small" color="error" onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}>
-                    <DeleteOutlineRoundedIcon fontSize="small" />
-                  </IconButton>
+              <Stack spacing={1.5}>
+                {/* Row 1: Catalog search (full width) */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <CatalogAutocomplete
+                      defaultValue={row.description}
+                      onSelect={(item) =>
+                        setItems((p) =>
+                          p.map((r, i) =>
+                            i === idx
+                              ? {
+                                  ...r,
+                                  catalog_item_id: item.id,
+                                  item_type: item.item_type as 'product' | 'service',
+                                  category: item.category,
+                                  description: item.name,
+                                  replacement_interval_km:
+                                    item.default_interval_km != null
+                                      ? String(item.default_interval_km)
+                                      : r.replacement_interval_km,
+                                  replacement_interval_months:
+                                    item.default_interval_months != null
+                                      ? String(item.default_interval_months)
+                                      : r.replacement_interval_months,
+                                }
+                              : r,
+                          ),
+                        )
+                      }
+                      onType={(text) =>
+                        setItems((p) =>
+                          p.map((r, i) =>
+                            i === idx ? { ...r, description: text, catalog_item_id: undefined } : r,
+                          ),
+                        )
+                      }
+                    />
+                  </Box>
+                  <Tooltip title="Remover item">
+                    <IconButton
+                      size="small"
+                      color="error"
+                      sx={{ mt: 0.5 }}
+                      onClick={() => setItems((p) => p.filter((_, i) => i !== idx))}
+                    >
+                      <DeleteOutlineRoundedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                {/* Row 2: Type + Category + Qty + Price */}
+                <Grid container spacing={1.5}>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <TextField
+                      select fullWidth size="small" label="Tipo"
+                      value={row.item_type}
+                      onChange={(e) =>
+                        setItems((p) =>
+                          p.map((r, i) =>
+                            i === idx ? { ...r, item_type: e.target.value as 'product' | 'service' } : r,
+                          ),
+                        )
+                      }
+                    >
+                      <MenuItem value="product">Peça / Produto</MenuItem>
+                      <MenuItem value="service">Serviço</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3 }}>
+                    <TextField
+                      select fullWidth size="small" label="Categoria"
+                      value={row.category}
+                      onChange={(e) =>
+                        setItems((p) =>
+                          p.map((r, i) => i === idx ? { ...r, category: e.target.value } : r)
+                        )
+                      }
+                    >
+                      {OS_ITEM_CATEGORY_OPTIONS.map((o) => (
+                        <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 4, sm: 2 }}>
+                    <TextField
+                      fullWidth size="small" label="Qtd" type="number"
+                      inputProps={{ min: 0, step: '0.001' }}
+                      value={row.quantity}
+                      onChange={(e) =>
+                        setItems((p) =>
+                          p.map((r, i) => i === idx ? { ...r, quantity: e.target.value } : r)
+                        )
+                      }
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 8, sm: 4 }}>
+                    <TextField
+                      fullWidth size="small" label="Preço unit. (centavos)" type="number"
+                      inputProps={{ min: 0 }}
+                      value={row.unit_price_cents}
+                      onChange={(e) =>
+                        setItems((p) =>
+                          p.map((r, i) => i === idx ? { ...r, unit_price_cents: e.target.value } : r)
+                        )
+                      }
+                      helperText={
+                        row.unit_price_cents
+                          ? `= ${formatMoney((parseInt(row.unit_price_cents) || 0) / 100)}`
+                          : ''
+                      }
+                    />
+                  </Grid>
                 </Grid>
 
+                {/* Row 3: Replacement intervals (products only) */}
                 {row.item_type === 'product' && (
-                  <>
-                    <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <TextField
-                        fullWidth size="small" label="Intervalo km troca" type="number" inputProps={{ min: 0 }}
+                        fullWidth size="small" label="Troca a cada" type="number"
+                        inputProps={{ min: 0 }}
                         value={row.replacement_interval_km}
-                        onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, replacement_interval_km: e.target.value } : r))}
+                        onChange={(e) =>
+                          setItems((p) =>
+                            p.map((r, i) =>
+                              i === idx ? { ...r, replacement_interval_km: e.target.value } : r
+                            )
+                          )
+                        }
                         InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }}
                       />
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <TextField
-                        fullWidth size="small" label="Intervalo meses troca" type="number" inputProps={{ min: 0 }}
+                        fullWidth size="small" label="Troca a cada" type="number"
+                        inputProps={{ min: 0 }}
                         value={row.replacement_interval_months}
-                        onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, replacement_interval_months: e.target.value } : r))}
-                        InputProps={{ endAdornment: <InputAdornment position="end">m</InputAdornment> }}
+                        onChange={(e) =>
+                          setItems((p) =>
+                            p.map((r, i) =>
+                              i === idx ? { ...r, replacement_interval_months: e.target.value } : r
+                            )
+                          )
+                        }
+                        InputProps={{ endAdornment: <InputAdornment position="end">meses</InputAdornment> }}
                       />
                     </Grid>
-                    <Grid size={{ xs: 6, sm: 3, md: 2 }}>
+                    <Grid size={{ xs: 6, sm: 4 }}>
                       <TextField
-                        fullWidth size="small" label="Garantia (km)" type="number" inputProps={{ min: 0 }}
+                        fullWidth size="small" label="Garantia" type="number"
+                        inputProps={{ min: 0 }}
                         value={row.warranty_expires_km}
-                        onChange={(e) => setItems((p) => p.map((r, i) => i === idx ? { ...r, warranty_expires_km: e.target.value } : r))}
+                        onChange={(e) =>
+                          setItems((p) =>
+                            p.map((r, i) =>
+                              i === idx ? { ...r, warranty_expires_km: e.target.value } : r
+                            )
+                          )
+                        }
                         InputProps={{ endAdornment: <InputAdornment position="end">km</InputAdornment> }}
                       />
                     </Grid>
-                  </>
+                  </Grid>
                 )}
-              </Grid>
+              </Stack>
             </Card>
           ))}
 
