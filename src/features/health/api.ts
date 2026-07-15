@@ -25,6 +25,7 @@ export type FamilyMember = {
   weight_kg?: number | null
   age?: number | null // calculado pela API
   active: boolean
+  avatar_url?: string | null // URL presignada (15min) da foto, quando houver
   created_at?: string
   updated_at?: string
 }
@@ -51,6 +52,7 @@ export type Birthday = {
   turns: number // idade que fará no próximo aniversário
   next_birthday: string // "YYYY-MM-DD"
   days_until: number // dias até o próximo aniversário (0 = hoje)
+  avatar_url?: string | null // URL presignada (15min) da foto, quando houver
 }
 
 export type LabKind = 'laboratorio' | 'clinica' | 'hospital' | 'consultorio' | 'otica' | 'outros'
@@ -282,6 +284,23 @@ export async function deleteFamilyMember(id: string): Promise<void> {
 export async function fetchBirthdays(): Promise<Birthday[]> {
   const { data } = await meufinClient.get<{ items: Birthday[] }>(`${BASE}/family-members/birthdays`)
   return data.items ?? []
+}
+
+/** Envia a foto (avatar) do membro. O blob já vem recortado (JPEG 512×512). */
+export async function uploadMemberAvatar(id: string, blob: Blob): Promise<FamilyMember> {
+  const form = new FormData()
+  form.append('file', blob, 'avatar.jpg')
+  const { data } = await meufinClient.post<FamilyMember>(
+    `${BASE}/family-members/${id}/avatar`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+/** Remove a foto (avatar) do membro. */
+export async function deleteMemberAvatar(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/family-members/${id}/avatar`)
 }
 
 // ---------------------------------------------------------------------------
