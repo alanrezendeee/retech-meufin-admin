@@ -45,6 +45,7 @@ import {
   type FamilyMemberInput,
 } from '../api'
 import { AvatarCropDialog } from '@/components/common/AvatarCropDialog'
+import { DecimalField, formatDecimalBR, parseDecimalBR } from '@/components/fields/DecimalField'
 import { errorMessage, GENDER_OPTIONS, healthKeys, RELATIONSHIP_LABEL, RELATIONSHIP_OPTIONS } from '../constants'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '../components/PageHeader'
@@ -53,7 +54,14 @@ import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { MemberDocumentsDialog } from '../components/MemberDocumentsDialog'
 import { useToast } from '@/providers/ToastProvider'
 
-type FormValues = FamilyMemberInput
+/**
+ * No form, peso e altura trafegam como string pt-BR mascarada (DecimalField);
+ * a altura é digitada em metros e convertida para cm no submit.
+ */
+type FormValues = Omit<FamilyMemberInput, 'height_cm' | 'weight_kg'> & {
+  height_m: string
+  weight_kg: string
+}
 
 const emptyForm: FormValues = {
   full_name: '',
@@ -62,8 +70,8 @@ const emptyForm: FormValues = {
   gender: '',
   document: '',
   notes: '',
-  height_cm: null,
-  weight_kg: null,
+  height_m: '',
+  weight_kg: '',
   active: true,
 }
 
@@ -83,11 +91,15 @@ function formatBirthDate(iso?: string | null): string {
   return `${d}/${m}/${y}`
 }
 
-/** Peso/altura em texto compacto: "72 kg · 1,78 m". */
+/** Peso/altura em texto compacto pt-BR: "72,5 kg · 1,78 m". */
 function formatMeasures(m: FamilyMember): string {
   const parts: string[] = []
-  if (m.weight_kg != null) parts.push(`${m.weight_kg} kg`)
-  if (m.height_cm != null) parts.push(`${(m.height_cm / 100).toFixed(2).replace('.', ',')} m`)
+  if (m.weight_kg != null) {
+    parts.push(
+      `${m.weight_kg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg`
+    )
+  }
+  if (m.height_cm != null) parts.push(`${formatDecimalBR(m.height_cm / 100, 2)} m`)
   return parts.length ? parts.join(' · ') : '—'
 }
 
@@ -118,15 +130,15 @@ function MemberFormDialog({
           gender: member.gender ?? '',
           document: member.document ?? '',
           notes: member.notes ?? '',
-          height_cm: member.height_cm ?? null,
-          weight_kg: member.weight_kg ?? null,
+          height_m: formatDecimalBR(member.height_cm != null ? member.height_cm / 100 : null, 2),
+          weight_kg: formatDecimalBR(member.weight_kg, 1),
           active: member.active,
         }
       : emptyForm,
   })
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
+    mutationFn: (values: FamilyMemberInput) =>
       isEdit ? updateFamilyMember(member!.id, values) : createFamilyMember(values),
     onSuccess: () => {
       show(isEdit ? 'Membro atualizado com sucesso.' : 'Membro criado com sucesso.')
@@ -179,19 +191,15 @@ function MemberFormDialog({
 
   const avatarBusy = uploadAvatar.isPending || removeAvatar.isPending
 
-  const submit = handleSubmit((values) => {
-    const toNumber = (v: unknown) => {
-      if (v === '' || v === null || v === undefined) return null
-      const n = Number(v)
-      return Number.isFinite(n) ? n : null
-    }
+  const submit = handleSubmit(({ height_m, weight_kg, ...values }) => {
+    const heightM = parseDecimalBR(height_m)
     mutation.mutate({
       ...values,
       gender: values.gender || null,
       document: values.document || null,
       notes: values.notes || null,
-      height_cm: toNumber(values.height_cm),
-      weight_kg: toNumber(values.weight_kg),
+      height_cm: heightM != null ? Math.round(heightM * 100) : null,
+      weight_kg: parseDecimalBR(weight_kg),
     })
   })
 
@@ -326,30 +334,14 @@ function MemberFormDialog({
               name="weight_kg"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  value={field.value ?? ''}
-                  type="number"
-                  label="Peso (kg)"
-                  fullWidth
-                  inputProps={{ step: '0.1', min: 0 }}
-                  InputProps={{ endAdornment: <InputAdornment position="end">kg</InputAdornment> }}
-                />
+                <DecimalField {...field} decimals={1} unit="kg" label="Peso" fullWidth />
               )}
             />
             <Controller
-              name="height_cm"
+              name="height_m"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  value={field.value ?? ''}
-                  type="number"
-                  label="Altura (cm)"
-                  fullWidth
-                  inputProps={{ step: '0.1', min: 0 }}
-                  InputProps={{ endAdornment: <InputAdornment position="end">cm</InputAdornment> }}
-                />
+                <DecimalField {...field} decimals={2} unit="m" label="Altura" fullWidth />
               )}
             />
           </Stack>
