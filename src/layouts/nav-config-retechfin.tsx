@@ -31,6 +31,8 @@ import ListAltRoundedIcon from '@mui/icons-material/ListAltRounded'
 import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded'
 import HomeRepairServiceRoundedIcon from '@mui/icons-material/HomeRepairServiceRounded'
 import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded'
+import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded'
+import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRounded'
 
 /**
  * Menu RetechFin Admin — subjects alinhados ao manifest / abilities da API de auth (retechauth-api).
@@ -45,6 +47,13 @@ export const retechfinNavSections: NavDataSection[] = [
         label: 'Painel',
         path: '/dashboard',
         icon: DashboardRoundedIcon,
+      },
+      {
+        // Membros é transversal (finanças, saúde, frota, educação) — fica no topo.
+        label: 'Membros da Família',
+        path: '/dashboard/saude/membros',
+        icon: GroupsRoundedIcon,
+        permission: { action: 'view', subject: 'health.family_members' },
       },
     ],
   },
@@ -148,13 +157,19 @@ export const retechfinNavSections: NavDataSection[] = [
         permission: { action: 'view', subject: 'health.dashboard' },
       },
       {
-        label: 'Membros da Família',
-        path: '/dashboard/saude/membros',
-        icon: GroupsRoundedIcon,
-        permission: { action: 'view', subject: 'health.family_members' },
+        label: 'Consultas & Agenda',
+        path: '/dashboard/saude/consultas',
+        icon: EventAvailableRoundedIcon,
+        permission: { action: 'view', subject: 'health.appointments' },
       },
       {
-        label: 'Laboratórios',
+        label: 'Planos de Saúde',
+        path: '/dashboard/saude/planos',
+        icon: HealthAndSafetyRoundedIcon,
+        permission: { action: 'view', subject: 'health.plans' },
+      },
+      {
+        label: 'Locais de Saúde',
         path: '/dashboard/saude/laboratorios',
         icon: ScienceRoundedIcon,
         permission: { action: 'view', subject: 'health.labs' },

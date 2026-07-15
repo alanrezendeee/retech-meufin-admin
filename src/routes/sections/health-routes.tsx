@@ -5,6 +5,8 @@ import FamilyMembersPage from '@/features/health/pages/FamilyMembersPage'
 import LabsPage from '@/features/health/pages/LabsPage'
 import MarkersPage from '@/features/health/pages/MarkersPage'
 import ExamResultsPage from '@/features/health/pages/ExamResultsPage'
+import AppointmentsPage from '@/features/health/pages/AppointmentsPage'
+import HealthPlansPage from '@/features/health/pages/HealthPlansPage'
 
 function guarded(subject: string, node: ReactNode): ReactNode {
   return (
@@ -22,6 +24,8 @@ export const healthRoutes: { path: string; element: ReactNode }[] = [
   { path: 'saude', element: guarded('health.dashboard', <HealthDashboardPage />) },
   { path: 'saude/membros', element: guarded('health.family_members', <FamilyMembersPage />) },
   { path: 'saude/laboratorios', element: guarded('health.labs', <LabsPage />) },
+  { path: 'saude/consultas', element: guarded('health.appointments', <AppointmentsPage />) },
+  { path: 'saude/planos', element: guarded('health.plans', <HealthPlansPage />) },
   { path: 'saude/exames', element: guarded('health.markers', <MarkersPage />) },
   { path: 'saude/resultados', element: guarded('health.results', <ExamResultsPage />) },
 ]

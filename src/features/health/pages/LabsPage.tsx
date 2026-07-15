@@ -32,7 +32,7 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import { createLab, deleteLab, listLabsPaged, updateLab, type Lab, type LabInput } from '../api'
-import { errorMessage, healthKeys } from '../constants'
+import { errorMessage, healthKeys, LAB_KIND_LABEL, LAB_KIND_OPTIONS } from '../constants'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -43,6 +43,7 @@ type FormValues = LabInput
 
 const emptyForm: FormValues = {
   name: '',
+  kind: 'laboratorio',
   website_url: '',
   exam_results_url: '',
   contact_phone: '',
@@ -73,6 +74,7 @@ function LabFormDialog({
     values: lab
       ? {
           name: lab.name,
+          kind: lab.kind ?? 'laboratorio',
           website_url: lab.website_url ?? '',
           exam_results_url: lab.exam_results_url ?? '',
           contact_phone: lab.contact_phone ?? '',
@@ -86,7 +88,7 @@ function LabFormDialog({
   const mutation = useMutation({
     mutationFn: (values: FormValues) => (isEdit ? updateLab(lab!.id, values) : createLab(values)),
     onSuccess: () => {
-      show(isEdit ? 'Laboratório atualizado com sucesso.' : 'Laboratório criado com sucesso.')
+      show(isEdit ? 'Local de saúde atualizado com sucesso.' : 'Local de saúde criado com sucesso.')
       qc.invalidateQueries({ queryKey: healthKeys.labs() })
       reset(emptyForm)
       onClose()
@@ -107,7 +109,7 @@ function LabFormDialog({
   return (
     <Dialog open={open} onClose={mutation.isPending ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontWeight: 800 }}>
-        {isEdit ? 'Editar laboratório' : 'Novo laboratório'}
+        {isEdit ? 'Editar local de saúde' : 'Novo local de saúde'}
       </DialogTitle>
       <DialogContent>
         <Stack spacing={2.5} sx={{ mt: 1 }}>
@@ -115,7 +117,7 @@ function LabFormDialog({
           <Controller
             name="name"
             control={control}
-            rules={{ required: 'Informe o nome do laboratório' }}
+            rules={{ required: 'Informe o nome do local' }}
             render={({ field }) => (
               <TextField
                 {...field}
@@ -125,6 +127,19 @@ function LabFormDialog({
                 error={Boolean(errors.name)}
                 helperText={errors.name?.message}
               />
+            )}
+          />
+          <Controller
+            name="kind"
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} select label="Tipo de local" fullWidth>
+                {LAB_KIND_OPTIONS.map((o) => (
+                  <MenuItem key={o.value} value={o.value}>
+                    {o.label}
+                  </MenuItem>
+                ))}
+              </TextField>
             )}
           />
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -234,7 +249,7 @@ export default function LabsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: healthKeys.labs() })
       setToDelete(null)
-      show('Laboratório excluído.')
+      show('Local excluído.')
     },
   })
 
@@ -252,11 +267,11 @@ export default function LabsPage() {
   return (
     <>
       <PageHeader
-        title="Laboratórios"
-        subtitle="Cadastre os laboratórios onde os exames são realizados."
+        title="Locais de Saúde"
+        subtitle="Cadastre laboratórios, clínicas, hospitais, consultórios e óticas da família."
         action={
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
-            Novo laboratório
+            Novo local
           </Button>
         }
       />
@@ -307,15 +322,15 @@ export default function LabsPage() {
       ) : labs.length === 0 ? (
         <EmptyState
           icon={<ScienceRoundedIcon />}
-          title="Nenhum laboratório cadastrado"
+          title="Nenhum local cadastrado"
           description={
             q || status
               ? 'Ajuste a busca ou os filtros.'
-              : 'Adicione um laboratório para associar aos resultados de exames.'
+              : 'Adicione um local de saúde para associar a exames e consultas.'
           }
           action={
             <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
-              Novo laboratório
+              Novo local
             </Button>
           }
         />
@@ -326,6 +341,7 @@ export default function LabsPage() {
               <TableHead>
                 <TableRow>
                   <TableCell>Nome</TableCell>
+                  <TableCell>Tipo</TableCell>
                   <TableCell>Telefone</TableCell>
                   <TableCell>Portal</TableCell>
                   <TableCell>Status</TableCell>
@@ -336,6 +352,9 @@ export default function LabsPage() {
                 {labs.map((l) => (
                   <TableRow key={l.id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{l.name}</TableCell>
+                    <TableCell>
+                      <Chip size="small" variant="outlined" label={LAB_KIND_LABEL[l.kind] ?? l.kind} />
+                    </TableCell>
                     <TableCell>{l.contact_phone || '—'}</TableCell>
                     <TableCell>
                       {l.exam_results_url ? (
@@ -390,7 +409,7 @@ export default function LabsPage() {
 
       <ConfirmDialog
         open={Boolean(toDelete)}
-        title="Excluir laboratório"
+        title="Excluir local de saúde"
         description={`Tem certeza que deseja excluir "${toDelete?.name}"? Esta ação não pode ser desfeita.`}
         loading={deleteMutation.isPending}
         onConfirm={() => toDelete && deleteMutation.mutate(toDelete.id)}

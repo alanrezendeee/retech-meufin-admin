@@ -53,9 +53,12 @@ export type Birthday = {
   days_until: number // dias até o próximo aniversário (0 = hoje)
 }
 
+export type LabKind = 'laboratorio' | 'clinica' | 'hospital' | 'consultorio' | 'otica' | 'outros'
+
 export type Lab = {
   id: string
   name: string
+  kind: LabKind
   website_url?: string | null
   exam_results_url?: string | null
   contact_phone?: string | null
@@ -68,6 +71,7 @@ export type Lab = {
 
 export type LabInput = {
   name: string
+  kind: LabKind
   website_url?: string | null
   exam_results_url?: string | null
   contact_phone?: string | null
@@ -470,6 +474,238 @@ export async function updateExamRequest(
 
 export async function deleteExamRequest(id: string): Promise<void> {
   await meufinClient.delete(`${BASE}/exam-requests/${id}`)
+}
+
+// ---------------------------------------------------------------------------
+// Planos de saúde
+// ---------------------------------------------------------------------------
+
+export type PlanType = 'individual' | 'familiar' | 'empresarial' | 'odontologico'
+
+export type PlanMember = {
+  id: string
+  plan_id: string
+  member_id: string
+  card_number?: string | null
+  holder: boolean
+  created_at?: string
+}
+
+export type HealthPlan = {
+  id: string
+  name: string
+  operator?: string | null
+  plan_type: PlanType
+  ans_code?: string | null
+  monthly_fee_cents: number
+  coverage_notes?: string | null
+  active: boolean
+  members: PlanMember[]
+  created_at?: string
+  updated_at?: string
+}
+
+export type PlanMemberInput = {
+  member_id: string
+  card_number?: string | null
+  holder: boolean
+}
+
+export type HealthPlanInput = {
+  name: string
+  operator?: string | null
+  plan_type: PlanType
+  ans_code?: string | null
+  monthly_fee_cents: number
+  coverage_notes?: string | null
+  active: boolean
+  members?: PlanMemberInput[]
+}
+
+export async function listHealthPlans(): Promise<HealthPlan[]> {
+  const { data } = await meufinClient.get<Paginated<HealthPlan>>(`${BASE}/plans`, {
+    params: { limit: 500 },
+  })
+  return data.items
+}
+
+export async function getHealthPlan(id: string): Promise<HealthPlan> {
+  const { data } = await meufinClient.get<HealthPlan>(`${BASE}/plans/${id}`)
+  return data
+}
+
+export async function createHealthPlan(input: HealthPlanInput): Promise<HealthPlan> {
+  const { data } = await meufinClient.post<HealthPlan>(`${BASE}/plans`, input)
+  return data
+}
+
+export async function updateHealthPlan(
+  id: string,
+  input: HealthPlanInput
+): Promise<HealthPlan> {
+  const { data } = await meufinClient.put<HealthPlan>(`${BASE}/plans/${id}`, input)
+  return data
+}
+
+export async function deleteHealthPlan(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/plans/${id}`)
+}
+
+/** Substitui integralmente os membros vinculados a um plano. */
+export async function replacePlanMembers(
+  id: string,
+  members: PlanMemberInput[]
+): Promise<HealthPlan> {
+  const { data } = await meufinClient.put<HealthPlan>(`${BASE}/plans/${id}/members`, { members })
+  return data
+}
+
+// ---------------------------------------------------------------------------
+// Consultas & Agenda
+// ---------------------------------------------------------------------------
+
+export type AppointmentKind =
+  | 'consulta'
+  | 'exame'
+  | 'retorno'
+  | 'vacina'
+  | 'procedimento'
+  | 'terapia'
+  | 'odontologia'
+
+export type AppointmentStatus = 'agendada' | 'confirmada' | 'realizada' | 'cancelada' | 'faltou'
+
+export type Appointment = {
+  id: string
+  family_member_id: string
+  member_name?: string
+  kind: AppointmentKind
+  specialty?: string | null
+  professional_name?: string | null
+  lab_id?: string | null
+  lab_name?: string | null
+  exam_request_id?: string | null
+  plan_id?: string | null
+  plan_name?: string | null
+  scheduled_at: string // ISO 8601
+  status: AppointmentStatus
+  reason?: string | null
+  outcome?: string | null
+  price_cents: number
+  covered_by_plan: boolean
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export type AppointmentInput = {
+  family_member_id: string
+  kind: AppointmentKind
+  specialty?: string | null
+  professional_name?: string | null
+  lab_id?: string | null
+  exam_request_id?: string | null
+  plan_id?: string | null
+  scheduled_at: string // ISO 8601
+  status?: AppointmentStatus
+  reason?: string | null
+  price_cents?: number
+  covered_by_plan?: boolean
+  notes?: string | null
+}
+
+export type AppointmentFilters = {
+  family_member_id?: string
+  status?: AppointmentStatus | ''
+  kind?: AppointmentKind | ''
+  from?: string // YYYY-MM-DD
+  to?: string // YYYY-MM-DD
+  lab_id?: string
+  plan_id?: string
+  limit?: number
+  offset?: number
+}
+
+export async function listAppointments(
+  filters: AppointmentFilters = {}
+): Promise<Paginated<Appointment>> {
+  const params: Record<string, unknown> = { limit: filters.limit ?? 500, offset: filters.offset ?? 0 }
+  if (filters.family_member_id) params.family_member_id = filters.family_member_id
+  if (filters.status) params.status = filters.status
+  if (filters.kind) params.kind = filters.kind
+  if (filters.from) params.from = filters.from
+  if (filters.to) params.to = filters.to
+  if (filters.lab_id) params.lab_id = filters.lab_id
+  if (filters.plan_id) params.plan_id = filters.plan_id
+  const { data } = await meufinClient.get<Paginated<Appointment>>(`${BASE}/appointments`, { params })
+  return data
+}
+
+export async function getAppointment(id: string): Promise<Appointment> {
+  const { data } = await meufinClient.get<Appointment>(`${BASE}/appointments/${id}`)
+  return data
+}
+
+export async function createAppointment(input: AppointmentInput): Promise<Appointment> {
+  const { data } = await meufinClient.post<Appointment>(`${BASE}/appointments`, input)
+  return data
+}
+
+export async function updateAppointment(
+  id: string,
+  input: AppointmentInput
+): Promise<Appointment> {
+  const { data } = await meufinClient.put<Appointment>(`${BASE}/appointments/${id}`, input)
+  return data
+}
+
+export async function deleteAppointment(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/appointments/${id}`)
+}
+
+export async function confirmAppointment(id: string): Promise<Appointment> {
+  const { data } = await meufinClient.post<Appointment>(`${BASE}/appointments/${id}/confirm`)
+  return data
+}
+
+export async function cancelAppointment(id: string): Promise<Appointment> {
+  const { data } = await meufinClient.post<Appointment>(`${BASE}/appointments/${id}/cancel`)
+  return data
+}
+
+export async function noShowAppointment(id: string): Promise<Appointment> {
+  const { data } = await meufinClient.post<Appointment>(`${BASE}/appointments/${id}/no-show`)
+  return data
+}
+
+export async function completeAppointment(
+  id: string,
+  body: { outcome?: string | null; price_cents?: number | null }
+): Promise<Appointment> {
+  const { data } = await meufinClient.post<Appointment>(`${BASE}/appointments/${id}/complete`, body)
+  return data
+}
+
+export type AgendaStatusCount = { status: AppointmentStatus; count: number }
+export type AgendaSpecialtyCount = { specialty: string; count: number }
+export type AgendaMemberCount = { member_id: string; member_name: string; count: number }
+
+export type HealthAgenda = {
+  year: number
+  upcoming: Appointment[]
+  next_7_count: number
+  next_30_count: number
+  status_counts: AgendaStatusCount[]
+  year_spend_cents: number
+  plans_monthly_fee_cents: number
+  plans_annual_fee_cents: number
+  by_specialty: AgendaSpecialtyCount[]
+  by_member: AgendaMemberCount[]
+}
+
+export async function getHealthAgenda(): Promise<HealthAgenda> {
+  const { data } = await meufinClient.get<HealthAgenda>(`${BASE}/appointments/agenda`)
+  return data
 }
 
 // ---------------------------------------------------------------------------
