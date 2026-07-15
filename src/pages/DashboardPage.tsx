@@ -1,21 +1,42 @@
 import {
   alpha,
   Box,
-  Button,
   Card,
   CardContent,
   Chip,
   Grid,
   LinearProgress,
+  Skeleton,
   Stack,
   Typography,
+  useTheme,
 } from '@mui/material'
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded'
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded'
+import { useQuery } from '@tanstack/react-query'
+import {
+  Bar,
+  CartesianGrid,
+  Legend,
+  Line,
+  ComposedChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { useAuth } from '@/auth/context/jwt/auth-provider'
 import { lp } from '@/theme/tokens'
 import { BirthdayBoard } from '@/features/health/components/BirthdayBoard'
+import {
+  centsToReais,
+  formatCents,
+  getFinanceDashboard,
+  getFinanceDashboardMonthly,
+} from '@/features/finance/api'
+
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 function SummaryCard({
   title,
@@ -23,24 +44,34 @@ function SummaryCard({
   hint,
   icon: Icon,
   progress,
+  loading,
 }: {
   title: string
   value: string
   hint: string
   icon: typeof TrendingUpRoundedIcon
   progress?: number
+  loading?: boolean
 }) {
   return (
     <Card>
       <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" color="text.secondary" fontWeight={600}>
               {title}
             </Typography>
-            <Typography variant="h5" sx={{ fontFamily: (t) => t.typography.h5.fontFamily, fontWeight: 800, mt: 0.5 }}>
-              {value}
-            </Typography>
+            {loading ? (
+              <Skeleton width={120} height={36} sx={{ mt: 0.5 }} />
+            ) : (
+              <Typography
+                variant="h5"
+                sx={{ fontFamily: (t) => t.typography.h5.fontFamily, fontWeight: 800, mt: 0.5 }}
+                noWrap
+              >
+                {value}
+              </Typography>
+            )}
             <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: 'block' }}>
               {hint}
             </Typography>
@@ -53,6 +84,7 @@ function SummaryCard({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
               bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.15 : 0.12),
               color: 'primary.main',
             }}
@@ -63,7 +95,7 @@ function SummaryCard({
         {progress != null && (
           <LinearProgress
             variant="determinate"
-            value={progress}
+            value={Math.max(0, Math.min(100, progress))}
             sx={{
               mt: 2,
               height: 6,
@@ -78,110 +110,146 @@ function SummaryCard({
   )
 }
 
+function MonthlyFlowChart() {
+  const theme = useTheme()
+  const year = new Date().getFullYear()
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['home-dashboard-monthly', year],
+    queryFn: () => getFinanceDashboardMonthly({ year }),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const chartData = (data?.months ?? []).map((m) => ({
+    name: MONTH_LABELS[m.month - 1] ?? String(m.month),
+    Receitas: centsToReais(m.income_realized_cents),
+    Despesas: centsToReais(m.expense_realized_cents),
+    Saldo: centsToReais(m.income_realized_cents - m.expense_realized_cents),
+  }))
+
+  return (
+    <Card>
+      <CardContent>
+        <Typography variant="h6" fontWeight={800} sx={{ fontFamily: (t) => t.typography.h6.fontFamily }}>
+          Fluxo do mês
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+          Receitas × despesas realizadas em {year}, com o saldo de cada mês.
+        </Typography>
+        {isLoading ? (
+          <Skeleton variant="rounded" height={300} />
+        ) : (
+          <Box sx={{ height: 300 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.text.primary, 0.08)} />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} stroke={theme.palette.text.secondary} />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  stroke={theme.palette.text.secondary}
+                  tickFormatter={(v: number) =>
+                    v >= 1000 || v <= -1000 ? `${Math.round(v / 1000)}k` : String(Math.round(v))
+                  }
+                />
+                <Tooltip
+                  formatter={(value) =>
+                    Number(value ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                  }
+                  contentStyle={{
+                    backgroundColor: theme.palette.background.paper,
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 8,
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="Receitas" fill={lp.neon} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Bar dataKey="Despesas" fill={theme.palette.error.main} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                <Line type="monotone" dataKey="Saldo" stroke={theme.palette.info.main} strokeWidth={2} dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
+  const now = new Date()
+
+  const { data: summary, isLoading } = useQuery({
+    queryKey: ['home-dashboard-summary', now.getFullYear(), now.getMonth() + 1],
+    queryFn: () => getFinanceDashboard({ year: now.getFullYear(), month: now.getMonth() + 1 }),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const incomePct =
+    summary && summary.income_expected_cents > 0
+      ? (summary.income_realized_cents / summary.income_expected_cents) * 100
+      : undefined
 
   return (
     <Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 3 }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: (t) => t.typography.h4.fontFamily }}>
             Olá, {user?.name?.split(' ')[0] ?? 'visitante'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Visão geral das suas finanças — módulos adicionais entram aqui em breve.
+            Visão geral das finanças da família em {MONTH_LABELS[now.getMonth()]}/{now.getFullYear()}.
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Chip label="Demo" color="primary" size="small" variant="filled" sx={{ fontWeight: 700 }} />
-          <Button variant="outlined" size="medium" disabled>
-            Nova transação
-          </Button>
-        </Stack>
+        <Chip
+          label={`A pagar: ${summary ? formatCents(summary.payable_cents) : '—'}`}
+          color="primary"
+          size="small"
+          variant="outlined"
+          sx={{ fontWeight: 700 }}
+        />
       </Stack>
 
       <Grid container spacing={2.5}>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
           <SummaryCard
             title="Receitas (mês)"
-            value="R$ —"
-            hint="Conecte a API para dados reais"
+            value={summary ? formatCents(summary.income_realized_cents) : '—'}
+            hint={summary ? `Previsto: ${formatCents(summary.income_expected_cents)}` : 'Carregando...'}
             icon={TrendingUpRoundedIcon}
-            progress={0}
+            progress={incomePct}
+            loading={isLoading}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <SummaryCard title="Despesas (mês)" value="R$ —" hint="Categorias e recorrências em desenvolvimento" icon={PaymentsRoundedIcon} />
+          <SummaryCard
+            title="Despesas (mês)"
+            value={summary ? formatCents(summary.expense_realized_cents) : '—'}
+            hint={summary ? `Previsto: ${formatCents(summary.expense_expected_cents)}` : 'Carregando...'}
+            icon={PaymentsRoundedIcon}
+            loading={isLoading}
+          />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-          <SummaryCard title="Reserva / metas" value="—" hint="Planos de conquista no roadmap" icon={SavingsRoundedIcon} />
+          <SummaryCard
+            title="Saldo (mês)"
+            value={summary ? formatCents(summary.balance_realized_cents) : '—'}
+            hint={summary ? `Projetado: ${formatCents(summary.balance_expected_cents)}` : 'Carregando...'}
+            icon={SavingsRoundedIcon}
+            loading={isLoading}
+          />
         </Grid>
 
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Card sx={{ height: '100%', minHeight: 280 }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight={800} sx={{ fontFamily: (t) => t.typography.h6.fontFamily }}>
-                Fluxo do mês
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
-                Gráficos com Recharts serão adicionados neste painel (padrão dashboard tipo Minimals).
-              </Typography>
-              <Box
-                sx={{
-                  height: 200,
-                  borderRadius: 2,
-                  border: 1,
-                  borderColor: 'divider',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: (t) => alpha(t.palette.text.primary, t.palette.mode === 'dark' ? 0.04 : 0.03),
-                }}
-              >
-                <Typography variant="body2" color="text.disabled">
-                  Área do gráfico
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
+        <Grid size={12}>
+          <MonthlyFlowChart />
         </Grid>
 
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" fontWeight={800} sx={{ fontFamily: (t) => t.typography.h6.fontFamily }}>
-                Próximos passos
-              </Typography>
-              <Stack spacing={1.5} sx={{ mt: 2 }}>
-                {['API de transações', 'Categorias e orçamento', 'Cartões e faturas'].map((item, i) => (
-                  <Stack key={item} direction="row" spacing={1.5} alignItems="center">
-                    <Box
-                      sx={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        bgcolor: (t) => alpha(t.palette.primary.main, 0.15),
-                        color: 'primary.main',
-                      }}
-                    >
-                      {i + 1}
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {item}
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={12}>
           <BirthdayBoard />
         </Grid>
       </Grid>
