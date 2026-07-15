@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Avatar,
+  Box,
   Button,
   Card,
   Chip,
@@ -21,23 +23,28 @@ import {
   TableRow,
   TextField,
   Tooltip,
+  Typography,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
+import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import {
   createFamilyMember,
   deleteFamilyMember,
+  deleteMemberAvatar,
   listFamilyMembersPaged,
   updateFamilyMember,
+  uploadMemberAvatar,
   type FamilyMember,
   type FamilyMemberInput,
 } from '../api'
+import { AvatarCropDialog } from '@/components/common/AvatarCropDialog'
 import { errorMessage, GENDER_OPTIONS, healthKeys, RELATIONSHIP_LABEL, RELATIONSHIP_OPTIONS } from '../constants'
 import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { PageHeader } from '../components/PageHeader'
@@ -58,6 +65,14 @@ const emptyForm: FormValues = {
   height_cm: null,
   weight_kg: null,
   active: true,
+}
+
+/** Iniciais (até 2) a partir do nome completo. */
+function memberInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 /** "YYYY-MM-DD" → "DD/MM/YYYY" (sem sofrer com fuso). */
@@ -121,6 +136,49 @@ function MemberFormDialog({
     },
   })
 
+  // --- Foto (avatar) do membro ---
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(member?.avatar_url ?? null)
+
+  // Reflete a foto do membro selecionado ao (re)abrir o diálogo.
+  useEffect(() => {
+    setAvatarUrl(member?.avatar_url ?? null)
+  }, [member])
+
+  const invalidateMembers = () => {
+    qc.invalidateQueries({ queryKey: healthKeys.familyMembers() })
+    qc.invalidateQueries({ queryKey: healthKeys.birthdays() })
+  }
+
+  const uploadAvatar = useMutation({
+    mutationFn: (blob: Blob) => uploadMemberAvatar(member!.id, blob),
+    onSuccess: (updated) => {
+      setAvatarUrl(updated.avatar_url ?? null)
+      invalidateMembers()
+      show('Foto atualizada.')
+    },
+    onError: (e) => show(errorMessage(e), 'error'),
+  })
+
+  const removeAvatar = useMutation({
+    mutationFn: () => deleteMemberAvatar(member!.id),
+    onSuccess: () => {
+      setAvatarUrl(null)
+      invalidateMembers()
+      show('Foto removida.')
+    },
+    onError: (e) => show(errorMessage(e), 'error'),
+  })
+
+  const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    e.target.value = '' // permite re-selecionar o mesmo arquivo
+    if (file) setCropFile(file)
+  }
+
+  const avatarBusy = uploadAvatar.isPending || removeAvatar.isPending
+
   const submit = handleSubmit((values) => {
     const toNumber = (v: unknown) => {
       if (v === '' || v === null || v === undefined) return null
@@ -145,6 +203,51 @@ function MemberFormDialog({
       <DialogContent>
         <Stack spacing={2.5} sx={{ mt: 1 }}>
           {mutation.isError && <ErrorState message={errorMessage(mutation.error)} />}
+
+          {isEdit && (
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Avatar
+                src={avatarUrl ?? undefined}
+                sx={{ width: 64, height: 64, fontSize: '1.4rem', fontWeight: 800 }}
+              >
+                {memberInitials(member?.full_name ?? '')}
+              </Avatar>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Foto
+                </Typography>
+                <Stack direction="row" spacing={1} sx={{ mt: 0.75 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<PhotoCameraRoundedIcon />}
+                    disabled={avatarBusy}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {avatarUrl ? 'Alterar foto' : 'Adicionar foto'}
+                  </Button>
+                  {avatarUrl && (
+                    <Button
+                      size="small"
+                      color="error"
+                      disabled={avatarBusy}
+                      onClick={() => removeAvatar.mutate()}
+                    >
+                      Remover
+                    </Button>
+                  )}
+                </Stack>
+              </Box>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                onChange={onPickFile}
+              />
+            </Stack>
+          )}
+
           <Controller
             name="full_name"
             control={control}
@@ -284,6 +387,16 @@ function MemberFormDialog({
           {isEdit ? 'Salvar' : 'Criar'}
         </Button>
       </DialogActions>
+
+      <AvatarCropDialog
+        open={Boolean(cropFile)}
+        imageFile={cropFile}
+        onClose={() => setCropFile(null)}
+        onApply={(blob) => {
+          setCropFile(null)
+          uploadAvatar.mutate(blob)
+        }}
+      />
     </Dialog>
   )
 }
@@ -434,6 +547,7 @@ export default function FamilyMembersPage() {
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ width: 56 }} />
                   <TableCell>Nome</TableCell>
                   <TableCell>Parentesco</TableCell>
                   <TableCell>Nascimento</TableCell>
@@ -447,6 +561,14 @@ export default function FamilyMembersPage() {
               <TableBody>
                 {members.map((m) => (
                   <TableRow key={m.id} hover>
+                    <TableCell sx={{ width: 56 }}>
+                      <Avatar
+                        src={m.avatar_url ?? undefined}
+                        sx={{ width: 40, height: 40, fontSize: '0.9rem', fontWeight: 700 }}
+                      >
+                        {memberInitials(m.full_name)}
+                      </Avatar>
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>{m.full_name}</TableCell>
                     <TableCell>{RELATIONSHIP_LABEL[m.relationship] ?? m.relationship}</TableCell>
                     <TableCell>{formatBirthDate(m.birth_date)}</TableCell>

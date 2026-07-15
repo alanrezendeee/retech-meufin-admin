@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Avatar,
@@ -11,17 +11,45 @@ import {
   Typography,
 } from '@mui/material'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
+import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/auth/context/jwt/auth-provider'
 import { lp } from '@/theme/tokens'
+import { myAvatarKey, useMyAvatar } from '@/hooks/useMyAvatar'
+import { deleteMyAvatar, uploadMyAvatar } from '@/lib/api/profile'
+import { AvatarCropDialog } from '@/components/common/AvatarCropDialog'
 
 export function UserMenu() {
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const open = Boolean(anchor)
 
+  const { data: avatarUrl } = useMyAvatar()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? '?'
+
+  const uploadAvatar = useMutation({
+    mutationFn: (blob: Blob) => uploadMyAvatar(blob),
+    onSuccess: () => qc.invalidateQueries({ queryKey: myAvatarKey }),
+  })
+  const removeAvatar = useMutation({
+    mutationFn: () => deleteMyAvatar(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: myAvatarKey }),
+  })
+
+  const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    e.target.value = ''
+    if (file) {
+      setCropFile(file)
+      setAnchor(null)
+    }
+  }
 
   const handleLogout = async () => {
     setAnchor(null)
@@ -46,6 +74,7 @@ export function UserMenu() {
         }}
       >
         <Avatar
+          src={avatarUrl ?? undefined}
           sx={{
             width: 36,
             height: 36,
@@ -86,12 +115,29 @@ export function UserMenu() {
           />
         </MenuItem>
         <Divider />
-        <MenuItem disabled>
+        <MenuItem
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadAvatar.isPending}
+        >
           <ListItemIcon>
-            <PersonRoundedIcon fontSize="small" />
+            <PhotoCameraRoundedIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText primary="Perfil" secondary="Em breve" />
+          <ListItemText primary="Alterar foto de perfil" />
         </MenuItem>
+        {avatarUrl && (
+          <MenuItem
+            onClick={() => {
+              setAnchor(null)
+              removeAvatar.mutate()
+            }}
+            disabled={removeAvatar.isPending}
+          >
+            <ListItemIcon>
+              <DeleteOutlineRoundedIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Remover foto" />
+          </MenuItem>
+        )}
         <MenuItem onClick={handleLogout}>
           <ListItemIcon>
             <LogoutRoundedIcon fontSize="small" />
@@ -99,6 +145,23 @@ export function UserMenu() {
           <ListItemText primary="Sair" />
         </MenuItem>
       </Menu>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+        onChange={onPickFile}
+      />
+      <AvatarCropDialog
+        open={Boolean(cropFile)}
+        imageFile={cropFile}
+        onClose={() => setCropFile(null)}
+        onApply={(blob) => {
+          setCropFile(null)
+          uploadAvatar.mutate(blob)
+        }}
+      />
     </>
   )
 }

@@ -69,6 +69,7 @@ function BirthdayRow({ b }: { b: Birthday }) {
       }}
     >
       <Avatar
+        src={b.avatar_url ?? undefined}
         sx={{
           width: 42,
           height: 42,

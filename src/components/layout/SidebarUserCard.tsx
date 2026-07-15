@@ -1,5 +1,6 @@
 import { alpha, Avatar, Box, Divider, Typography } from '@mui/material'
 import { useAuth } from '@/auth/context/jwt/auth-provider'
+import { useMyAvatar } from '@/hooks/useMyAvatar'
 import { colorTemplate } from '@/theme/colorTemplate'
 
 const C = colorTemplate
@@ -73,6 +74,7 @@ function NeonLandscapeSvg() {
 
 export function SidebarUserCard() {
   const { user } = useAuth()
+  const { data: avatarUrl } = useMyAvatar()
   const initial = user?.name?.charAt(0)?.toUpperCase() ?? '?'
   const color = C.primary.main
 
@@ -108,6 +110,7 @@ export function SidebarUserCard() {
           }}
         >
           <Avatar
+            src={avatarUrl ?? undefined}
             sx={{
               width: 34,
               height: 34,
