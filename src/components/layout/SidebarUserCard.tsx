@@ -95,16 +95,13 @@ export function SidebarUserCard() {
           <NeonLandscapeSvg />
         </Box>
 
-        {/* User info overlay */}
+        {/* User info overlay — centralizado verticalmente no card */}
         <Box
           sx={{
             position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
+            inset: 0,
             px: 1.5,
-            py: 1,
-            background: `linear-gradient(to top, ${alpha(C.surface.app, 0.95)} 30%, transparent 100%)`,
+            background: `linear-gradient(to top, ${alpha(C.surface.app, 0.92)} 0%, ${alpha(C.surface.app, 0.55)} 60%, transparent 100%)`,
             display: 'flex',
             alignItems: 'center',
             gap: 1.25,
