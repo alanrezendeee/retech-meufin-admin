@@ -15,6 +15,7 @@ import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded'
 import { useAuth } from '@/auth/context/jwt/auth-provider'
 import { lp } from '@/theme/tokens'
+import { BirthdayBoard } from '@/features/health/components/BirthdayBoard'
 
 function SummaryCard({
   title,
@@ -178,6 +179,10 @@ export default function DashboardPage() {
               </Stack>
             </CardContent>
           </Card>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 4 }}>
+          <BirthdayBoard />
         </Grid>
       </Grid>
     </Box>

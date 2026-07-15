@@ -55,7 +55,25 @@ const emptyForm: FormValues = {
   gender: '',
   document: '',
   notes: '',
+  height_cm: null,
+  weight_kg: null,
   active: true,
+}
+
+/** "YYYY-MM-DD" → "DD/MM/YYYY" (sem sofrer com fuso). */
+function formatBirthDate(iso?: string | null): string {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-')
+  if (!y || !m || !d) return iso
+  return `${d}/${m}/${y}`
+}
+
+/** Peso/altura em texto compacto: "72 kg · 1,78 m". */
+function formatMeasures(m: FamilyMember): string {
+  const parts: string[] = []
+  if (m.weight_kg != null) parts.push(`${m.weight_kg} kg`)
+  if (m.height_cm != null) parts.push(`${(m.height_cm / 100).toFixed(2).replace('.', ',')} m`)
+  return parts.length ? parts.join(' · ') : '—'
 }
 
 function MemberFormDialog({
@@ -85,6 +103,8 @@ function MemberFormDialog({
           gender: member.gender ?? '',
           document: member.document ?? '',
           notes: member.notes ?? '',
+          height_cm: member.height_cm ?? null,
+          weight_kg: member.weight_kg ?? null,
           active: member.active,
         }
       : emptyForm,
@@ -102,11 +122,18 @@ function MemberFormDialog({
   })
 
   const submit = handleSubmit((values) => {
+    const toNumber = (v: unknown) => {
+      if (v === '' || v === null || v === undefined) return null
+      const n = Number(v)
+      return Number.isFinite(n) ? n : null
+    }
     mutation.mutate({
       ...values,
       gender: values.gender || null,
       document: values.document || null,
       notes: values.notes || null,
+      height_cm: toNumber(values.height_cm),
+      weight_kg: toNumber(values.weight_kg),
     })
   })
 
@@ -188,6 +215,38 @@ function MemberFormDialog({
               control={control}
               render={({ field }) => (
                 <TextField {...field} value={field.value ?? ''} label="Documento (CPF)" fullWidth />
+              )}
+            />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Controller
+              name="weight_kg"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  type="number"
+                  label="Peso (kg)"
+                  fullWidth
+                  inputProps={{ step: '0.1', min: 0 }}
+                  InputProps={{ endAdornment: <InputAdornment position="end">kg</InputAdornment> }}
+                />
+              )}
+            />
+            <Controller
+              name="height_cm"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  type="number"
+                  label="Altura (cm)"
+                  fullWidth
+                  inputProps={{ step: '0.1', min: 0 }}
+                  InputProps={{ endAdornment: <InputAdornment position="end">cm</InputAdornment> }}
+                />
               )}
             />
           </Stack>
@@ -378,6 +437,8 @@ export default function FamilyMembersPage() {
                   <TableCell>Nome</TableCell>
                   <TableCell>Parentesco</TableCell>
                   <TableCell>Nascimento</TableCell>
+                  <TableCell align="center">Idade</TableCell>
+                  <TableCell>Medidas</TableCell>
                   <TableCell>Documento</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell align="right">Ações</TableCell>
@@ -388,7 +449,11 @@ export default function FamilyMembersPage() {
                   <TableRow key={m.id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{m.full_name}</TableCell>
                     <TableCell>{RELATIONSHIP_LABEL[m.relationship] ?? m.relationship}</TableCell>
-                    <TableCell>{m.birth_date}</TableCell>
+                    <TableCell>{formatBirthDate(m.birth_date)}</TableCell>
+                    <TableCell align="center">
+                      {m.age != null ? `${m.age} anos` : '—'}
+                    </TableCell>
+                    <TableCell>{formatMeasures(m)}</TableCell>
                     <TableCell>{m.document || '—'}</TableCell>
                     <TableCell>
                       <Chip

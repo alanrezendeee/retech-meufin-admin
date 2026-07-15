@@ -21,6 +21,9 @@ export type FamilyMember = {
   gender?: string | null
   document?: string | null
   notes?: string | null
+  height_cm?: number | null
+  weight_kg?: number | null
+  age?: number | null // calculado pela API
   active: boolean
   created_at?: string
   updated_at?: string
@@ -33,7 +36,21 @@ export type FamilyMemberInput = {
   gender?: string | null
   document?: string | null
   notes?: string | null
+  height_cm?: number | null
+  weight_kg?: number | null
   active: boolean
+}
+
+/** Item do quadro de aniversariantes (GET /health/family-members/birthdays). */
+export type Birthday = {
+  id: string
+  full_name: string
+  relationship: Relationship
+  birth_date: string // "YYYY-MM-DD"
+  age: number // idade atual
+  turns: number // idade que fará no próximo aniversário
+  next_birthday: string // "YYYY-MM-DD"
+  days_until: number // dias até o próximo aniversário (0 = hoje)
 }
 
 export type Lab = {
@@ -255,6 +272,12 @@ export async function updateFamilyMember(id: string, input: FamilyMemberInput): 
 
 export async function deleteFamilyMember(id: string): Promise<void> {
   await meufinClient.delete(`${BASE}/family-members/${id}`)
+}
+
+/** Próximos aniversários dos membros ativos, ordenados por dias restantes. */
+export async function fetchBirthdays(): Promise<Birthday[]> {
+  const { data } = await meufinClient.get<{ items: Birthday[] }>(`${BASE}/family-members/birthdays`)
+  return data.items ?? []
 }
 
 // ---------------------------------------------------------------------------
