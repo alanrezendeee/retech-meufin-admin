@@ -6,7 +6,6 @@ import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded'
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded'
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
-import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
 import AccountBalanceWalletRoundedIcon from '@mui/icons-material/AccountBalanceWalletRounded'
@@ -46,41 +45,6 @@ export const retechfinNavSections: NavDataSection[] = [
         label: 'Painel',
         path: '/dashboard',
         icon: DashboardRoundedIcon,
-      },
-      {
-        label: 'Transações',
-        path: '/dashboard/transacoes',
-        icon: ReceiptLongRoundedIcon,
-        soon: true,
-        permission: { action: 'view', subject: 'retechfin.transactions' },
-      },
-      {
-        label: 'Categorias',
-        path: '/dashboard/categorias',
-        icon: CategoryRoundedIcon,
-        soon: true,
-        permission: { action: 'view', subject: 'retechfin.categories' },
-      },
-      {
-        label: 'Contas',
-        path: '/dashboard/contas',
-        icon: AccountBalanceRoundedIcon,
-        soon: true,
-        permission: { action: 'view', subject: 'retechfin.accounts' },
-      },
-      {
-        label: 'Cartões',
-        path: '/dashboard/cartoes',
-        icon: CreditCardRoundedIcon,
-        soon: true,
-        permission: { action: 'view', subject: 'retechfin.cards' },
-      },
-      {
-        label: 'Metas',
-        path: '/dashboard/metas',
-        icon: FlagRoundedIcon,
-        soon: true,
-        permission: { action: 'view', subject: 'retechfin.goals' },
       },
     ],
   },
