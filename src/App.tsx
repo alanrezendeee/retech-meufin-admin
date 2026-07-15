@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/auth/context/jwt/auth-provider'
 import { RequireAuth } from '@/components/auth/RequireAuth'
 import LoginPage from '@/pages/LoginPage'
+import ForgotPasswordPage from '@/pages/ForgotPasswordPage'
+import ResetPasswordPage from '@/pages/ResetPasswordPage'
 import { useDynamicFavicon } from '@/hooks/useDynamicFavicon'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { DashboardIndexRoute } from '@/routes/sections/dashboard'
@@ -33,6 +35,8 @@ function App() {
         path="/login"
         element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />}
       />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={<RequireAuth />}>
         <Route path="dashboard" element={<DashboardLayout />}>
