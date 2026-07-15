@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -274,7 +274,13 @@ export default function LoginPage() {
                   />
 
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Link href="#" variant="body2" underline="hover" color="primary">
+                    <Link
+                      component={RouterLink}
+                      to="/forgot-password"
+                      variant="body2"
+                      underline="hover"
+                      color="primary"
+                    >
                       Esqueceu a senha?
                     </Link>
                   </Box>
