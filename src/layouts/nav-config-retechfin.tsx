@@ -24,6 +24,14 @@ import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded'
 import GarageRoundedIcon from '@mui/icons-material/GarageRounded'
 import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded'
+import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded'
+import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded'
+import VerifiedUserRoundedIcon from '@mui/icons-material/VerifiedUserRounded'
+import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
+import ListAltRoundedIcon from '@mui/icons-material/ListAltRounded'
+import ShieldRoundedIcon from '@mui/icons-material/ShieldRounded'
+import HomeRepairServiceRoundedIcon from '@mui/icons-material/HomeRepairServiceRounded'
+import QueryStatsRoundedIcon from '@mui/icons-material/QueryStatsRounded'
 
 /**
  * Menu RetechFin Admin — subjects alinhados ao manifest / abilities da API de auth (retechauth-api).
@@ -146,6 +154,13 @@ export const retechfinNavSections: NavDataSection[] = [
         permission: { action: 'view', subject: 'finance.expenses' },
       },
       {
+        label: 'Notas & Preços',
+        path: '/dashboard/financeiro/notas-dashboard',
+        icon: QueryStatsRoundedIcon,
+        permission: { action: 'view', subject: 'finance.fiscal-dashboard' },
+        info: 'finance.fiscal-dashboard',
+      },
+      {
         label: 'Contas',
         path: '/dashboard/financeiro/contas',
         icon: AccountBalanceRoundedIcon,
@@ -217,6 +232,75 @@ export const retechfinNavSections: NavDataSection[] = [
         path: '/dashboard/frota/veiculos',
         icon: DirectionsCarRoundedIcon,
         permission: { action: 'view', subject: 'vehicles.list' },
+      },
+    ],
+  },
+  {
+    subheader: 'Patrimônio',
+    items: [
+      {
+        label: 'Dashboard Patrimônio',
+        path: '/dashboard/patrimonio',
+        icon: HomeWorkRoundedIcon,
+        permission: { action: 'view', subject: 'patrimony.dashboard' },
+      },
+      {
+        label: 'Imóveis',
+        path: '/dashboard/patrimonio/imoveis',
+        icon: HomeWorkRoundedIcon,
+        permission: { action: 'view', subject: 'patrimony.properties' },
+      },
+      {
+        label: 'Impostos de Bens',
+        path: '/dashboard/patrimonio/impostos',
+        icon: RequestQuoteRoundedIcon,
+        permission: { action: 'view', subject: 'patrimony.taxes' },
+      },
+      {
+        label: 'Garantias',
+        path: '/dashboard/garantias',
+        icon: VerifiedUserRoundedIcon,
+        permission: { action: 'view', subject: 'warranties.list' },
+      },
+    ],
+  },
+  {
+    subheader: 'Educação',
+    items: [
+      {
+        label: 'Dashboard Educação',
+        path: '/dashboard/educacao',
+        icon: SchoolRoundedIcon,
+        permission: { action: 'view', subject: 'education.dashboard' },
+      },
+      {
+        label: 'Matrículas',
+        path: '/dashboard/educacao/matriculas',
+        icon: SchoolRoundedIcon,
+        permission: { action: 'view', subject: 'education.enrollments' },
+      },
+      {
+        label: 'Listas de Material',
+        path: '/dashboard/educacao/listas',
+        icon: ListAltRoundedIcon,
+        permission: { action: 'view', subject: 'education.lists' },
+      },
+    ],
+  },
+  {
+    subheader: 'Segurança do Lar',
+    items: [
+      {
+        label: 'Painel de Segurança',
+        path: '/dashboard/seguranca-lar',
+        icon: ShieldRoundedIcon,
+        permission: { action: 'view', subject: 'homesafety.dashboard' },
+      },
+      {
+        label: 'Itens de Segurança',
+        path: '/dashboard/seguranca-lar/itens',
+        icon: HomeRepairServiceRoundedIcon,
+        permission: { action: 'view', subject: 'homesafety.items' },
       },
     ],
   },

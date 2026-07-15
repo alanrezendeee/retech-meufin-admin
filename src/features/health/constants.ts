@@ -61,6 +61,7 @@ export const healthKeys = {
   evolution: (markerId: string, params: Record<string, unknown>) =>
     [...healthKeys.all, 'evolution', markerId, params] as const,
   familyMembers: () => [...healthKeys.all, 'family-members'] as const,
+  birthdays: () => [...healthKeys.all, 'birthdays'] as const,
   labs: () => [...healthKeys.all, 'labs'] as const,
   markers: (params: Record<string, unknown>) => [...healthKeys.all, 'markers', params] as const,
   examResults: () => [...healthKeys.all, 'exam-results'] as const,

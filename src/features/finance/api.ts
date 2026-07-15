@@ -1035,3 +1035,97 @@ export async function updateSupplier(id: string, input: SupplierInput): Promise<
 export async function deleteSupplier(id: string): Promise<void> {
   await meufinClient.delete(`${BASE}/suppliers/${id}`)
 }
+
+// ---------------------------------------------------------------------------
+// Dashboard Fiscal (cupons/notas — histórico de preço e inflação por item)
+// ---------------------------------------------------------------------------
+
+/** Produto agregado por nome normalizado (LOWER(TRIM(description))). */
+export type FiscalProduct = {
+  name: string
+  purchases: number
+  qty_milli_total: number
+  total_cents: number
+  avg_unit_cents: number
+  min_unit_cents: number
+  max_unit_cents: number
+  first_unit_cents: number
+  last_unit_cents: number
+  first_date?: string | null
+  last_date?: string | null
+  /** Variação % primeiro→último preço unitário. */
+  variation_pct: number
+}
+
+export type FiscalMonthSpend = {
+  month: string // YYYY-MM
+  total_cents: number
+  items: number
+}
+
+export type FiscalDashboardSummary = {
+  documents: number
+  items: number
+  total_cents: number
+  products_count: number
+  top_by_frequency: FiscalProduct[]
+  top_by_spend: FiscalProduct[]
+  monthly_spend: FiscalMonthSpend[]
+}
+
+export type FiscalPurchase = {
+  purchase_date: string // YYYY-MM-DD
+  unit_cents: number
+  quantity_milli: number
+  amount_cents: number
+  document_id: string
+  document_name: string
+}
+
+export type FiscalInflationPoint = {
+  month: string // YYYY-MM
+  index: number // base 100 no mês mais antigo
+  monthly_pct: number
+  matched_products: number
+}
+
+export type FiscalInflation = {
+  points: FiscalInflationPoint[]
+  variation_12m: number
+  methodology: string
+}
+
+export type FiscalProductSort = 'frequency' | 'spend' | 'inflation'
+
+export async function getFiscalDashboard(): Promise<FiscalDashboardSummary> {
+  const { data } = await meufinClient.get<FiscalDashboardSummary>(`${BASE}/fiscal/dashboard`)
+  return data
+}
+
+export async function listFiscalProducts(params: {
+  q?: string
+  sort?: FiscalProductSort
+  limit?: number
+}): Promise<{ products: FiscalProduct[]; total: number }> {
+  const { data } = await meufinClient.get<{ products: FiscalProduct[]; total: number }>(
+    `${BASE}/fiscal/products`,
+    { params }
+  )
+  return data
+}
+
+export async function getFiscalPriceHistory(
+  name: string
+): Promise<{ name: string; purchases: FiscalPurchase[]; total: number }> {
+  const { data } = await meufinClient.get<{
+    name: string
+    purchases: FiscalPurchase[]
+    total: number
+  }>(`${BASE}/fiscal/products/price-history`, { params: { name } })
+  return data
+}
+
+export async function getFiscalInflation(): Promise<FiscalInflation> {
+  const { data } = await meufinClient.get<FiscalInflation>(`${BASE}/fiscal/inflation`)
+  return data
+}

@@ -12,6 +12,7 @@ import FinanceDashboardPage from '@/features/finance/pages/FinanceDashboardPage'
 import FornecedoresPage from '@/features/finance/pages/FornecedoresPage'
 import CuponsPage from '@/features/finance/pages/CuponsPage'
 import ParcelamentosPage from '@/features/finance/pages/ParcelamentosPage'
+import FiscalDashboardPage from '@/features/finance/pages/FiscalDashboardPage'
 
 function guarded(subject: string, node: ReactNode): ReactNode {
   return (
@@ -38,5 +39,6 @@ export const financeRoutes: { path: string; element: ReactNode }[] = [
   { path: 'financeiro/categorias', element: guarded('finance.categories', <CategoriasPage />) },
   { path: 'financeiro/fornecedores', element: guarded('finance.suppliers', <FornecedoresPage />) },
   { path: 'financeiro/cupons', element: guarded('finance.expenses', <CuponsPage />) },
+  { path: 'financeiro/notas-dashboard', element: guarded('finance.fiscal-dashboard', <FiscalDashboardPage />) },
   { path: 'financeiro/parcelamentos', element: guarded('finance.invoices', <ParcelamentosPage />) },
 ]
