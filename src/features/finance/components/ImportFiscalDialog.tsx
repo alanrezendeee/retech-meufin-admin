@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Checkbox,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,6 +14,7 @@ import {
   Radio,
   RadioGroup,
   FormControlLabel,
+  ListItemText,
   Step,
   StepLabel,
   Stepper,
@@ -26,10 +28,13 @@ import {
   Typography,
 } from '@mui/material'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded'
+import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmFiscal,
   formatCents,
+  getEntitlements,
   getExtractionStatus,
   listEntries,
   reaisToCents,
@@ -64,6 +69,8 @@ function formatQty(milli: number): string {
   return (milli / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
 }
 
+type SuggestedNewCategory = { slug: string; name: string; group: string }
+
 type ReviewItem = {
   accepted: boolean
   description: string
@@ -71,10 +78,12 @@ type ReviewItem = {
   unit_cents: number
   amount: string // REAIS editável (string da máscara)
   category: string
+  /** Preenchido quando a extração sugeriu uma categoria que ainda não existe. */
+  suggestedNew?: SuggestedNewCategory
 }
 
 function suggestionToReview(it: FiscalItemSuggestion): ReviewItem {
-  return {
+  const base: ReviewItem = {
     accepted: true,
     description: it.description ?? '',
     quantity_milli: it.quantity_milli || 1000,
@@ -82,6 +91,14 @@ function suggestionToReview(it: FiscalItemSuggestion): ReviewItem {
     amount: ((it.amount_cents ?? 0) / 100).toFixed(2).replace('.', ','),
     category: it.category ?? '',
   }
+  if (it.category_is_new && it.category) {
+    base.suggestedNew = {
+      slug: it.category,
+      name: it.category_name || it.category,
+      group: it.category_group || '',
+    }
+  }
+  return base
 }
 
 export function ImportFiscalDialog({
@@ -101,6 +118,16 @@ export function ImportFiscalDialog({
   const [file, setFile] = useState<File | null>(null)
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [pdfPassword, setPdfPassword] = useState('')
+  const [chave, setChave] = useState('')
+
+  // Contador de consultas verificadas do mês (cota do plano).
+  const entitlementsQuery = useQuery({
+    queryKey: [...financeKeys.all, 'entitlements'] as const,
+    queryFn: getEntitlements,
+    enabled: open,
+    staleTime: 60_000,
+  })
+  const usage = entitlementsQuery.data?.fiscal_verification
 
   // Cabeçalho do cupom (revisão)
   const [merchant, setMerchant] = useState('')
@@ -123,7 +150,7 @@ export function ImportFiscalDialog({
         const doc = await uploadInvoiceDocument(file, undefined, 'fiscal')
         docId = doc.id
       }
-      await triggerExtraction(docId, pdfPassword || undefined)
+      await triggerExtraction(docId, pdfPassword || undefined, chave.trim() || undefined)
       return docId
     },
     onSuccess: (docId) => {
@@ -177,13 +204,19 @@ export function ImportFiscalDialog({
     mutationFn: async () => {
       if (!documentId) throw new Error('Documento inválido.')
       const payload: ConfirmFiscalPayload = {
-        items: acceptedItems.map((i) => ({
-          description: i.description.trim(),
-          quantity_milli: i.quantity_milli,
-          unit_cents: i.unit_cents,
-          amount_cents: reaisToCents(i.amount),
-          category: i.category || null,
-        })),
+        items: acceptedItems.map((i) => {
+          const isNew = i.suggestedNew && i.category === i.suggestedNew.slug
+          return {
+            description: i.description.trim(),
+            quantity_milli: i.quantity_milli,
+            unit_cents: i.unit_cents,
+            amount_cents: reaisToCents(i.amount),
+            category: i.category || null,
+            // Categoria nova mantida pelo usuário: leva nome+grupo p/ auto-cadastro.
+            category_name: isNew ? i.suggestedNew!.name : undefined,
+            category_group: isNew ? i.suggestedNew!.group : undefined,
+          }
+        }),
       }
       if (linkMode === 'existing') {
         if (!entryId) throw new Error('Selecione a despesa a vincular.')
@@ -200,10 +233,18 @@ export function ImportFiscalDialog({
       }
       return confirmFiscal(documentId, payload)
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
-      show(`Cupom vinculado com ${acceptedItems.length} item(ns).`)
-      onConfirmed(`Cupom vinculado com ${acceptedItems.length} item(ns).`)
+      const msg = `Cupom vinculado com ${acceptedItems.length} item(ns).`
+      show(msg)
+      const created = res.created_categories ?? []
+      if (created.length > 0) {
+        show(
+          `Categoria(s) criada(s): ${created.map((c) => c.name).join(', ')}.`,
+          'info',
+        )
+      }
+      onConfirmed(msg)
       onClose()
     },
   })
@@ -250,6 +291,20 @@ export function ImportFiscalDialog({
               />
             </Button>
             <TextField
+              label="Chave de acesso ou link do QR Code (opcional)"
+              value={chave}
+              onChange={(e) => setChave(e.target.value)}
+              fullWidth
+              placeholder="Cole os 44 dígitos ou a URL do QR Code do cupom"
+              helperText="Com a chave, validamos os itens direto na Receita (mais preciso). Em branco, lemos a imagem por IA."
+            />
+            {usage && (
+              <Typography variant="caption" color="text.secondary">
+                Consultas verificadas: <strong>{usage.used} de {usage.limit}</strong> usadas neste mês
+                {usage.remaining <= 0 && ' — limite atingido; usaremos leitura por IA'}.
+              </Typography>
+            )}
+            <TextField
               type="password"
               label="Senha do PDF (se protegido)"
               value={pdfPassword}
@@ -280,6 +335,23 @@ export function ImportFiscalDialog({
         {/* ---------------- Passo 3: revisar itens ---------------- */}
         {step === 2 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {status?.fiscal_source === 'sefaz' ? (
+              <Chip
+                icon={<VerifiedRoundedIcon />}
+                color="success"
+                variant="outlined"
+                label="Verificado na Receita — valores oficiais"
+                sx={{ alignSelf: 'flex-start' }}
+              />
+            ) : status?.fiscal_source === 'ocr_llm' ? (
+              <Chip
+                icon={<SmartToyRoundedIcon />}
+                color="warning"
+                variant="outlined"
+                label="Lido por IA — confira os itens com atenção"
+                sx={{ alignSelf: 'flex-start' }}
+              />
+            ) : null}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <TextField
                 label="Estabelecimento"
@@ -352,12 +424,25 @@ export function ImportFiscalDialog({
                           <MenuItem value="">
                             <em>—</em>
                           </MenuItem>
+                          {/* Categoria nova sugerida que ainda não existe no catálogo. */}
+                          {it.suggestedNew &&
+                            !activeCategories.some((c) => c.slug === it.suggestedNew!.slug) && (
+                              <MenuItem value={it.suggestedNew.slug}>
+                                <ListItemText
+                                  primary={it.suggestedNew.name}
+                                  secondary="nova — será criada ao salvar"
+                                />
+                              </MenuItem>
+                            )}
                           {activeCategories.map((c) => (
                             <MenuItem key={c.slug} value={c.slug}>
                               {c.name}
                             </MenuItem>
                           ))}
                         </TextField>
+                        {it.suggestedNew && it.category === it.suggestedNew.slug && (
+                          <Chip size="small" color="info" variant="outlined" label="nova categoria" sx={{ mt: 0.5 }} />
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
