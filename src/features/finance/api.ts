@@ -736,6 +736,41 @@ export async function getExtractionStatus(documentId: string): Promise<Extractio
 }
 
 /** Confirma a fatura importada, criando a fatura + compras (valores em centavos inteiros). */
+/** Sugestão de conciliação: uma compra da fatura que casa com um cupom (crédito). */
+export type ReconcileMatch = {
+  purchase_entry_id: string
+  purchase_description: string
+  purchase_date: string // YYYY-MM-DD
+  amount_cents: number
+  cupom_entry_id: string
+  document_id: string
+  cupom_merchant: string
+  cupom_date: string // YYYY-MM-DD
+  days_diff: number
+}
+
+/** Sugestões de conciliação de uma fatura (cupons de crédito que casam com as compras). */
+export async function getReconciliationSuggestions(
+  invoiceEntryId: string
+): Promise<{ matches: ReconcileMatch[]; total: number }> {
+  const { data } = await meufinClient.get<{ matches: ReconcileMatch[]; total: number }>(
+    `${BASE}/entries/${invoiceEntryId}/reconciliation`
+  )
+  return data
+}
+
+/** Aplica a conciliação escolhida: anexa os itens do cupom à compra e remove a despesa avulsa. */
+export async function reconcile(
+  cupomEntryId: string,
+  targetEntryId: string
+): Promise<{ entry: Entry }> {
+  const { data } = await meufinClient.post<{ entry: Entry }>(`${BASE}/reconcile`, {
+    cupom_entry_id: cupomEntryId,
+    target_entry_id: targetEntryId,
+  })
+  return data
+}
+
 export async function confirmInvoice(
   documentId: string,
   payload: ConfirmInvoicePayload

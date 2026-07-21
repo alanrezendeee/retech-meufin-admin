@@ -45,6 +45,7 @@ import {
   financeKeys,
 } from '../constants'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
+import { ReconciliationDialog } from './ReconciliationDialog'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { LoadingState } from '@/features/health/components/StateViews'
 
@@ -119,10 +120,8 @@ export function ImportInvoiceDialog({
   // Total a pagar editável (string da máscara); vazio = usar soma dos itens
   const [totalText, setTotalText] = useState('')
 
-  const closing = (msg?: string) => {
-    if (msg) onConfirmed(msg)
-    onClose()
-  }
+  // Conciliação pós-importação: fatura criada cujos cupons de crédito casam.
+  const [reconcileInvoiceId, setReconcileInvoiceId] = useState<string | null>(null)
 
   // ---- Passo 1: upload + trigger extração -------------------------------
   const uploadMutation = useMutation({
@@ -208,7 +207,7 @@ export function ImportInvoiceDialog({
         items: payloadItems,
       })
     },
-    onSuccess: () => {
+    onSuccess: (invoice) => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       // CTA educativo: usuário novo entende que o sistema reconheceu o
       // parcelamento e onde acompanhar o compromisso futuro.
@@ -216,11 +215,14 @@ export function ImportInvoiceDialog({
         (i) => i.installment_number != null && i.installment_total != null,
       ).length
       const base = `Fatura importada com ${acceptedItems.length} compra(s).`
-      closing(
+      onConfirmed(
         parceladas > 0
           ? `${base} ${parceladas} compra(s) parcelada(s) identificada(s) — acompanhe o compromisso futuro na tela Parcelamentos.`
           : base,
       )
+      // Abre a conciliação: cupons de crédito que casam com estas compras.
+      if (invoice?.id) setReconcileInvoiceId(invoice.id)
+      else onClose()
     },
   })
 
@@ -231,7 +233,18 @@ export function ImportInvoiceDialog({
   const failed = status?.status === 'failed'
 
   return (
-    <Dialog open={open} onClose={pending ? undefined : onClose} maxWidth="md" fullWidth>
+    <>
+      {reconcileInvoiceId && (
+        <ReconciliationDialog
+          open
+          invoiceEntryId={reconcileInvoiceId}
+          onClose={() => {
+            setReconcileInvoiceId(null)
+            onClose()
+          }}
+        />
+      )}
+      <Dialog open={open} onClose={pending ? undefined : onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ fontWeight: 800 }}>Importar fatura (PDF)</DialogTitle>
       <DialogContent>
         <Stepper activeStep={step} sx={{ mt: 1, mb: 3 }}>
@@ -546,6 +559,7 @@ export function ImportInvoiceDialog({
           </Button>
         )}
       </DialogActions>
-    </Dialog>
+      </Dialog>
+    </>
   )
 }
