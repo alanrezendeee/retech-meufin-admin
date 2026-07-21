@@ -175,8 +175,8 @@ export default function FiscalDashboardPage() {
     queryFn: () => listFiscalProducts({ q: q || undefined, sort, limit: 100 }),
   })
   const historyQ = useQuery({
-    queryKey: fiscalKeys.priceHistory(selected?.name ?? ''),
-    queryFn: () => getFiscalPriceHistory(selected!.name),
+    queryKey: fiscalKeys.priceHistory(`${selected?.name ?? ''}|${selected?.unit ?? ''}`),
+    queryFn: () => getFiscalPriceHistory(selected!.name, selected!.unit),
     enabled: Boolean(selected),
   })
 
@@ -464,13 +464,19 @@ export default function FiscalDashboardPage() {
                       <TableBody>
                         {(productsQ.data?.products ?? []).map((p) => (
                           <TableRow
-                            key={p.name}
+                            key={`${p.name}|${p.unit}`}
                             hover
                             onClick={() => setSelected(p)}
                             sx={{ cursor: 'pointer' }}
                           >
-                            <TableCell sx={{ textTransform: 'capitalize', fontWeight: 600 }}>
-                              {p.name}
+                            <TableCell sx={{ fontWeight: 600 }}>
+                              <span style={{ textTransform: 'capitalize' }}>{p.name}</span>
+                              {p.unit && (
+                                <Typography component="span" variant="caption" color="text.secondary">
+                                  {' · R$/'}
+                                  {p.unit.toLowerCase()}
+                                </Typography>
+                              )}
                             </TableCell>
                             <TableCell align="right">{p.purchases}</TableCell>
                             <TableCell align="right">{formatCents(p.total_cents)}</TableCell>
@@ -496,8 +502,13 @@ export default function FiscalDashboardPage() {
       <Dialog open={Boolean(selected)} onClose={() => setSelected(null)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ pr: 6 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between">
-            <Typography variant="h6" fontWeight={800} sx={{ textTransform: 'capitalize' }}>
-              {selected?.name}
+            <Typography variant="h6" fontWeight={800}>
+              <span style={{ textTransform: 'capitalize' }}>{selected?.name}</span>
+              {selected?.unit && (
+                <Typography component="span" variant="subtitle2" color="text.secondary" sx={{ ml: 1 }}>
+                  R$/{selected.unit.toLowerCase()}
+                </Typography>
+              )}
             </Typography>
             {selected && <VariationChip pct={selected.variation_pct} />}
           </Stack>

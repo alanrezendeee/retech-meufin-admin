@@ -234,6 +234,8 @@ export type FiscalItemSuggestion = {
   category_group?: string | null
   /** true = categoria ainda não existe na tenant (sugestão a confirmar). */
   category_is_new?: boolean
+  /** Unidade de medida (kg, un, L…) quando disponível. */
+  unit?: string | null
   raw_text?: string | null
 }
 
@@ -312,6 +314,8 @@ export type ConfirmFiscalPayload = {
     /** Nome e grupo acompanham categorias NOVAS (auto-cadastro no save). */
     category_name?: string | null
     category_group?: string | null
+    /** Unidade de medida (kg, un, L…) do item. */
+    unit?: string | null
   }>
 }
 
@@ -1091,9 +1095,11 @@ export async function deleteSupplier(id: string): Promise<void> {
 // Dashboard Fiscal (cupons/notas — histórico de preço e inflação por item)
 // ---------------------------------------------------------------------------
 
-/** Produto agregado por nome normalizado (LOWER(TRIM(description))). */
+/** Produto agregado por (nome normalizado, unidade de medida). */
 export type FiscalProduct = {
   name: string
+  /** Unidade de medida (KG, UN, L…); '' quando desconhecida. */
+  unit: string
   purchases: number
   qty_milli_total: number
   total_cents: number
@@ -1129,6 +1135,7 @@ export type FiscalPurchase = {
   unit_cents: number
   quantity_milli: number
   amount_cents: number
+  unit: string
   document_id: string
   document_name: string
 }
@@ -1166,13 +1173,15 @@ export async function listFiscalProducts(params: {
 }
 
 export async function getFiscalPriceHistory(
-  name: string
-): Promise<{ name: string; purchases: FiscalPurchase[]; total: number }> {
+  name: string,
+  unit = ''
+): Promise<{ name: string; unit: string; purchases: FiscalPurchase[]; total: number }> {
   const { data } = await meufinClient.get<{
     name: string
+    unit: string
     purchases: FiscalPurchase[]
     total: number
-  }>(`${BASE}/fiscal/products/price-history`, { params: { name } })
+  }>(`${BASE}/fiscal/products/price-history`, { params: { name, unit } })
   return data
 }
 
