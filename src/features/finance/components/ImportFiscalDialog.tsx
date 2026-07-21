@@ -318,8 +318,9 @@ export function ImportFiscalDialog({
               />
             </Button>
             <Typography variant="caption" color="text.secondary">
-              Dica: envie uma foto nítida onde o <strong>QR Code</strong> do cupom apareça inteiro
-              (fica logo abaixo da chave de acesso). Lemos o QR aqui mesmo para validar na Receita.
+              Dica: a leitura do <strong>QR Code</strong> aqui no navegador funciona melhor com uma
+              foto <strong>de perto, só do QR</strong> (enchendo a tela). Na foto do cupom inteiro
+              ele costuma ficar pequeno demais — mas tudo bem, ao enviar lemos a chave impressa.
             </Typography>
             {qrStatus === 'decoding' && (
               <Typography variant="caption" color="text.secondary">
@@ -337,9 +338,9 @@ export function ImportFiscalDialog({
             )}
             {qrStatus === 'notfound' && (
               <Alert severity="info" sx={{ py: 0.5 }}>
-                Não encontramos o QR Code nesta imagem. Tente uma foto mais nítida do rodapé do
-                cupom (onde fica o QR Code), ou cole a chave de acesso abaixo. Sem a chave, lemos a
-                imagem por IA.
+                Não lemos o QR aqui no navegador (comum na foto do cupom inteiro). Sem problema:
+                clique em <strong>Enviar e ler</strong> que a gente lê a chave impressa e valida na
+                Receita. Se preferir, cole a chave de acesso abaixo ou tire uma foto de perto do QR.
               </Alert>
             )}
             <TextField
@@ -382,7 +383,7 @@ export function ImportFiscalDialog({
                 {status?.error_message || 'Falha na leitura do documento.'}
               </Alert>
             ) : (
-              <LoadingState label="Lendo o cupom com IA — isso leva alguns segundos..." />
+              <LoadingState label="Processando o cupom — validando na Receita ou lendo por IA. Pode levar alguns segundos…" />
             )}
           </Box>
         )}
