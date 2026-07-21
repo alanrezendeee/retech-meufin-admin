@@ -1,24 +1,31 @@
-import jsQR from 'jsqr'
+import { BrowserQRCodeReader } from '@zxing/browser'
+import { DecodeHintType } from '@zxing/library'
 
 /**
  * Decodifica o QR Code de uma imagem de cupom fiscal no NAVEGADOR (client-side).
  * Retorna o conteúdo do QR — a URL da SEFAZ que contém a chave de acesso + hash —
  * ou null quando não encontra um QR legível.
  *
+ * Usa ZXing (com TRY_HARDER), bem mais robusto que decoders simples em fotos de
+ * celular: lida melhor com desfoque, perspectiva e compressão do WhatsApp. Ainda
+ * tenta em algumas escalas porque o QR costuma ser pequeno numa foto grande.
  * Só serve para obter o código; a validação em si acontece no backend (SEFAZ).
- * Tenta em algumas escalas porque o QR costuma ser pequeno numa foto grande.
  */
 export async function decodeQrFromImageFile(file: File): Promise<string | null> {
   if (!file.type.startsWith('image/')) return null
+
+  const hints = new Map<DecodeHintType, unknown>()
+  hints.set(DecodeHintType.TRY_HARDER, true)
+  const reader = new BrowserQRCodeReader(hints)
+
   const img = await loadImage(file)
   try {
-    for (const maxDim of [1600, 1000, 2400]) {
-      const data = decodeAtScale(img, maxDim)
-      if (data) return data
+    for (const maxDim of [1600, 2400, 1000, 3200]) {
+      const text = decodeAtScale(reader, img, maxDim)
+      if (text) return text
     }
     return null
   } finally {
-    // Libera memória do bitmap decodificado.
     if (typeof (img as ImageBitmap).close === 'function') {
       ;(img as ImageBitmap).close()
     }
@@ -51,7 +58,7 @@ function loadViaElement(file: File): Promise<HTMLImageElement> {
   })
 }
 
-function decodeAtScale(img: Drawable, maxDim: number): string | null {
+function decodeAtScale(reader: BrowserQRCodeReader, img: Drawable, maxDim: number): string | null {
   const iw = (img as HTMLImageElement).naturalWidth || (img as ImageBitmap).width
   const ih = (img as HTMLImageElement).naturalHeight || (img as ImageBitmap).height
   if (!iw || !ih) return null
@@ -67,8 +74,12 @@ function decodeAtScale(img: Drawable, maxDim: number): string | null {
   if (!ctx) return null
   ctx.drawImage(img as CanvasImageSource, 0, 0, w, h)
 
-  const imageData = ctx.getImageData(0, 0, w, h)
-  const code = jsQR(imageData.data, w, h, { inversionAttempts: 'attemptBoth' })
-  const data = code?.data?.trim()
-  return data ? data : null
+  try {
+    const result = reader.decodeFromCanvas(canvas)
+    const text = result.getText()?.trim()
+    return text || null
+  } catch {
+    // NotFoundException nesta escala — tenta a próxima.
+    return null
+  }
 }
