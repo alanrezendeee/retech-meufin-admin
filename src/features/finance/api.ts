@@ -226,7 +226,14 @@ export type FiscalItemSuggestion = {
   quantity_milli: number
   unit_cents: number
   amount_cents: number
+  /** Slug da categoria sugerida (validada contra o catálogo da tenant). */
   category?: string | null
+  /** Nome de exibição da categoria (usado quando `category_is_new`). */
+  category_name?: string | null
+  /** Grupo global ao qual a categoria pertence. */
+  category_group?: string | null
+  /** true = categoria ainda não existe na tenant (sugestão a confirmar). */
+  category_is_new?: boolean
   raw_text?: string | null
 }
 
@@ -254,6 +261,9 @@ export type InvoiceMetaSuggestion = {
   credits: InvoiceCreditSuggestion[]
 }
 
+/** Procedência do detalhamento fiscal: verificado na Receita ou lido por IA. */
+export type FiscalSource = 'sefaz' | 'ocr_llm'
+
 /** Retorno do endpoint de status de extração. */
 export type ExtractionStatus = {
   status: ExtractionStatusValue
@@ -264,6 +274,8 @@ export type ExtractionStatus = {
   purchases?: PurchaseSuggestion[]
   invoice?: InvoiceMetaSuggestion | null
   fiscal?: FiscalSuggestion | null
+  /** Procedência do detalhamento fiscal (só em documentos fiscais extraídos). */
+  fiscal_source?: FiscalSource | null
 }
 
 /** Item de cupom/nota fiscal persistido, vinculado a uma despesa. */
@@ -297,8 +309,14 @@ export type ConfirmFiscalPayload = {
     unit_cents: number
     amount_cents: number
     category?: string | null
+    /** Nome e grupo acompanham categorias NOVAS (auto-cadastro no save). */
+    category_name?: string | null
+    category_group?: string | null
   }>
 }
+
+/** Categoria auto-cadastrada durante o fiscal-confirm (para avisar o usuário). */
+export type CreatedCategory = { slug: string; name: string; group: string }
 
 /** Item da fatura no confirm — dinheiro trafega como inteiro de CENTAVOS (regra do sistema). */
 export type ConfirmInvoiceItem = {
@@ -635,7 +653,12 @@ export async function listFiscalDocuments(params: {
 export async function confirmFiscal(
   documentId: string,
   payload: ConfirmFiscalPayload,
-): Promise<{ entry: Entry; items: FiscalItem[]; items_total: number }> {
+): Promise<{
+  entry: Entry
+  items: FiscalItem[]
+  items_total: number
+  created_categories: CreatedCategory[]
+}> {
   const { data } = await meufinClient.post(`${BASE}/documents/${documentId}/fiscal-confirm`, payload)
   return data
 }
@@ -646,6 +669,23 @@ export async function listFiscalItems(entryId: string): Promise<FiscalItem[]> {
     `${BASE}/entries/${entryId}/fiscal-items`,
   )
   return data.items
+}
+
+/** Uso de consultas fiscais verificadas da tenant no mês corrente. */
+export type FiscalVerificationUsage = {
+  tier: string
+  limit: number
+  used: number
+  remaining: number
+  period: string // AAAA-MM
+}
+
+export type Entitlements = { fiscal_verification: FiscalVerificationUsage }
+
+/** Plano/cota do workspace (contador de consultas verificadas do mês). */
+export async function getEntitlements(): Promise<Entitlements> {
+  const { data } = await meufinClient.get<Entitlements>(`${BASE}/entitlements`)
+  return data
 }
 
 export async function uploadInvoiceDocument(
@@ -663,12 +703,23 @@ export async function uploadInvoiceDocument(
   return data
 }
 
-/** Dispara a extração assíncrona do documento (202 Accepted). */
-/** Dispara a extração. pdfPassword: senha do PDF protegido (usada só em memória no backend). */
-export async function triggerExtraction(documentId: string, pdfPassword?: string): Promise<void> {
+/**
+ * Dispara a extração assíncrona do documento (202 Accepted).
+ * - pdfPassword: senha do PDF protegido (usada só em memória no backend).
+ * - chave: em cupom fiscal, a chave de acesso de 44 dígitos ou a URL do QR
+ *   Code. Presente → tenta a consulta SEFAZ (verificada) antes do fallback IA.
+ */
+export async function triggerExtraction(
+  documentId: string,
+  pdfPassword?: string,
+  chave?: string,
+): Promise<void> {
+  const body: Record<string, string> = {}
+  if (pdfPassword) body.pdf_password = pdfPassword
+  if (chave) body.chave = chave
   await meufinClient.post(
     `${BASE}/documents/${documentId}/extract`,
-    pdfPassword ? { pdf_password: pdfPassword } : undefined,
+    Object.keys(body).length ? body : undefined,
   )
 }
 
