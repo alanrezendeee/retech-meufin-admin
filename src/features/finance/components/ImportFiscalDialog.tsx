@@ -80,6 +80,7 @@ type ReviewItem = {
   unit_cents: number
   amount: string // REAIS editável (string da máscara)
   category: string
+  unit: string // unidade de medida (kg, un…); informativa
   /** Preenchido quando a extração sugeriu uma categoria que ainda não existe. */
   suggestedNew?: SuggestedNewCategory
 }
@@ -92,6 +93,7 @@ function suggestionToReview(it: FiscalItemSuggestion): ReviewItem {
     unit_cents: it.unit_cents ?? 0,
     amount: ((it.amount_cents ?? 0) / 100).toFixed(2).replace('.', ','),
     category: it.category ?? '',
+    unit: (it.unit ?? '').toLowerCase(),
   }
   if (it.category_is_new && it.category) {
     base.suggestedNew = {
@@ -237,6 +239,7 @@ export function ImportFiscalDialog({
             unit_cents: i.unit_cents,
             amount_cents: reaisToCents(i.amount),
             category: i.category || null,
+            unit: i.unit || null,
             // Categoria nova mantida pelo usuário: leva nome+grupo p/ auto-cadastro.
             category_name: isNew ? i.suggestedNew!.name : undefined,
             category_group: isNew ? i.suggestedNew!.group : undefined,
@@ -454,7 +457,10 @@ export function ImportFiscalDialog({
                           onChange={(e) => setItem(idx, { description: e.target.value })}
                         />
                       </TableCell>
-                      <TableCell align="right">{formatQty(it.quantity_milli)}</TableCell>
+                      <TableCell align="right">
+                        {formatQty(it.quantity_milli)}
+                        {it.unit ? ` ${it.unit}` : ''}
+                      </TableCell>
                       <TableCell align="right">
                         {it.unit_cents ? formatCents(it.unit_cents) : '—'}
                       </TableCell>
