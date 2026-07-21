@@ -81,6 +81,13 @@ function monthLabel(ym: string): string {
   return `${MONTH_SHORT[idx]}/${y.slice(2)}`
 }
 
+/** Data-calendário 'YYYY-MM-DD' -> 'DD/MM/AAAA' (sem sofrer com fuso). */
+function formatDayBR(iso?: string | null): string {
+  if (!iso) return '—'
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso
+}
+
 const SORT_OPTIONS: { value: FiscalProductSort; label: string }[] = [
   { value: 'frequency', label: 'Mais comprados' },
   { value: 'spend', label: 'Maior gasto' },
@@ -517,8 +524,10 @@ export default function FiscalDashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                     <XAxis
                       dataKey="name"
+                      tickFormatter={(v: string) => monthLabel(String(v).slice(0, 7))}
                       tick={{ fontSize: 11, fill: theme.palette.text.secondary }}
                       stroke={theme.palette.divider}
+                      minTickGap={24}
                     />
                     <YAxis
                       tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
@@ -539,7 +548,7 @@ export default function FiscalDashboardPage() {
                         }
                         return [lines.join(' · '), '']
                       }}
-                      labelFormatter={(label) => `Compra em ${label}`}
+                      labelFormatter={(label) => `Compra em ${formatDayBR(String(label))}`}
                     />
                     <Line
                       type="monotone"
@@ -568,7 +577,7 @@ export default function FiscalDashboardPage() {
                   <TableBody>
                     {(historyQ.data?.purchases ?? []).map((p, i) => (
                       <TableRow key={`${p.document_id}-${i}`}>
-                        <TableCell>{p.purchase_date}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDayBR(p.purchase_date)}</TableCell>
                         <TableCell align="right">{formatCents(p.unit_cents)}</TableCell>
                         <TableCell align="right">{formatQty(p.quantity_milli)}</TableCell>
                         <TableCell align="right">{formatCents(p.amount_cents)}</TableCell>
