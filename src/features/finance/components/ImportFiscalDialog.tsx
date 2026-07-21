@@ -30,7 +30,9 @@ import {
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded'
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded'
+import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { decodeQrFromImageFile } from '../utils/decodeQr'
 import {
   confirmFiscal,
   formatCents,
@@ -119,6 +121,29 @@ export function ImportFiscalDialog({
   const [documentId, setDocumentId] = useState<string | null>(null)
   const [pdfPassword, setPdfPassword] = useState('')
   const [chave, setChave] = useState('')
+  // Leitura do QR Code no navegador (client-side) só para obter o código.
+  const [qrStatus, setQrStatus] = useState<'idle' | 'decoding' | 'found' | 'notfound'>('idle')
+
+  const handleFileSelect = async (f: File | null) => {
+    setFile(f)
+    setDocumentId(null)
+    setChave('')
+    setQrStatus('idle')
+    if (f && f.type.startsWith('image/')) {
+      setQrStatus('decoding')
+      try {
+        const decoded = await decodeQrFromImageFile(f)
+        if (decoded) {
+          setChave(decoded)
+          setQrStatus('found')
+        } else {
+          setQrStatus('notfound')
+        }
+      } catch {
+        setQrStatus('notfound')
+      }
+    }
+  }
 
   // Contador de consultas verificadas do mês (cota do plano).
   const entitlementsQuery = useQuery({
@@ -285,18 +310,45 @@ export function ImportFiscalDialog({
                 type="file"
                 accept={ACCEPTED}
                 onChange={(e) => {
-                  setFile(e.target.files?.[0] ?? null)
-                  setDocumentId(null)
+                  void handleFileSelect(e.target.files?.[0] ?? null)
                 }}
               />
             </Button>
+            <Typography variant="caption" color="text.secondary">
+              Dica: envie uma foto nítida onde o <strong>QR Code</strong> do cupom apareça inteiro
+              (fica logo abaixo da chave de acesso). Lemos o QR aqui mesmo para validar na Receita.
+            </Typography>
+            {qrStatus === 'decoding' && (
+              <Typography variant="caption" color="text.secondary">
+                Procurando o QR Code na imagem…
+              </Typography>
+            )}
+            {qrStatus === 'found' && (
+              <Chip
+                icon={<QrCode2RoundedIcon />}
+                color="success"
+                variant="outlined"
+                label="QR Code lido — validaremos os itens na Receita"
+                sx={{ alignSelf: 'flex-start' }}
+              />
+            )}
+            {qrStatus === 'notfound' && (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Não encontramos o QR Code nesta imagem. Tente uma foto mais nítida do rodapé do
+                cupom (onde fica o QR Code), ou cole a chave de acesso abaixo. Sem a chave, lemos a
+                imagem por IA.
+              </Alert>
+            )}
             <TextField
               label="Chave de acesso ou link do QR Code (opcional)"
               value={chave}
-              onChange={(e) => setChave(e.target.value)}
+              onChange={(e) => {
+                setChave(e.target.value)
+                if (qrStatus !== 'idle') setQrStatus('idle')
+              }}
               fullWidth
-              placeholder="Cole os 44 dígitos ou a URL do QR Code do cupom"
-              helperText="Com a chave, validamos os itens direto na Receita (mais preciso). Em branco, lemos a imagem por IA."
+              placeholder="Lido automaticamente do QR Code — ou cole aqui manualmente"
+              helperText="Preenchido sozinho quando encontramos o QR Code na foto. Com a chave, validamos os itens direto na Receita (mais preciso); em branco, lemos a imagem por IA."
             />
             {usage && (
               <Typography variant="caption" color="text.secondary">
