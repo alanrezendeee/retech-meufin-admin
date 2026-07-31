@@ -176,6 +176,7 @@ export const healthKeys = {
   memberDocuments: (memberId: string) =>
     [...healthKeys.all, 'member-documents', memberId] as const,
   plans: () => [...healthKeys.all, 'plans'] as const,
+  planDocuments: (planId: string) => [...healthKeys.all, 'plan-documents', planId] as const,
   appointments: () => [...healthKeys.all, 'appointments'] as const,
   agenda: () => [...healthKeys.all, 'agenda'] as const,
 }
@@ -214,6 +215,28 @@ export const MEMBER_DOC_TYPE_OPTIONS: { value: string; label: string }[] = [
 ]
 
 export const MEMBER_DOC_TYPE_LABEL: Record<string, string> = MEMBER_DOC_TYPE_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
+
+/** Tipos de documento do plano de saúde (contrato/apólice, carteirinha, boletos…). */
+export const PLAN_DOC_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'contrato', label: 'Contrato / Apólice' },
+  { value: 'carteirinha', label: 'Carteirinha' },
+  { value: 'manual', label: 'Manual do Beneficiário' },
+  { value: 'tabela_coparticipacao', label: 'Tabela de Coparticipação' },
+  { value: 'aditivo_reajuste', label: 'Aditivo / Reajuste' },
+  { value: 'boleto', label: 'Boleto / Comprovante de Pagamento' },
+  { value: 'termo_adesao', label: 'Termo de Adesão' },
+  { value: 'comprovante_carencia', label: 'Comprovante de Carência' },
+  { value: 'formulario_reembolso', label: 'Formulário de Reembolso' },
+  { value: 'declaracao_ir', label: 'Declaração para IR' },
+  { value: 'rede_credenciada', label: 'Rede Credenciada' },
+  { value: 'laudo', label: 'Laudo / Relatório Médico' },
+  { value: 'outro', label: 'Outro (informe o rótulo)' },
+]
+
+export const PLAN_DOC_TYPE_LABEL: Record<string, string> = PLAN_DOC_TYPE_OPTIONS.reduce(
   (acc, o) => ({ ...acc, [o.value]: o.label }),
   {} as Record<string, string>
 )
