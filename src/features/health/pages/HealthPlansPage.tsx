@@ -30,6 +30,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import HealthAndSafetyRoundedIcon from '@mui/icons-material/HealthAndSafetyRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -55,6 +56,7 @@ import {
 import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
+import { PlanDocumentsDialog } from '../components/PlanDocumentsDialog'
 import { useToast } from '@/providers/ToastProvider'
 
 function initials(name: string): string {
@@ -342,6 +344,7 @@ export default function HealthPlansPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<HealthPlan | null>(null)
   const [membersOf, setMembersOf] = useState<HealthPlan | null>(null)
+  const [docsOf, setDocsOf] = useState<HealthPlan | null>(null)
   const [toDelete, setToDelete] = useState<HealthPlan | null>(null)
 
   const { data, isLoading, isError, error, refetch } = useQuery({
@@ -470,6 +473,11 @@ export default function HealthPlansPage() {
                           <GroupsRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      <Tooltip title="Documentos">
+                        <IconButton size="small" onClick={() => setDocsOf(p)}>
+                          <DescriptionRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Editar">
                         <IconButton size="small" onClick={() => openEdit(p)}>
                           <EditRoundedIcon fontSize="small" />
@@ -495,6 +503,7 @@ export default function HealthPlansPage() {
       {membersOf && (
         <MembersDialog open={Boolean(membersOf)} plan={membersOf} onClose={() => setMembersOf(null)} />
       )}
+      {docsOf && <PlanDocumentsDialog plan={docsOf} onClose={() => setDocsOf(null)} />}
       <ConfirmDialog
         open={Boolean(toDelete)}
         title="Excluir plano"
