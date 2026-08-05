@@ -24,6 +24,7 @@ import {
   Typography,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
@@ -45,6 +46,7 @@ import { PageHeader } from '../components/PageHeader'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { MarkerAutocomplete } from '../components/MarkerAutocomplete'
+import { ImportExamResultDialog } from '../components/ImportExamResultDialog'
 import { useToast } from '@/providers/ToastProvider'
 
 type DraftItem = {
@@ -343,6 +345,7 @@ export default function ExamResultsPage() {
   const qc = useQueryClient()
   const { show } = useToast()
   const [formOpen, setFormOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [toDelete, setToDelete] = useState<ExamResult | null>(null)
 
   const [q, setQ] = useState('')
@@ -394,9 +397,18 @@ export default function ExamResultsPage() {
         title="Resultados"
         subtitle="Registre resultados de exames com seus itens e faixas de referência."
         action={
-          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setFormOpen(true)}>
-            Novo resultado
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<UploadFileRoundedIcon />}
+              onClick={() => setImportOpen(true)}
+            >
+              Importar exame (PDF)
+            </Button>
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setFormOpen(true)}>
+              Novo resultado
+            </Button>
+          </Stack>
         }
       />
 
@@ -532,6 +544,14 @@ export default function ExamResultsPage() {
       )}
 
       {formOpen && <ResultFormDialog open={formOpen} onClose={() => setFormOpen(false)} />}
+
+      {importOpen && (
+        <ImportExamResultDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          onConfirmed={(msg) => show(msg)}
+        />
+      )}
 
       <ConfirmDialog
         open={Boolean(toDelete)}
