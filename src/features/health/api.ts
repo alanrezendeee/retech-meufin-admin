@@ -774,13 +774,131 @@ export async function getDocumentDownloadUrl(id: string): Promise<{ url: string 
   return data
 }
 
-export async function extractDocument(id: string): Promise<unknown> {
-  const { data } = await meufinClient.post(`${BASE}/documents/${id}/extract`)
+export async function extractDocument(id: string, pdfPassword?: string): Promise<unknown> {
+  const body = pdfPassword ? { pdf_password: pdfPassword } : undefined
+  const { data } = await meufinClient.post(`${BASE}/documents/${id}/extract`, body)
   return data
 }
 
-export async function getDocumentExtractionStatus(id: string): Promise<unknown> {
-  const { data } = await meufinClient.get(`${BASE}/documents/${id}/extraction-status`)
+// ---------------------------------------------------------------------------
+// Importação de exame (extração LLM → sugestões → confirmação)
+// ---------------------------------------------------------------------------
+
+export type MarkerCandidateSuggestion = {
+  marker_id: string
+  canonical_name: string
+  canonical_unit?: string | null
+  similarity: number
+}
+
+export type ExamItemSuggestion = {
+  raw_name: string
+  result_value: string
+  result_numeric?: number | null
+  unit?: string | null
+  reference_min?: number | null
+  reference_max?: number | null
+  reference_text?: string | null
+  material?: string | null
+  method?: string | null
+  interpretation?: string | null
+  raw_text?: string | null
+  marker_status: 'matched' | 'ambiguous' | 'unresolved'
+  marker_id?: string | null
+  marker_name?: string | null
+  candidates?: MarkerCandidateSuggestion[]
+  marker_is_new?: boolean
+}
+
+export type ExamSuggestion = {
+  patient_name?: string
+  exam_date?: string
+  collection_date?: string
+  release_date?: string
+  laboratory_name?: string
+  doctor_name?: string
+  summary?: string
+  warnings?: string[]
+  items: ExamItemSuggestion[]
+  lab_id?: string | null
+  lab_is_new?: boolean
+}
+
+export type HealthExtractionStatus = {
+  id: string
+  document_id: string
+  provider: string
+  model?: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  input_type: string
+  error_message?: string
+  started_at?: string
+  finished_at?: string
+  created_at: string
+  updated_at: string
+  exam?: ExamSuggestion
+}
+
+export async function getDocumentExtractionStatus(id: string): Promise<HealthExtractionStatus> {
+  const { data } = await meufinClient.get<HealthExtractionStatus>(
+    `${BASE}/documents/${id}/extraction-status`
+  )
+  return data
+}
+
+export type ConfirmExamNewMarker = {
+  name: string
+  category?: string
+  canonical_unit?: string | null
+  ref_min?: number | null
+  ref_max?: number | null
+  ref_text?: string | null
+  aliases?: string[]
+}
+
+export type ConfirmExamItem = {
+  marker_id?: string | null
+  new_marker?: ConfirmExamNewMarker | null
+  raw_marker_name?: string | null
+  result_value: string
+  result_numeric?: number | null
+  unit?: string | null
+  reference_min?: number | null
+  reference_max?: number | null
+  reference_text?: string | null
+  method?: string | null
+  material?: string | null
+  raw_text?: string | null
+}
+
+export type ConfirmExamPayload = {
+  family_member_id: string
+  exam_date: string
+  collection_date?: string | null
+  release_date?: string | null
+  lab_id?: string | null
+  new_lab_name?: string | null
+  summary?: string | null
+  notes?: string | null
+  items: ConfirmExamItem[]
+}
+
+export type ConfirmExamResponse = {
+  exam_result_id: string
+  document_id: string
+  items_total: number
+  created_markers: { id: string; canonical_name: string; category: string }[]
+  created_lab?: { id: string; name: string }
+}
+
+export async function confirmExamDocument(
+  id: string,
+  payload: ConfirmExamPayload
+): Promise<ConfirmExamResponse> {
+  const { data } = await meufinClient.post<ConfirmExamResponse>(
+    `${BASE}/documents/${id}/confirm`,
+    payload
+  )
   return data
 }
 
