@@ -683,7 +683,7 @@ export async function renameInstallmentGroup(
   groupId: string,
   description: string
 ): Promise<{ description: string; entries_updated: number; residuals_updated: number }> {
-  const { data } = await meufinClient.patch<{
+  const { data } = await meufinClient.put<{
     description: string
     entries_updated: number
     residuals_updated: number
