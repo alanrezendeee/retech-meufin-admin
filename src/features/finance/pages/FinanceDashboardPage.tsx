@@ -39,6 +39,7 @@ import {
 } from '../api'
 import { errorMessage, financeKeys, MONTH_OPTIONS } from '../constants'
 import { useYearOptions } from '../hooks/useYearOptions'
+import { CategoryEntriesDialog } from '../components/CategoryEntriesDialog'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -120,6 +121,8 @@ export default function FinanceDashboardPage() {
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [familyMemberId, setFamilyMemberId] = useState('')
+  // Barra clicada no "Pra onde foi o dinheiro" (drill-down por categoria).
+  const [drillCategory, setDrillCategory] = useState<{ slug: string; label: string } | null>(null)
 
   const params = useMemo(
     () => ({ year, month, family_member_id: familyMemberId || undefined }),
@@ -171,6 +174,7 @@ export default function FinanceDashboardPage() {
     () =>
       (s?.categories ?? []).slice(0, 10).map((c) => ({
         name: labelOf(c.category),
+        slug: c.category,
         valor: c.total_cents / 100,
       })),
     [s, labelOf]
@@ -419,7 +423,17 @@ export default function FinanceDashboardPage() {
                             borderRadius: 8,
                           }}
                         />
-                        <Bar dataKey="valor" name="Despesa" radius={[0, 4, 4, 0]}>
+                        <Bar
+                          dataKey="valor"
+                          name="Despesa"
+                          radius={[0, 4, 4, 0]}
+                          cursor="pointer"
+                          onClick={(data) => {
+                            const p = (data as { payload?: { slug?: string; name?: string } })
+                              .payload
+                            if (p?.slug) setDrillCategory({ slug: p.slug, label: p.name ?? p.slug })
+                          }}
+                        >
                           {categoryData.map((_, i) => (
                             <Cell
                               key={i}
@@ -432,12 +446,24 @@ export default function FinanceDashboardPage() {
                   </Box>
                 )}
                 <Typography variant="caption" color="text.secondary">
-                  Compras de fatura importada aparecem pela categoria real de cada item.
+                  Compras de fatura importada aparecem pela categoria real de cada item. Clique
+                  numa barra para ver as despesas.
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
+      )}
+
+      {drillCategory && (
+        <CategoryEntriesDialog
+          slug={drillCategory.slug}
+          label={drillCategory.label}
+          year={year}
+          month={month}
+          familyMemberId={familyMemberId || undefined}
+          onClose={() => setDrillCategory(null)}
+        />
       )}
     </>
   )
