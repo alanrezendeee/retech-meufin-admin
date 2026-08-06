@@ -114,6 +114,8 @@ export type Entry = {
   payment_card_id?: string | null
   discount_cents?: number | null
   discount_reason?: string | null
+  /** Motivo do cancelamento (catálogo global); define se a recorrência é encerrada. */
+  cancel_reason?: string | null
   /** Preenchido quando este lançamento é o saldo não pago de um pagamento parcial. */
   residual_of_id?: string | null
   /** Data em que a compra foi realizada (itens de fatura); vencimento é sempre o da fatura. */
@@ -131,6 +133,32 @@ export type DiscountReason = {
   name: string
   description: string
 }
+
+/** Motivo de cancelamento — catálogo global fixo servido pela API. */
+export type CancelReason = {
+  slug: string
+  name: string
+  description: string
+  /** Quando true, cancelar encerra a série recorrente (não gera novos meses). */
+  ends_recurrence?: boolean
+}
+
+/**
+ * Motivos de desconto aplicáveis a uma isenção total (cobrança não devida
+ * no período). Restringe o catálogo completo ao que faz sentido quando o
+ * valor pago é zero — "pagamento antecipado" não explica uma conta não paga.
+ */
+export const WAIVER_REASON_SLUGS = [
+  'bonus',
+  'cortesia',
+  'ressarcimento',
+  'cobranca_indevida',
+  'promocao',
+  'convenio',
+  'fidelidade',
+  'negociacao',
+  'outros',
+] as const
 
 export type EntryInput = {
   kind: EntryKind
@@ -486,8 +514,13 @@ export type ConfirmEntryPayload = {
 }
 
 export async function confirmEntry(id: string, payload?: ConfirmEntryPayload): Promise<Entry> {
+  // paid_amount_cents === 0 é legítimo (isenção total) e falsy — testar por
+  // presença, não por verdade, senão o corpo é descartado em silêncio.
   const hasBody = Boolean(
-    payload?.discount_cents || payload?.paid_amount_cents || payload?.paid_at,
+    payload &&
+      (payload.discount_cents !== undefined ||
+        payload.paid_amount_cents !== undefined ||
+        payload.paid_at !== undefined),
   )
   const { data } = await meufinClient.post<Entry>(
     `${BASE}/entries/${id}/confirm`,
@@ -527,8 +560,33 @@ export async function resizeInstallments(
   return data
 }
 
-export async function cancelEntry(id: string): Promise<Entry> {
-  const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/cancel`)
+export async function cancelEntry(id: string, reason?: string): Promise<Entry> {
+  const { data } = await meufinClient.post<Entry>(
+    `${BASE}/entries/${id}/cancel`,
+    reason ? { reason } : undefined
+  )
+  return data
+}
+
+export async function listCancelReasons(): Promise<CancelReason[]> {
+  const { data } = await meufinClient.get<Paginated<CancelReason>>(`${BASE}/cancel-reasons`)
+  return data.items
+}
+
+export type WaiveEntryPayload = {
+  /** Slug do catálogo de motivos de desconto (bonus, cortesia, ressarcimento...). */
+  reason: string
+  /** "YYYY-MM-DD"; ausente = hoje. */
+  paid_at?: string
+}
+
+/**
+ * Registra que a cobrança do período não foi devida: liquida com desconto
+ * integral e valor pago zero. O previsto continua valendo o valor cheio e a
+ * recorrência segue intacta.
+ */
+export async function waiveEntry(id: string, payload: WaiveEntryPayload): Promise<Entry> {
+  const { data } = await meufinClient.post<Entry>(`${BASE}/entries/${id}/waive`, payload)
   return data
 }
 
