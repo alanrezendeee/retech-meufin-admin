@@ -633,13 +633,20 @@ export type InstallmentsProjection = {
 // Renegociação (novação): encerra as cobranças em aberto e cria a série nova
 // ---------------------------------------------------------------------------
 
+export type ChargeStatus = 'paid' | 'partially_paid' | 'overdue' | 'upcoming'
+
 export type OpenCharge = {
   id: string
-  /** 'installment' = parcela prevista; 'residual' = saldo de pagamento parcial. */
+  /** 'installment' = parcela da série; 'residual' = saldo de pagamento parcial. */
   kind: 'installment' | 'residual'
+  status: ChargeStatus
   description: string
   amount_cents: number
+  /** Quanto foi pago (quitadas e parcialmente pagas). */
+  paid_amount_cents?: number | null
   due_date: string
+  /** true = compõe o saldo renegociado; false = contexto (já paga). */
+  included: boolean
   installment_number?: number | null
   origin_description?: string | null
 }
@@ -656,6 +663,8 @@ export type RenegotiationPreview = {
   residual_count: number
   residual_cents: number
   open_total_cents: number
+  overdue_count: number
+  overdue_cents: number
   next_due_date?: string | null
   suggested_due_date: string
   typical_amount_cents: number
