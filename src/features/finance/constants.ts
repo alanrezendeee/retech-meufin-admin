@@ -214,6 +214,9 @@ export const financeKeys = {
   receipts: (entryId: string) => [...financeKeys.all, 'receipts', entryId] as const,
   discountReasons: () => [...financeKeys.all, 'discount-reasons'] as const,
   cancelReasons: () => [...financeKeys.all, 'cancel-reasons'] as const,
+  renegotiations: () => [...financeKeys.all, 'renegotiations'] as const,
+  renegotiationPreview: (groupId: string) =>
+    [...financeKeys.all, 'renegotiation-preview', groupId] as const,
   cardBrands: () => [...financeKeys.all, 'card-brands'] as const,
   dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
   dashboardMonthly: (params: Record<string, unknown>) =>
