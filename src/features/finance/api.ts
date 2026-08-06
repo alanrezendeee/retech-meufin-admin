@@ -675,6 +675,22 @@ export type Renegotiation = {
   created_at?: string
 }
 
+/**
+ * Renomeia o parcelamento inteiro — todas as parcelas, inclusive as pagas, e
+ * os residuais de pagamento parcial cujo nome deriva da descrição antiga.
+ */
+export async function renameInstallmentGroup(
+  groupId: string,
+  description: string
+): Promise<{ description: string; entries_updated: number; residuals_updated: number }> {
+  const { data } = await meufinClient.patch<{
+    description: string
+    entries_updated: number
+    residuals_updated: number
+  }>(`${BASE}/installments/${groupId}`, { description })
+  return data
+}
+
 export async function getRenegotiationPreview(groupId: string): Promise<RenegotiationPreview> {
   const { data } = await meufinClient.get<RenegotiationPreview>(
     `${BASE}/installments/${groupId}/renegotiation-preview`
