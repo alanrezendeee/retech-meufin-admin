@@ -3,6 +3,7 @@ import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded'
 import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded'
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded'
+import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded'
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded'
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
@@ -118,6 +119,12 @@ export const retechfinNavSections: NavDataSection[] = [
         label: 'Parcelamentos',
         path: '/dashboard/financeiro/parcelamentos',
         icon: TimelineRoundedIcon,
+        permission: { action: 'view', subject: 'finance.invoices' },
+      },
+      {
+        label: 'Renegociações',
+        path: '/dashboard/financeiro/renegociacoes',
+        icon: HandshakeRoundedIcon,
         permission: { action: 'view', subject: 'finance.invoices' },
       },
       {
