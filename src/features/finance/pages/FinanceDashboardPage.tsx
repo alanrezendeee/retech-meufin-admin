@@ -374,9 +374,10 @@ export default function FinanceDashboardPage() {
                   </Box>
                 )}
                 <Typography variant="caption" color="text.secondary">
-                  Barra sólida = realizado; barra translúcida = previsto ainda não realizado.
-                  Inclui lançamentos previstos até o fim do ano; faturas de cartão contam pelo
-                  total (as compras dentro delas não duplicam).
+                  Barra sólida = realizado, no mês do <strong>pagamento</strong>; barra
+                  translúcida = previsto ainda não realizado, no mês do{' '}
+                  <strong>vencimento</strong>. Inclui lançamentos previstos até o fim do ano;
+                  faturas de cartão contam pelo total (as compras dentro delas não duplicam).
                 </Typography>
               </CardContent>
             </Card>
@@ -446,8 +447,9 @@ export default function FinanceDashboardPage() {
                   </Box>
                 )}
                 <Typography variant="caption" color="text.secondary">
-                  Compras de fatura importada aparecem pela categoria real de cada item. Clique
-                  numa barra para ver as despesas.
+                  Pagas entram no mês do pagamento; previstas, no mês do vencimento. Compras de
+                  fatura importada aparecem pela categoria real de cada item. Clique numa barra
+                  para ver as despesas.
                 </Typography>
               </CardContent>
             </Card>

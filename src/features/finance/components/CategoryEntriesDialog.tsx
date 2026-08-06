@@ -144,8 +144,8 @@ export function CategoryEntriesDialog({
               {entries.length} lançamento(s) — total <strong>{formatCents(totalCents)}</strong>
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Realizadas contam pelo valor pago; previstas pelo valor do lançamento — o mesmo
-              critério da barra do gráfico.
+              Realizadas contam pelo valor pago e entram no mês do pagamento; previstas, pelo
+              valor do lançamento no mês do vencimento — o mesmo critério da barra do gráfico.
             </Typography>
           </>
         )}
