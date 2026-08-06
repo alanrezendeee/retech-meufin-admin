@@ -732,6 +732,22 @@ export async function listRenegotiations(): Promise<Renegotiation[]> {
   return data.items
 }
 
+/**
+ * Drill-down de uma barra do "Pra onde foi o dinheiro": TODOS os lançamentos
+ * que a barra soma, sem paginação — a cláusula no backend é a mesma da
+ * agregação, então o total bate por construção.
+ */
+export async function getDashboardCategoryEntries(
+  slug: string,
+  params: { year: number; month: number; family_member_id?: string }
+): Promise<{ items: Entry[]; total: number; total_cents: number }> {
+  const { data } = await meufinClient.get<{ items: Entry[]; total: number; total_cents: number }>(
+    `${BASE}/dashboard/categories/${encodeURIComponent(slug)}/entries`,
+    { params }
+  )
+  return data
+}
+
 export async function getInstallmentsProjection(): Promise<InstallmentsProjection> {
   const { data } = await meufinClient.get<InstallmentsProjection>(`${BASE}/installments`)
   return data

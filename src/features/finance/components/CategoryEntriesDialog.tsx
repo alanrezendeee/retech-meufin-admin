@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
-import { formatCents, listEntries, type Entry, type EntryStatus, type IncomeType } from '../api'
+import { formatCents, getDashboardCategoryEntries, type Entry, type EntryStatus } from '../api'
 import { ENTRY_STATUS_LABEL, errorMessage, financeKeys, MONTH_OPTIONS } from '../constants'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
@@ -56,31 +56,19 @@ export function CategoryEntriesDialog({
   onClose: () => void
 }) {
   const params = useMemo(
-    () => ({
-      kind: 'debit' as const,
-      type: slug as IncomeType,
-      year,
-      month,
-      family_member_id: familyMemberId || undefined,
-      limit: 200,
-    }),
-    [slug, year, month, familyMemberId]
+    () => ({ year, month, family_member_id: familyMemberId || undefined }),
+    [year, month, familyMemberId]
   )
 
+  // Endpoint dedicado: mesma cláusula SQL da barra, lista completa sem
+  // paginação e total somado no servidor — bate por construção.
   const entriesQ = useQuery({
-    queryKey: [...financeKeys.all, 'category-entries', params] as const,
-    queryFn: () => listEntries(params),
+    queryKey: [...financeKeys.all, 'category-entries', slug, params] as const,
+    queryFn: () => getDashboardCategoryEntries(slug, params),
   })
 
-  // O gráfico exclui canceladas; a listagem da API devolve todas.
-  const entries = useMemo(
-    () => (entriesQ.data?.items ?? []).filter((e) => e.status !== 'cancelada'),
-    [entriesQ.data]
-  )
-  const totalCents = useMemo(
-    () => entries.reduce((acc, e) => acc + chartedCents(e), 0),
-    [entries]
-  )
+  const entries = entriesQ.data?.items ?? []
+  const totalCents = entriesQ.data?.total_cents ?? 0
 
   const monthLabel = MONTH_OPTIONS.find((m) => m.value === month)?.label ?? String(month)
 
