@@ -34,6 +34,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
+import MoneyOffRoundedIcon from '@mui/icons-material/MoneyOffRounded'
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
@@ -45,7 +46,6 @@ import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRound
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
-  cancelEntry,
   confirmEntry,
   listDiscountReasons,
   listFiscalItems,
@@ -90,6 +90,8 @@ import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 import { useToast } from '@/providers/ToastProvider'
 import { PurchaseEditDialog } from '../components/PurchaseEditDialog'
+import { WaiveEntryDialog } from '../components/WaiveEntryDialog'
+import { CancelEntryDialog } from '../components/CancelEntryDialog'
 
 const now = new Date()
 
@@ -424,8 +426,10 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
   const paidProvided = paidCents > 0
   const residualCents = paidProvided ? expectedCents - paidCents : 0
 
+  // Desconto igual ao valor é isenção total (bônus/cortesia/ressarcimento) e
+  // é válido; só acima do valor é erro. Nesse caso o pago vai a zero.
   const discountInvalid =
-    discountCents > 0 && (discountCents >= entry.amount_cents || !reason)
+    discountCents > 0 && (discountCents > entry.amount_cents || !reason)
   const paidInvalid = paidProvided && paidCents > expectedCents
   // Entry.type é IncomeType no modelo, mas em débitos carrega o slug da
   // categoria de despesa ('cartao' identifica fatura).
@@ -442,7 +446,10 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
         payload.discount_cents = discountCents
         payload.discount_reason = reason
       }
-      if (paidProvided && paidCents < expectedCents) {
+      if (expectedCents === 0) {
+        // Isenção total: pago zero explícito, sem residual.
+        payload.paid_amount_cents = 0
+      } else if (paidProvided && paidCents < expectedCents) {
         payload.paid_amount_cents = paidCents
         if (residualDate && residualDate !== entry.due_date) {
           payload.residual_due_date = residualDate
@@ -452,7 +459,9 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: financeKeys.all })
-      if (residualCents > 0) {
+      if (expectedCents === 0) {
+        show('Registrado: nada a pagar neste mês. A recorrência segue normalmente.')
+      } else if (residualCents > 0) {
         show(`Pagamento parcial confirmado. Residual de ${formatCents(residualCents)} criado.`)
       } else if (discountCents > 0) {
         show(`Pagamento confirmado com ${formatCents(discountCents)} de desconto.`)
@@ -486,11 +495,13 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
             value={discountText}
             onChange={(e) => setDiscountText(e.target.value)}
             fullWidth
-            error={discountCents > 0 && discountCents >= entry.amount_cents}
+            error={discountCents > 0 && discountCents > entry.amount_cents}
             helperText={
-              discountCents > 0 && discountCents >= entry.amount_cents
-                ? 'Desconto não pode ser maior ou igual ao valor da despesa'
-                : undefined
+              discountCents > 0 && discountCents > entry.amount_cents
+                ? 'Desconto não pode ser maior que o valor da despesa'
+                : discountCents > 0 && discountCents === entry.amount_cents
+                  ? 'Isenção total: nada a pagar neste mês.'
+                  : undefined
             }
           />
           {discountCents > 0 && (
@@ -1133,6 +1144,7 @@ export default function DespesasPage() {
   const [editing, setEditing] = useState<Entry | null>(null)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [toCancel, setToCancel] = useState<Entry | null>(null)
+  const [toWaive, setToWaive] = useState<Entry | null>(null)
   const [toReopen, setToReopen] = useState<Entry | null>(null)
   const [toConfirm, setToConfirm] = useState<Entry | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -1180,14 +1192,6 @@ export default function DespesasPage() {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToDelete(null)
       show('Despesa excluída.')
-    },
-  })
-  const cancelMutation = useMutation({
-    mutationFn: (id: string) => cancelEntry(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: financeKeys.all })
-      setToCancel(null)
-      show('Despesa cancelada.')
     },
   })
   const reopenMutation = useMutation({
@@ -1538,6 +1542,13 @@ export default function DespesasPage() {
                           <EditRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      {e.status === 'prevista' && (
+                        <Tooltip title="Não houve cobrança neste mês">
+                          <IconButton size="small" onClick={() => setToWaive(e)}>
+                            <MoneyOffRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       {e.status !== 'cancelada' && (
                         <Tooltip title="Cancelar">
                           <IconButton
@@ -1601,16 +1612,9 @@ export default function DespesasPage() {
         onClose={() => setToDelete(null)}
       />
 
-      <ConfirmDialog
-        open={Boolean(toCancel)}
-        title="Cancelar despesa"
-        description={`Marcar "${toCancel?.description}" como cancelada?`}
-        confirmLabel="Cancelar despesa"
-        cancelLabel="Voltar"
-        loading={cancelMutation.isPending}
-        onConfirm={() => toCancel && cancelMutation.mutate(toCancel.id)}
-        onClose={() => setToCancel(null)}
-      />
+      {toCancel && <CancelEntryDialog entry={toCancel} onClose={() => setToCancel(null)} />}
+
+      {toWaive && <WaiveEntryDialog entry={toWaive} onClose={() => setToWaive(null)} />}
 
       {toConfirm && (
         <ConfirmPaymentDialog entry={toConfirm} onClose={() => setToConfirm(null)} />

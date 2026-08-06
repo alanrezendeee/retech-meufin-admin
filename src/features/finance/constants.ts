@@ -213,6 +213,7 @@ export const financeKeys = {
   suppliers: () => [...financeKeys.all, 'suppliers'] as const,
   receipts: (entryId: string) => [...financeKeys.all, 'receipts', entryId] as const,
   discountReasons: () => [...financeKeys.all, 'discount-reasons'] as const,
+  cancelReasons: () => [...financeKeys.all, 'cancel-reasons'] as const,
   cardBrands: () => [...financeKeys.all, 'card-brands'] as const,
   dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
   dashboardMonthly: (params: Record<string, unknown>) =>

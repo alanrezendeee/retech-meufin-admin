@@ -33,6 +33,9 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
+import MoneyOffRoundedIcon from '@mui/icons-material/MoneyOffRounded'
+import { WaiveEntryDialog } from '../components/WaiveEntryDialog'
+import { CancelEntryDialog } from '../components/CancelEntryDialog'
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
@@ -40,7 +43,6 @@ import RepeatRoundedIcon from '@mui/icons-material/RepeatRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
-  cancelEntry,
   confirmEntry,
   reopenEntry,
   createEntry,
@@ -595,6 +597,7 @@ export default function ReceitasPage() {
   const [editing, setEditing] = useState<Entry | null>(null)
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [toCancel, setToCancel] = useState<Entry | null>(null)
+  const [toWaive, setToWaive] = useState<Entry | null>(null)
   const [toReopen, setToReopen] = useState<Entry | null>(null)
 
   const membersQuery = useQuery({
@@ -639,14 +642,6 @@ export default function ReceitasPage() {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToDelete(null)
       show('Receita excluída.')
-    },
-  })
-  const cancelMutation = useMutation({
-    mutationFn: (id: string) => cancelEntry(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: financeKeys.all })
-      setToCancel(null)
-      show('Receita cancelada.')
     },
   })
   const reopenMutation = useMutation({
@@ -932,6 +927,13 @@ export default function ReceitasPage() {
                           <EditRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      {e.status === 'prevista' && (
+                        <Tooltip title="Não houve recebimento neste mês">
+                          <IconButton size="small" onClick={() => setToWaive(e)}>
+                            <MoneyOffRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       {e.status !== 'cancelada' && (
                         <Tooltip title="Cancelar">
                           <IconButton
@@ -985,16 +987,9 @@ export default function ReceitasPage() {
         onClose={() => setToDelete(null)}
       />
 
-      <ConfirmDialog
-        open={Boolean(toCancel)}
-        title="Cancelar receita"
-        description={`Marcar "${toCancel?.description}" como cancelada?`}
-        confirmLabel="Cancelar receita"
-        cancelLabel="Voltar"
-        loading={cancelMutation.isPending}
-        onConfirm={() => toCancel && cancelMutation.mutate(toCancel.id)}
-        onClose={() => setToCancel(null)}
-      />
+      {toCancel && <CancelEntryDialog entry={toCancel} onClose={() => setToCancel(null)} />}
+
+      {toWaive && <WaiveEntryDialog entry={toWaive} onClose={() => setToWaive(null)} />}
 
       <ConfirmDialog
         open={Boolean(toReopen)}
