@@ -597,6 +597,12 @@ export async function waiveEntry(id: string, payload: WaiveEntryPayload): Promis
 /** Parcelamento ativo identificado nas faturas (projeção calculada). */
 export type InstallmentGroup = {
   description: string
+  /**
+   * recurrence_group_id — só existe em `source: 'expense'`. Compras em fatura
+   * são projeção calculada, sem lançamentos futuros no banco, e por isso não
+   * podem ser renegociadas.
+   */
+  group_id?: string | null
   /** 'invoice' = compra em fatura (projeção); 'expense' = despesa parcelada (parcelas reais). */
   source: 'invoice' | 'expense'
   card_id?: string | null
@@ -623,6 +629,84 @@ export type InstallmentsProjection = {
 }
 
 /** Projeção de compromissos parcelados dentro de faturas (não são lançamentos). */
+// ---------------------------------------------------------------------------
+// Renegociação (novação): encerra as cobranças em aberto e cria a série nova
+// ---------------------------------------------------------------------------
+
+export type OpenCharge = {
+  id: string
+  /** 'installment' = parcela prevista; 'residual' = saldo de pagamento parcial. */
+  kind: 'installment' | 'residual'
+  description: string
+  amount_cents: number
+  due_date: string
+  installment_number?: number | null
+  origin_description?: string | null
+}
+
+export type RenegotiationPreview = {
+  group_id: string
+  description: string
+  installment_total: number
+  paid_count: number
+  paid_cents: number
+  charges: OpenCharge[]
+  installment_count: number
+  installment_cents: number
+  residual_count: number
+  residual_cents: number
+  open_total_cents: number
+  next_due_date?: string | null
+  suggested_due_date: string
+  typical_amount_cents: number
+}
+
+export type Renegotiation = {
+  id: string
+  date: string
+  description: string
+  settled_amount_cents: number
+  new_amount_cents: number
+  /** new - settled. Positivo = encargo/juros; negativo = desconto. */
+  adjustment_cents: number
+  origin_count: number
+  new_count: number
+  notes?: string | null
+  created_at?: string
+}
+
+export async function getRenegotiationPreview(groupId: string): Promise<RenegotiationPreview> {
+  const { data } = await meufinClient.get<RenegotiationPreview>(
+    `${BASE}/installments/${groupId}/renegotiation-preview`
+  )
+  return data
+}
+
+export type RenegotiatePayload = {
+  group_id: string
+  date?: string
+  installment_count: number
+  installment_cents: number
+  first_due_date: string
+  description?: string
+  notes?: string | null
+}
+
+export async function createRenegotiation(
+  payload: RenegotiatePayload
+): Promise<{ renegotiation: Renegotiation; created: Entry[] }> {
+  const { data } = await meufinClient.post<{ renegotiation: Renegotiation; created: Entry[] }>(
+    `${BASE}/renegotiations`,
+    payload
+  )
+  return data
+}
+
+export async function listRenegotiations(): Promise<Renegotiation[]> {
+  const { data } = await meufinClient.get<Paginated<Renegotiation>>(`${BASE}/renegotiations`)
+  return data.items
+}
+
 export async function getInstallmentsProjection(): Promise<InstallmentsProjection> {
   const { data } = await meufinClient.get<InstallmentsProjection>(`${BASE}/installments`)
   return data

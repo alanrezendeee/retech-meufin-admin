@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import {
   Box,
   Button,
+  IconButton,
   Card,
   CardContent,
   Chip,
@@ -23,6 +24,8 @@ import {
   useTheme,
 } from '@mui/material'
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
+import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded'
+import { RenegotiateDialog } from '../components/RenegotiateDialog'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded'
@@ -122,6 +125,7 @@ export default function ParcelamentosPage() {
   const [cardFilter, setCardFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
+  const [toRenegotiate, setToRenegotiate] = useState<string | null>(null)
 
   const projectionQuery = useQuery({
     queryKey: [...financeKeys.all, 'installments-projection'] as const,
@@ -421,6 +425,7 @@ export default function ParcelamentosPage() {
                         <TableCell align="right">Parcela</TableCell>
                         <TableCell align="right">Restante</TableCell>
                         <TableCell>Termina em</TableCell>
+                        <TableCell align="right">Ações</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -488,6 +493,21 @@ export default function ParcelamentosPage() {
                                 label={monthLabel(g.ends_at)}
                               />
                             </TableCell>
+                            <TableCell align="right">
+                              {/* Compras em fatura são projeção calculada, sem
+                                  lançamentos futuros no banco — não há o que
+                                  repactuar. */}
+                              {g.group_id && (
+                                <Tooltip title="Renegociar dívida">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => setToRenegotiate(g.group_id as string)}
+                                  >
+                                    <HandshakeRoundedIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </TableCell>
                           </TableRow>
                         )
                       })}
@@ -498,6 +518,13 @@ export default function ParcelamentosPage() {
             </>
           )}
         </Stack>
+      )}
+
+      {toRenegotiate && (
+        <RenegotiateDialog
+          groupId={toRenegotiate}
+          onClose={() => setToRenegotiate(null)}
+        />
       )}
     </>
   )
