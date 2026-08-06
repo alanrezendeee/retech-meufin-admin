@@ -25,6 +25,8 @@ import {
 } from '@mui/material'
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import { RenameInstallmentGroupDialog } from '../components/RenameInstallmentGroupDialog'
 import { RenegotiateDialog } from '../components/RenegotiateDialog'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
@@ -126,6 +128,7 @@ export default function ParcelamentosPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [toRenegotiate, setToRenegotiate] = useState<string | null>(null)
+  const [toRename, setToRename] = useState<InstallmentGroup | null>(null)
 
   const projectionQuery = useQuery({
     queryKey: [...financeKeys.all, 'installments-projection'] as const,
@@ -496,16 +499,23 @@ export default function ParcelamentosPage() {
                             <TableCell align="right">
                               {/* Compras em fatura são projeção calculada, sem
                                   lançamentos futuros no banco — não há o que
-                                  repactuar. */}
+                                  renomear nem repactuar. */}
                               {g.group_id && (
-                                <Tooltip title="Renegociar dívida">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => setToRenegotiate(g.group_id as string)}
-                                  >
-                                    <HandshakeRoundedIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                <>
+                                  <Tooltip title="Renomear parcelamento">
+                                    <IconButton size="small" onClick={() => setToRename(g)}>
+                                      <EditRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Renegociar dívida">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setToRenegotiate(g.group_id as string)}
+                                    >
+                                      <HandshakeRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </>
                               )}
                             </TableCell>
                           </TableRow>
@@ -525,6 +535,10 @@ export default function ParcelamentosPage() {
           groupId={toRenegotiate}
           onClose={() => setToRenegotiate(null)}
         />
+      )}
+
+      {toRename && (
+        <RenameInstallmentGroupDialog group={toRename} onClose={() => setToRename(null)} />
       )}
     </>
   )
