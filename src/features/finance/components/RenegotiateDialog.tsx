@@ -27,6 +27,8 @@ import {
   formatCents,
   getRenegotiationPreview,
   reaisToCents,
+  type ChargeStatus,
+  type OpenCharge,
   type RenegotiationPreview,
 } from '../api'
 import { errorMessage, financeKeys } from '../constants'
@@ -35,6 +37,38 @@ import { ErrorState, LoadingState } from '@/features/health/components/StateView
 import { useToast } from '@/providers/ToastProvider'
 
 const STEPS = ['Saldo devedor', 'Novo acordo', 'Confirmar']
+
+type ChargeFilter = 'all' | 'open' | 'residual' | 'paid'
+
+const STATUS_CHIP: Record<
+  ChargeStatus,
+  { label: string; color: 'default' | 'success' | 'warning' | 'error' | 'info' }
+> = {
+  paid: { label: 'Quitada', color: 'success' },
+  partially_paid: { label: 'Paga parcial', color: 'info' },
+  overdue: { label: 'Atrasada', color: 'error' },
+  upcoming: { label: 'A vencer', color: 'default' },
+}
+
+function chargeLabel(c: OpenCharge): string {
+  if (c.kind === 'residual') {
+    return c.installment_number ? `Saldo da parcela ${c.installment_number}` : c.description
+  }
+  return c.installment_number ? `Parcela ${c.installment_number}` : c.description
+}
+
+function matchesFilter(c: OpenCharge, f: ChargeFilter): boolean {
+  switch (f) {
+    case 'open':
+      return c.included // atrasadas + a vencer (o que entra no acordo)
+    case 'residual':
+      return c.kind === 'residual'
+    case 'paid':
+      return c.status === 'paid' || c.status === 'partially_paid'
+    default:
+      return true
+  }
+}
 
 function formatDateBR(iso: string): string {
   if (!iso || iso.length < 10) return iso
@@ -64,6 +98,7 @@ export function RenegotiateDialog({
   const [amountText, setAmountText] = useState('')
   const [firstDue, setFirstDue] = useState('')
   const [notes, setNotes] = useState('')
+  const [filter, setFilter] = useState<ChargeFilter>('all')
 
   const previewQuery = useQuery<RenegotiationPreview>({
     queryKey: financeKeys.renegotiationPreview(groupId),
@@ -106,10 +141,27 @@ export function RenegotiateDialog({
     },
   })
 
-  const chargesSorted = useMemo(
-    () => [...(preview?.charges ?? [])].sort((a, b) => a.due_date.localeCompare(b.due_date)),
-    [preview]
-  )
+  const chargesSorted = useMemo(() => {
+    const all = [...(preview?.charges ?? [])].sort((a, b) => {
+      const na = a.installment_number ?? 0
+      const nb = b.installment_number ?? 0
+      // Residual logo depois da parcela que o originou.
+      if (na !== nb) return na - nb
+      if (a.kind !== b.kind) return a.kind === 'residual' ? 1 : -1
+      return a.due_date.localeCompare(b.due_date)
+    })
+    return all.filter((c) => matchesFilter(c, filter))
+  }, [preview, filter])
+
+  const filterCounts = useMemo(() => {
+    const all = preview?.charges ?? []
+    return {
+      all: all.length,
+      open: all.filter((c) => matchesFilter(c, 'open')).length,
+      residual: all.filter((c) => matchesFilter(c, 'residual')).length,
+      paid: all.filter((c) => matchesFilter(c, 'paid')).length,
+    }
+  }, [preview])
 
   return (
     <Dialog open onClose={mutation.isPending ? undefined : onClose} maxWidth="md" fullWidth>
@@ -153,7 +205,9 @@ export function RenegotiateDialog({
                       {formatCents(preview.open_total_cents)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {preview.charges.length} cobranças
+                      {preview.installment_count + preview.residual_count} cobranças
+                      {preview.overdue_count > 0 &&
+                        ` — ${preview.overdue_count} atrasada(s) (${formatCents(preview.overdue_cents)})`}
                     </Typography>
                   </Box>
                 </Box>
@@ -171,38 +225,83 @@ export function RenegotiateDialog({
                   . As parcelas já pagas não entram — o que faltou delas já está nos residuais.
                 </Alert>
 
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  {(
+                    [
+                      ['all', `Todas (${filterCounts.all})`],
+                      ['open', `Atrasadas e a vencer (${filterCounts.open})`],
+                      ['residual', `Residuais (${filterCounts.residual})`],
+                      ['paid', `Pagas (${filterCounts.paid})`],
+                    ] as [ChargeFilter, string][]
+                  ).map(([value, label]) => (
+                    <Chip
+                      key={value}
+                      label={label}
+                      size="small"
+                      color={filter === value ? 'primary' : 'default'}
+                      variant={filter === value ? 'filled' : 'outlined'}
+                      onClick={() => setFilter(value)}
+                    />
+                  ))}
+                </Box>
+
                 <TableContainer
                   sx={{ border: 1, borderColor: 'divider', borderRadius: 1, maxHeight: 300 }}
                 >
                   <Table size="small" stickyHeader>
                     <TableHead>
                       <TableRow>
+                        <TableCell sx={{ width: 60 }} align="right">
+                          Nº
+                        </TableCell>
                         <TableCell>Cobrança</TableCell>
-                        <TableCell sx={{ width: 110 }}>Tipo</TableCell>
+                        <TableCell sx={{ width: 130 }}>Status</TableCell>
                         <TableCell sx={{ width: 120 }}>Vencimento</TableCell>
-                        <TableCell sx={{ width: 120 }} align="right">
+                        <TableCell sx={{ width: 140 }} align="right">
                           Valor
                         </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {chargesSorted.map((c) => (
-                        <TableRow key={c.id} hover>
-                          <TableCell>
-                            {c.installment_number ? `Parcela ${c.installment_number}` : c.description}
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              size="small"
-                              variant="outlined"
-                              color={c.kind === 'residual' ? 'warning' : 'default'}
-                              label={c.kind === 'residual' ? 'residual' : 'parcela'}
-                            />
-                          </TableCell>
-                          <TableCell>{formatDateBR(c.due_date)}</TableCell>
-                          <TableCell align="right">{formatCents(c.amount_cents)}</TableCell>
-                        </TableRow>
-                      ))}
+                      {chargesSorted.map((c) => {
+                        const chip = STATUS_CHIP[c.status]
+                        return (
+                          <TableRow
+                            key={c.id}
+                            hover
+                            // Pagas são contexto: esmaecidas, fora do acordo.
+                            sx={c.included ? undefined : { opacity: 0.55 }}
+                          >
+                            <TableCell align="right">{c.installment_number ?? '—'}</TableCell>
+                            <TableCell>{chargeLabel(c)}</TableCell>
+                            <TableCell>
+                              <Chip
+                                size="small"
+                                variant="outlined"
+                                color={c.kind === 'residual' ? 'warning' : chip.color}
+                                label={c.kind === 'residual' ? 'Residual' : chip.label}
+                              />
+                            </TableCell>
+                            <TableCell>{formatDateBR(c.due_date)}</TableCell>
+                            <TableCell align="right">
+                              {c.status === 'partially_paid' && c.paid_amount_cents != null ? (
+                                <>
+                                  {formatCents(c.paid_amount_cents)}
+                                  <Typography
+                                    variant="caption"
+                                    display="block"
+                                    color="text.secondary"
+                                  >
+                                    de {formatCents(c.amount_cents)}
+                                  </Typography>
+                                </>
+                              ) : (
+                                formatCents(c.amount_cents)
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -283,8 +382,10 @@ export function RenegotiateDialog({
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   <Typography variant="body2">
-                    <strong>{preview.charges.length} cobranças</strong> em aberto serão encerradas (
-                    {formatCents(openTotal)}).
+                    <strong>
+                      {preview.installment_count + preview.residual_count} cobranças
+                    </strong>{' '}
+                    em aberto serão encerradas ({formatCents(openTotal)}).
                   </Typography>
                   <Typography variant="body2">
                     <strong>
@@ -323,7 +424,7 @@ export function RenegotiateDialog({
           <Button
             variant="contained"
             onClick={() => setStep(1)}
-            disabled={!preview || preview.charges.length === 0}
+            disabled={!preview || preview.installment_count + preview.residual_count === 0}
           >
             Continuar
           </Button>
