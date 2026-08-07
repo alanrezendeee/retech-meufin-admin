@@ -33,6 +33,7 @@ import {
 } from 'recharts'
 import {
   formatCents,
+  getFinanceCashFlow,
   getFinanceDashboard,
   getFinanceDashboardMonthly,
   listFamilyMembers,
@@ -141,6 +142,10 @@ export default function FinanceDashboardPage() {
     queryKey: financeKeys.dashboardMonthly(yearParams),
     queryFn: () => getFinanceDashboardMonthly(yearParams),
   })
+  const cashflowQ = useQuery({
+    queryKey: financeKeys.dashboardCashflow(yearParams),
+    queryFn: () => getFinanceCashFlow(yearParams),
+  })
   const { data: members } = useQuery({
     queryKey: financeKeys.familyMembers(),
     queryFn: listFamilyMembers,
@@ -168,6 +173,17 @@ export default function FinanceDashboardPage() {
         }
       }),
     [monthlyQ.data]
+  )
+
+  const cashflowData = useMemo(
+    () =>
+      (cashflowQ.data?.months ?? []).map((m) => ({
+        name: MONTH_SHORT[m.month - 1],
+        entrada: m.inflow_cents / 100,
+        saida: m.outflow_cents / 100,
+        saldo: m.balance_cents / 100,
+      })),
+    [cashflowQ.data]
   )
 
   const categoryData = useMemo(
@@ -374,9 +390,80 @@ export default function FinanceDashboardPage() {
                   </Box>
                 )}
                 <Typography variant="caption" color="text.secondary">
-                  Barra sólida = realizado; barra translúcida = previsto ainda não realizado.
-                  Inclui lançamentos previstos até o fim do ano; faturas de cartão contam pelo
-                  total (as compras dentro delas não duplicam).
+                  Barra sólida = realizado, no mês do <strong>pagamento</strong>; barra
+                  translúcida = previsto ainda não realizado, no mês do{' '}
+                  <strong>vencimento</strong>. Inclui lançamentos previstos até o fim do ano;
+                  faturas de cartão contam pelo total (as compras dentro delas não duplicam).
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          <Grid size={{ xs: 12 }}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={800} sx={{ mb: 0.5 }}>
+                  Fluxo de caixa ({year})
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Saldo inicial{' '}
+                  <strong>{formatCents(cashflowQ.data?.opening_balance_cents ?? 0)}</strong> +
+                  entradas − saídas ={' '}
+                  <strong>{formatCents(cashflowQ.data?.closing_balance_cents ?? 0)}</strong> no fim
+                  do ano
+                </Typography>
+                {cashflowData.length > 0 && (
+                  <Box sx={{ height: 300 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={cashflowData} margin={{ top: 8, right: 24, bottom: 4, left: 8 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+                          stroke={theme.palette.divider}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+                          stroke={theme.palette.divider}
+                          tickFormatter={(v: number) => brl(v)}
+                        />
+                        <ReTooltip
+                          formatter={(v) => brl(Number(v ?? 0))}
+                          contentStyle={{
+                            background: theme.palette.background.paper,
+                            border: `1px solid ${theme.palette.divider}`,
+                            borderRadius: 8,
+                          }}
+                        />
+                        <Legend />
+                        <Bar
+                          dataKey="entrada"
+                          name="Entrou"
+                          fill={alpha(theme.palette.success.main, 0.8)}
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Bar
+                          dataKey="saida"
+                          name="Saiu"
+                          fill={alpha(theme.palette.error.main, 0.8)}
+                          radius={[4, 4, 0, 0]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="saldo"
+                          name="Saldo acumulado"
+                          stroke={theme.palette.info.main}
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+                <Typography variant="caption" color="text.secondary">
+                  Regime caixa: só o que foi efetivamente pago/recebido, no mês do pagamento. O
+                  saldo inicial é o acumulado de todo o histórico registrado antes do ano — fluxos
+                  do MeuFin, não saldo bancário.
                 </Typography>
               </CardContent>
             </Card>
@@ -446,8 +533,9 @@ export default function FinanceDashboardPage() {
                   </Box>
                 )}
                 <Typography variant="caption" color="text.secondary">
-                  Compras de fatura importada aparecem pela categoria real de cada item. Clique
-                  numa barra para ver as despesas.
+                  Pagas entram no mês do pagamento; previstas, no mês do vencimento. Compras de
+                  fatura importada aparecem pela categoria real de cada item. Clique numa barra
+                  para ver as despesas.
                 </Typography>
               </CardContent>
             </Card>

@@ -1132,6 +1132,31 @@ export async function getFinanceDashboard(params: {
   return data
 }
 
+export type CashFlowMonth = {
+  month: number
+  inflow_cents: number
+  outflow_cents: number
+  net_cents: number
+  balance_cents: number
+}
+
+export type CashFlow = {
+  year: number
+  /** Líquido de tudo que foi pago antes de 1º de janeiro (fluxos, não saldo bancário). */
+  opening_balance_cents: number
+  closing_balance_cents: number
+  months: CashFlowMonth[]
+}
+
+/** DFC pessoal (regime caixa): saldo inicial + pagos − pagos = saldo final. */
+export async function getFinanceCashFlow(params: {
+  year?: number
+  family_member_id?: string
+}): Promise<CashFlow> {
+  const { data } = await meufinClient.get<CashFlow>(`${BASE}/dashboard/cashflow`, { params })
+  return data
+}
+
 export async function getFinanceDashboardMonthly(params: {
   year?: number
   family_member_id?: string

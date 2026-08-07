@@ -219,6 +219,8 @@ export const financeKeys = {
     [...financeKeys.all, 'renegotiation-preview', groupId] as const,
   cardBrands: () => [...financeKeys.all, 'card-brands'] as const,
   dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
+  dashboardCashflow: (params: Record<string, unknown>) =>
+    [...financeKeys.all, 'dashboard-cashflow', params] as const,
   dashboardMonthly: (params: Record<string, unknown>) =>
     [...financeKeys.all, 'dashboard-monthly', params] as const,
 }
