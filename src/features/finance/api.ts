@@ -116,6 +116,8 @@ export type Entry = {
   discount_reason?: string | null
   /** Motivo do cancelamento (catálogo global); define se a recorrência é encerrada. */
   cancel_reason?: string | null
+  /** Vínculo com um evento de renegociação (origem encerrada ou parcela nova). */
+  renegotiation_id?: string | null
   /** Preenchido quando este lançamento é o saldo não pago de um pagamento parcial. */
   residual_of_id?: string | null
   /** Data em que a compra foi realizada (itens de fatura); vencimento é sempre o da fatura. */
@@ -457,6 +459,26 @@ export async function deleteIncomeSource(id: string): Promise<void> {
 export async function listEntries(params: ListEntriesParams = {}): Promise<Paginated<Entry>> {
   const { data } = await meufinClient.get<Paginated<Entry>>(`${BASE}/entries`, { params })
   return data
+}
+
+export type EntryEvent = {
+  id: string
+  event: 'confirmed' | 'settled' | 'reopened' | 'cancelled' | 'due_date_changed'
+  created_at: string
+  from_status?: EntryStatus
+  to_status?: EntryStatus
+  paid_at?: string
+  paid_amount_cents?: number
+  cancel_reason?: string
+  old_due_date?: string
+  new_due_date?: string
+  actor_user_id?: string
+}
+
+/** Trilha imutável do ciclo de vida do lançamento (fase 4 do modelo contábil). */
+export async function listEntryEvents(id: string): Promise<EntryEvent[]> {
+  const { data } = await meufinClient.get<Paginated<EntryEvent>>(`${BASE}/entries/${id}/events`)
+  return data.items
 }
 
 export async function getEntry(id: string): Promise<Entry> {
