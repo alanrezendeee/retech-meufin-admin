@@ -40,6 +40,7 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TrendingDownRoundedIcon from '@mui/icons-material/TrendingDownRounded'
 import RepeatRoundedIcon from '@mui/icons-material/RepeatRounded'
 import CallSplitRoundedIcon from '@mui/icons-material/CallSplitRounded'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import ReceiptRoundedIcon from '@mui/icons-material/ReceiptRounded'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 import KeyboardArrowUpRoundedIcon from '@mui/icons-material/KeyboardArrowUpRounded'
@@ -91,6 +92,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/features/health/componen
 import { useToast } from '@/providers/ToastProvider'
 import { PurchaseEditDialog } from '../components/PurchaseEditDialog'
 import { WaiveEntryDialog } from '../components/WaiveEntryDialog'
+import { EntryDetailDialog } from '../components/EntryDetailDialog'
 import { CancelEntryDialog } from '../components/CancelEntryDialog'
 
 const now = new Date()
@@ -1145,6 +1147,7 @@ export default function DespesasPage() {
   const [toDelete, setToDelete] = useState<Entry | null>(null)
   const [toCancel, setToCancel] = useState<Entry | null>(null)
   const [toWaive, setToWaive] = useState<Entry | null>(null)
+  const [toDetail, setToDetail] = useState<Entry | null>(null)
   const [toReopen, setToReopen] = useState<Entry | null>(null)
   const [toConfirm, setToConfirm] = useState<Entry | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -1193,6 +1196,10 @@ export default function DespesasPage() {
       setToDelete(null)
       show('Despesa excluída.')
     },
+    onError: (err) => {
+      setToDelete(null)
+      show(errorMessage(err), 'error')
+    },
   })
   const reopenMutation = useMutation({
     mutationFn: (id: string) => reopenEntry(id),
@@ -1200,6 +1207,12 @@ export default function DespesasPage() {
       qc.invalidateQueries({ queryKey: financeKeys.all })
       setToReopen(null)
       show('Pagamento desfeito. Despesa voltou a prevista.')
+    },
+    // O ConfirmDialog não exibe erro — sem isto a falha era silenciosa
+    // (ex.: residual renegociado bloqueia a reabertura, e nada aparecia).
+    onError: (err) => {
+      setToReopen(null)
+      show(errorMessage(err), 'error')
     },
   })
 
@@ -1413,6 +1426,7 @@ export default function DespesasPage() {
                   <TableCell>Categoria</TableCell>
                   <TableCell>Fornecedor</TableCell>
                   <TableCell align="right">Valor</TableCell>
+                  <TableCell align="right">Pago</TableCell>
                   <TableCell>Recorrência</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell align="right">Ações</TableCell>
@@ -1464,6 +1478,26 @@ export default function DespesasPage() {
                         </Tooltip>
                       ) : null}
                     </TableCell>
+                    <TableCell align="right">
+                      {e.status === 'realizada' ? (
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            color:
+                              (e.paid_amount_cents ?? e.amount_cents) < e.amount_cents
+                                ? 'info.main'
+                                : 'success.main',
+                          }}
+                        >
+                          {formatCents(e.paid_amount_cents ?? e.amount_cents)}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {e.parent_id ? (
                         <Tooltip title="Compra dentro de uma fatura de cartão">
@@ -1514,6 +1548,11 @@ export default function DespesasPage() {
                       />
                     </TableCell>
                     <TableCell align="right">
+                      <Tooltip title="Ver todos os dados">
+                        <IconButton size="small" onClick={() => setToDetail(e)}>
+                          <VisibilityRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       {e.status === 'prevista' && (
                         <Tooltip title="Confirmar pagamento">
                           <IconButton
@@ -1615,6 +1654,8 @@ export default function DespesasPage() {
       {toCancel && <CancelEntryDialog entry={toCancel} onClose={() => setToCancel(null)} />}
 
       {toWaive && <WaiveEntryDialog entry={toWaive} onClose={() => setToWaive(null)} />}
+
+      {toDetail && <EntryDetailDialog entry={toDetail} onClose={() => setToDetail(null)} />}
 
       {toConfirm && (
         <ConfirmPaymentDialog entry={toConfirm} onClose={() => setToConfirm(null)} />
