@@ -727,6 +727,19 @@ export async function createRenegotiation(
   return data
 }
 
+export type RenegotiationDetail = {
+  renegotiation: Renegotiation
+  /** Cobranças encerradas pelo acordo (canceladas com motivo renegociacao). */
+  origins: Entry[]
+  /** Parcelas criadas pelo acordo. */
+  created: Entry[]
+}
+
+export async function getRenegotiationDetail(id: string): Promise<RenegotiationDetail> {
+  const { data } = await meufinClient.get<RenegotiationDetail>(`${BASE}/renegotiations/${id}`)
+  return data
+}
+
 export async function listRenegotiations(): Promise<Renegotiation[]> {
   const { data } = await meufinClient.get<Paginated<Renegotiation>>(`${BASE}/renegotiations`)
   return data.items
