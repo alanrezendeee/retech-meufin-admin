@@ -9,6 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   Divider,
   MenuItem,
   Radio,
@@ -27,6 +28,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded'
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded'
@@ -284,8 +286,15 @@ export function ImportFiscalDialog({
   const failed = status?.status === 'failed'
 
   return (
-    <Dialog open={open} onClose={pending ? undefined : onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 800 }}>Importar cupom / nota fiscal</DialogTitle>
+    <Dialog open={open} maxWidth="md" fullWidth>
+      {/* Fecha SÓ pelo botão: a extração custa tokens de LLM e clique fora /
+          Esc acidental descartaria a revisão inteira. */}
+      <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        Importar cupom / nota fiscal
+        <IconButton aria-label="Fechar" onClick={onClose} disabled={pending} edge="end">
+          <CloseRoundedIcon />
+        </IconButton>
+      </DialogTitle>
       <DialogContent>
         <Stepper activeStep={step} sx={{ mt: 1, mb: 3 }}>
           {STEPS.map((label) => (
