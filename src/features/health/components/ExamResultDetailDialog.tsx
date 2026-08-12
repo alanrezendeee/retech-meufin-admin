@@ -1,7 +1,10 @@
+import { useRef } from 'react'
 import {
   Alert,
   Box,
   Button,
+  IconButton,
+  Stack,
   Chip,
   Dialog,
   DialogActions,
@@ -17,8 +20,18 @@ import {
   Typography,
 } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
-import { useQuery } from '@tanstack/react-query'
-import { getExamResult, type ExamResultItem } from '../api'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
+import LinkOffRoundedIcon from '@mui/icons-material/LinkOffRounded'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  getDocumentDownloadUrl,
+  getExamResult,
+  linkDocument,
+  listDocumentsPaged,
+  uploadDocument,
+  type ExamResultItem,
+} from '../api'
 import { errorMessage, healthKeys } from '../constants'
 import { LoadingState } from './StateViews'
 import { resultNumber, TierFit } from './TierFit'
@@ -36,6 +49,112 @@ function refRange(it: ExamResultItem): string {
   if (it.reference_max != null) return `< ${it.reference_max}`
   if (it.reference_min != null) return `> ${it.reference_min}`
   return '—'
+}
+
+/**
+ * Anexos do resultado: documentos vinculados (laudo importado, radiografias,
+ * imagens de ressonância fotografadas) — listar, abrir, enviar e desanexar.
+ */
+function ResultAttachments({
+  resultId,
+  familyMemberId,
+}: {
+  resultId: string
+  familyMemberId?: string | null
+}) {
+  const qc = useQueryClient()
+  const fileInput = useRef<HTMLInputElement>(null)
+  const key = ['health', 'result-attachments', resultId] as const
+
+  const { data } = useQuery({
+    queryKey: key,
+    queryFn: () => listDocumentsPaged({ exam_result_id: resultId, limit: 50 }),
+  })
+  const docs = data?.items ?? []
+
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('document_type', 'imaging')
+      form.append('exam_result_id', resultId)
+      if (familyMemberId) form.append('family_member_id', familyMemberId)
+      return uploadDocument(form)
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+  })
+
+  const detach = useMutation({
+    mutationFn: (id: string) => linkDocument(id, null),
+    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+  })
+
+  const view = async (id: string) => {
+    const { url } = await getDocumentDownloadUrl(id)
+    window.open(url, '_blank', 'noopener')
+  }
+
+  return (
+    <Box>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="subtitle2" fontWeight={700}>
+          Anexos ({docs.length})
+        </Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<UploadFileRoundedIcon />}
+          disabled={upload.isPending}
+          onClick={() => fileInput.current?.click()}
+        >
+          Anexar arquivo
+        </Button>
+        <input
+          ref={fileInput}
+          type="file"
+          hidden
+          accept="application/pdf,image/jpeg,image/png"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) upload.mutate(f)
+            e.target.value = ''
+          }}
+        />
+      </Stack>
+      {upload.isError && <Alert severity="error">{errorMessage(upload.error)}</Alert>}
+      {docs.length === 0 ? (
+        <Typography variant="caption" color="text.secondary">
+          Nenhum anexo — envie o laudo em PDF ou fotos de radiografia/ressonância.
+        </Typography>
+      ) : (
+        <Stack spacing={0.5}>
+          {docs.map((d) => (
+            <Stack
+              key={d.id}
+              direction="row"
+              alignItems="center"
+              spacing={1}
+              sx={{ p: 0.75, border: 1, borderColor: 'divider', borderRadius: 1 }}
+            >
+              <Typography variant="body2" noWrap sx={{ flex: 1 }} title={d.original_file_name ?? ''}>
+                {d.original_file_name || d.file_name}
+              </Typography>
+              <Tooltip title="Abrir">
+                <IconButton size="small" onClick={() => view(d.id)}>
+                  <OpenInNewRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Desanexar do exame (o arquivo continua em Documentos)">
+                <IconButton size="small" disabled={detach.isPending} onClick={() => detach.mutate(d.id)}>
+                  <LinkOffRoundedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  )
 }
 
 /**
@@ -148,6 +267,7 @@ export function ExamResultDetailDialog({
                 </TableBody>
               </Table>
             </TableContainer>
+            <ResultAttachments resultId={resultId} familyMemberId={data?.family_member_id} />
             <Alert severity="info" variant="outlined">
               Classificação automática frente às faixas impressas no laudo e às tabelas do
               catálogo — não é avaliação médica. Interprete os resultados com o seu médico.

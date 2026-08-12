@@ -123,8 +123,9 @@ function ResultFormDialog({ open, onClose }: { open: boolean; onClose: () => voi
     const validItems = items.filter(
       (it) => (it.marker || it.raw_marker_name.trim()) && it.result_value.trim()
     )
-    if (validItems.length === 0) {
-      setFormError('Adicione ao menos um item com marcador e valor.')
+    // Laudo descritivo (imagem sem medidas): aceito sem itens, com resumo.
+    if (validItems.length === 0 && !summary.trim()) {
+      setFormError('Adicione ao menos um item — ou preencha o resumo para laudo descritivo (ex.: ultrassom sem alterações).')
       return
     }
 

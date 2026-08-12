@@ -327,10 +327,24 @@ export type HealthDocument = {
   id: string
   document_type: string
   family_member_id?: string | null
+  lab_id?: string | null
+  exam_request_id?: string | null
+  exam_result_id?: string | null
   file_name?: string | null
-  status?: string | null
+  original_file_name?: string | null
+  mime_type?: string | null
+  size_bytes?: number | null
+  extraction_status?: string | null
   created_at?: string
-  [key: string]: unknown
+  updated_at?: string
+}
+
+export type ListDocumentsParams = {
+  family_member_id?: string
+  exam_result_id?: string
+  document_type?: string
+  limit?: number
+  offset?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -862,6 +876,23 @@ export async function getMarkerEvolution(
 // ---------------------------------------------------------------------------
 // Documents
 // ---------------------------------------------------------------------------
+
+export async function listDocumentsPaged(params: ListDocumentsParams = {}): Promise<Paginated<HealthDocument>> {
+  const { data } = await meufinClient.get<Paginated<HealthDocument>>(`${BASE}/documents`, { params })
+  return data
+}
+
+/** Vincula (examResultId) ou desvincula (null) o documento a um resultado. */
+export async function linkDocument(id: string, examResultId: string | null): Promise<HealthDocument> {
+  const { data } = await meufinClient.patch<HealthDocument>(`${BASE}/documents/${id}`, {
+    exam_result_id: examResultId,
+  })
+  return data
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/documents/${id}`)
+}
 
 export async function listDocuments(): Promise<HealthDocument[]> {
   const { data } = await meufinClient.get<Paginated<HealthDocument>>(`${BASE}/documents`)

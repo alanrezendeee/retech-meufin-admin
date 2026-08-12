@@ -199,7 +199,6 @@ export const retechfinNavSections: NavDataSection[] = [
         label: 'Documentos',
         path: '/dashboard/saude/documentos',
         icon: FolderSharedRoundedIcon,
-        soon: true,
         permission: { action: 'view', subject: 'health.documents' },
       },
     ],
