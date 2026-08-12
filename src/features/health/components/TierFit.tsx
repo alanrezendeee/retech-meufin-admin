@@ -31,18 +31,26 @@ export function resultNumber(v: string | number | null | undefined): number | nu
  */
 export function TierFit({ value, tiers }: { value: number; tiers: RefTier[] }) {
   const meets = tiers.filter((t) => tierMeets(value, t)).map(tierLabel)
-  const fails = tiers.filter((t) => !tierMeets(value, t)).map(tierLabel)
+  const failTiers = tiers.filter((t) => !tierMeets(value, t))
+  const fails = failTiers.map(tierLabel)
+  // "Meta" e não "faixa": cada linha é o alvo de UMA categoria de paciente
+  // (metas coexistem), não uma banda de classificação do valor.
+  const failWord = failTiers.every((t) => t.max != null && value >= t.max)
+    ? 'Acima da meta para'
+    : 'Fora da meta para'
   return (
     <Typography variant="caption" color="text.secondary">
       {meets.length > 0 && (
         <>
-          Atende: <Box component="span" sx={{ color: 'success.main' }}>{meets.join(', ')}</Box>
+          Dentro da meta para:{' '}
+          <Box component="span" sx={{ color: 'success.main' }}>{meets.join(', ')}</Box>
         </>
       )}
       {meets.length > 0 && fails.length > 0 && ' · '}
       {fails.length > 0 && (
         <>
-          Não atende: <Box component="span" sx={{ color: 'warning.main' }}>{fails.join(', ')}</Box>
+          {failWord}:{' '}
+          <Box component="span" sx={{ color: 'warning.main' }}>{fails.join(', ')}</Box>
         </>
       )}
     </Typography>
