@@ -26,6 +26,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -47,6 +48,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { MarkerAutocomplete } from '../components/MarkerAutocomplete'
 import { ImportExamResultDialog } from '../components/ImportExamResultDialog'
+import { ExamResultDetailDialog } from '../components/ExamResultDetailDialog'
 import { useToast } from '@/providers/ToastProvider'
 
 type DraftItem = {
@@ -347,6 +349,7 @@ export default function ExamResultsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [toDelete, setToDelete] = useState<ExamResult | null>(null)
+  const [detail, setDetail] = useState<{ id: string; title: string } | null>(null)
 
   const [q, setQ] = useState('')
   const [memberId, setMemberId] = useState('')
@@ -522,6 +525,19 @@ export default function ExamResultsPage() {
                       </Box>
                     </TableCell>
                     <TableCell align="right">
+                      <Tooltip title="Ver itens">
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            setDetail({
+                              id: r.id,
+                              title: `${memberName(r.family_member_id)} — ${r.exam_date}`,
+                            })
+                          }
+                        >
+                          <VisibilityRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                       <Tooltip title="Excluir">
                         <IconButton size="small" color="error" onClick={() => setToDelete(r)}>
                           <DeleteOutlineRoundedIcon fontSize="small" />
@@ -544,6 +560,15 @@ export default function ExamResultsPage() {
       )}
 
       {formOpen && <ResultFormDialog open={formOpen} onClose={() => setFormOpen(false)} />}
+
+      {detail && (
+        <ExamResultDetailDialog
+          resultId={detail.id}
+          title={detail.title}
+          open
+          onClose={() => setDetail(null)}
+        />
+      )}
 
       {importOpen && (
         <ImportExamResultDialog

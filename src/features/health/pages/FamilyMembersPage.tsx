@@ -35,7 +35,6 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm } from 'react-hook-form'
 import {
-  CARDIOVASCULAR_RISK_OPTIONS,
   createFamilyMember,
   deleteFamilyMember,
   deleteMemberAvatar,
@@ -64,7 +63,6 @@ type FormValues = Omit<FamilyMemberInput, 'height_cm' | 'weight_kg'> & {
   weight_kg: string
 }
 
-const RISK_HELPER = 'Categoria estimada pelo médico — habilita a leitura de exames com metas por risco (ex.: LDL).'
 
 const emptyForm: FormValues = {
   full_name: '',
@@ -75,7 +73,6 @@ const emptyForm: FormValues = {
   notes: '',
   height_m: '',
   weight_kg: '',
-  cardiovascular_risk: '',
   active: true,
 }
 
@@ -136,7 +133,6 @@ function MemberFormDialog({
           notes: member.notes ?? '',
           height_m: formatDecimalBR(member.height_cm != null ? member.height_cm / 100 : null, 2),
           weight_kg: formatDecimalBR(member.weight_kg, 1),
-          cardiovascular_risk: member.cardiovascular_risk ?? '',
           active: member.active,
         }
       : emptyForm,
@@ -203,7 +199,6 @@ function MemberFormDialog({
       gender: values.gender || null,
       document: values.document || null,
       notes: values.notes || null,
-      cardiovascular_risk: values.cardiovascular_risk || null,
       height_cm: heightM != null ? Math.round(heightM * 100) : null,
       weight_kg: parseDecimalBR(weight_kg),
     })
@@ -351,29 +346,6 @@ function MemberFormDialog({
               )}
             />
           </Stack>
-          <Controller
-            name="cardiovascular_risk"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                value={field.value ?? ''}
-                select
-                label="Risco cardiovascular"
-                helperText={RISK_HELPER}
-                fullWidth
-              >
-                <MenuItem value="">
-                  <em>Não informado</em>
-                </MenuItem>
-                {CARDIOVASCULAR_RISK_OPTIONS.map((o) => (
-                  <MenuItem key={o.value} value={o.value}>
-                    {o.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            )}
-          />
           <Controller
             name="notes"
             control={control}
