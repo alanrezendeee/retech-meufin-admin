@@ -24,9 +24,11 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmExamDocument,
@@ -39,6 +41,7 @@ import {
   type ConfirmExamItem,
   type ExamItemSuggestion,
   type HealthExtractionStatus,
+  type RefTier,
 } from '../api'
 import { errorMessage, healthKeys } from '../constants'
 import { LoadingState } from './StateViews'
@@ -84,6 +87,9 @@ type ReviewItem = {
   method: string | null
   material: string | null
   rawText: string | null
+  /** Curadoria do marcador casado (tooltip + enquadramento informativo). */
+  markerRefText: string | null
+  markerRefTiers: RefTier[]
 }
 
 function suggestionToReview(s: ExamItemSuggestion): ReviewItem {
@@ -108,7 +114,60 @@ function suggestionToReview(s: ExamItemSuggestion): ReviewItem {
     method: s.method ?? null,
     material: s.material ?? null,
     rawText: s.raw_text ?? null,
+    markerRefText: s.marker_ref_text ?? null,
+    markerRefTiers: s.marker_ref_tiers ?? [],
   }
+}
+
+/** Formata uma meta condicional: "Risco baixo (<130)". */
+function tierLabel(t: RefTier): string {
+  if (t.min != null && t.max != null) return `${t.label} (${t.min}–${t.max})`
+  if (t.max != null) return `${t.label} (<${t.max})`
+  if (t.min != null) return `${t.label} (>${t.min})`
+  return t.label
+}
+
+/** Valor atende a meta? Metas "inferior a X" usam < estrito. */
+function tierMeets(value: number, t: RefTier): boolean {
+  if (t.min != null && value <= t.min) return false
+  if (t.max != null && value >= t.max) return false
+  return true
+}
+
+/**
+ * Enquadramento INFORMATIVO por metas condicionais (ex.: LDL por risco
+ * cardiovascular): lista o que o valor atende/não atende, sem afirmar qual é a
+ * categoria do paciente (isso é estratificação clínica do médico).
+ */
+function TierFit({
+  value,
+  tiers,
+  memberRisk,
+}: {
+  value: number
+  tiers: RefTier[]
+  memberRisk?: string | null
+}) {
+  // Destaca a categoria cadastrada do membro (estratificada pelo médico).
+  const mark = (t: RefTier) => (memberRisk && t.key === memberRisk ? `${tierLabel(t)} ★` : tierLabel(t))
+  const meets = tiers.filter((t) => tierMeets(value, t)).map(mark)
+  const fails = tiers.filter((t) => !tierMeets(value, t)).map(mark)
+  return (
+    <Typography variant="caption" color="text.secondary">
+      {meets.length > 0 && (
+        <>
+          Atende: <Box component="span" sx={{ color: 'success.main' }}>{meets.join(', ')}</Box>
+        </>
+      )}
+      {meets.length > 0 && fails.length > 0 && ' · '}
+      {fails.length > 0 && (
+        <>
+          Não atende: <Box component="span" sx={{ color: 'warning.main' }}>{fails.join(', ')}</Box>
+        </>
+      )}
+      {memberRisk && tiers.some((t) => t.key === memberRisk) && ' · ★ = categoria do membro'}
+    </Typography>
+  )
 }
 
 type MarkerOption = { id: string; label: string }
@@ -549,6 +608,21 @@ export function ImportExamResultDialog({
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="body2">{it.markerName}</Typography>
                                 <Chip label="catálogo" size="small" color="success" variant="outlined" />
+                                {(it.refText || it.markerRefText) && (
+                                  <Tooltip
+                                    title={
+                                      <Typography variant="caption" sx={{ whiteSpace: 'pre-line' }}>
+                                        {it.refText ?? it.markerRefText}
+                                      </Typography>
+                                    }
+                                    arrow
+                                  >
+                                    <InfoOutlinedIcon
+                                      fontSize="inherit"
+                                      sx={{ color: 'text.secondary', cursor: 'help' }}
+                                    />
+                                  </Tooltip>
+                                )}
                               </Box>
                             ) : (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -574,6 +648,14 @@ export function ImportExamResultDialog({
                                 }
                               />
                             )}
+                            {it.markerRefTiers.length > 0 &&
+                              Number.isFinite(parseFloat(it.resultValue.replace(',', '.'))) && (
+                                <TierFit
+                                  value={parseFloat(it.resultValue.replace(',', '.'))}
+                                  tiers={it.markerRefTiers}
+                                  memberRisk={members.find((m) => m.id === memberId)?.cardiovascular_risk}
+                                />
+                              )}
                             {it.markerMode === 'matched' && (
                               <Typography
                                 variant="caption"

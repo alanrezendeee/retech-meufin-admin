@@ -23,6 +23,7 @@ export type FamilyMember = {
   notes?: string | null
   height_cm?: number | null
   weight_kg?: number | null
+  cardiovascular_risk?: string | null // estratificação informada pelo médico do membro
   age?: number | null // calculado pela API
   active: boolean
   avatar_url?: string | null // URL presignada (15min) da foto, quando houver
@@ -39,6 +40,7 @@ export type FamilyMemberInput = {
   notes?: string | null
   height_cm?: number | null
   weight_kg?: number | null
+  cardiovascular_risk?: string | null
   active: boolean
 }
 
@@ -86,6 +88,17 @@ export type ComparabilityClass = string
 
 export type MarkerAlias = { alias: string; normalized_alias: string }
 
+/** Meta condicional de referência do catálogo (ex.: LDL por risco cardiovascular). */
+export type RefTier = { key?: string; label: string; min?: number | null; max?: number | null }
+
+/** Categorias de risco cardiovascular (estratificação feita pelo médico). */
+export const CARDIOVASCULAR_RISK_OPTIONS = [
+  { value: 'baixo', label: 'Risco baixo' },
+  { value: 'intermediario', label: 'Risco intermediário' },
+  { value: 'alto', label: 'Risco alto' },
+  { value: 'muito_alto', label: 'Risco muito alto' },
+] as const
+
 export type Marker = {
   id: string
   scope?: string
@@ -93,6 +106,7 @@ export type Marker = {
   category: string
   comparability_class: ComparabilityClass
   canonical_unit?: string | null
+  default_ref_tiers?: RefTier[] | null
   aliases?: MarkerAlias[]
   created_at?: string
   updated_at?: string
@@ -808,6 +822,9 @@ export type ExamItemSuggestion = {
   marker_name?: string | null
   candidates?: MarkerCandidateSuggestion[]
   marker_is_new?: boolean
+  /** Curadoria do marcador casado: texto e metas condicionais (ex.: LDL por risco). */
+  marker_ref_text?: string | null
+  marker_ref_tiers?: RefTier[] | null
 }
 
 export type ExamSuggestion = {
