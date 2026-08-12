@@ -23,6 +23,7 @@ export type FamilyMember = {
   notes?: string | null
   height_cm?: number | null
   weight_kg?: number | null
+  cardiovascular_risk?: string | null // estratificação informada pelo médico do membro
   age?: number | null // calculado pela API
   active: boolean
   avatar_url?: string | null // URL presignada (15min) da foto, quando houver
@@ -39,6 +40,7 @@ export type FamilyMemberInput = {
   notes?: string | null
   height_cm?: number | null
   weight_kg?: number | null
+  cardiovascular_risk?: string | null
   active: boolean
 }
 
@@ -87,7 +89,15 @@ export type ComparabilityClass = string
 export type MarkerAlias = { alias: string; normalized_alias: string }
 
 /** Meta condicional de referência do catálogo (ex.: LDL por risco cardiovascular). */
-export type RefTier = { label: string; min?: number | null; max?: number | null }
+export type RefTier = { key?: string; label: string; min?: number | null; max?: number | null }
+
+/** Categorias de risco cardiovascular (estratificação feita pelo médico). */
+export const CARDIOVASCULAR_RISK_OPTIONS = [
+  { value: 'baixo', label: 'Risco baixo' },
+  { value: 'intermediario', label: 'Risco intermediário' },
+  { value: 'alto', label: 'Risco alto' },
+  { value: 'muito_alto', label: 'Risco muito alto' },
+] as const
 
 export type Marker = {
   id: string

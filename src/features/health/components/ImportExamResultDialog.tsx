@@ -139,9 +139,19 @@ function tierMeets(value: number, t: RefTier): boolean {
  * cardiovascular): lista o que o valor atende/não atende, sem afirmar qual é a
  * categoria do paciente (isso é estratificação clínica do médico).
  */
-function TierFit({ value, tiers }: { value: number; tiers: RefTier[] }) {
-  const meets = tiers.filter((t) => tierMeets(value, t)).map(tierLabel)
-  const fails = tiers.filter((t) => !tierMeets(value, t)).map(tierLabel)
+function TierFit({
+  value,
+  tiers,
+  memberRisk,
+}: {
+  value: number
+  tiers: RefTier[]
+  memberRisk?: string | null
+}) {
+  // Destaca a categoria cadastrada do membro (estratificada pelo médico).
+  const mark = (t: RefTier) => (memberRisk && t.key === memberRisk ? `${tierLabel(t)} ★` : tierLabel(t))
+  const meets = tiers.filter((t) => tierMeets(value, t)).map(mark)
+  const fails = tiers.filter((t) => !tierMeets(value, t)).map(mark)
   return (
     <Typography variant="caption" color="text.secondary">
       {meets.length > 0 && (
@@ -155,6 +165,7 @@ function TierFit({ value, tiers }: { value: number; tiers: RefTier[] }) {
           Não atende: <Box component="span" sx={{ color: 'warning.main' }}>{fails.join(', ')}</Box>
         </>
       )}
+      {memberRisk && tiers.some((t) => t.key === memberRisk) && ' · ★ = categoria do membro'}
     </Typography>
   )
 }
@@ -642,6 +653,7 @@ export function ImportExamResultDialog({
                                 <TierFit
                                   value={parseFloat(it.resultValue.replace(',', '.'))}
                                   tiers={it.markerRefTiers}
+                                  memberRisk={members.find((m) => m.id === memberId)?.cardiovascular_risk}
                                 />
                               )}
                             {it.markerMode === 'matched' && (
