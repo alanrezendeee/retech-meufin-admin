@@ -5,6 +5,7 @@ import { RequireAuth } from '@/components/auth/RequireAuth'
 import LoginPage from '@/pages/LoginPage'
 import ForgotPasswordPage from '@/pages/ForgotPasswordPage'
 import ResetPasswordPage from '@/pages/ResetPasswordPage'
+import SharedHealthPage from '@/pages/SharedHealthPage'
 import { useDynamicFavicon } from '@/hooks/useDynamicFavicon'
 import { DashboardLayout } from '@/layouts/DashboardLayout'
 import { DashboardIndexRoute } from '@/routes/sections/dashboard'
@@ -37,6 +38,8 @@ function App() {
       />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      {/* Página pública do link compartilhado com o médico (sem login) */}
+      <Route path="/compartilhado/:token" element={<SharedHealthPage />} />
 
       <Route element={<RequireAuth />}>
         <Route path="dashboard" element={<DashboardLayout />}>
