@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -33,6 +34,7 @@ import {
   getDocumentExtractionStatus,
   listFamilyMembers,
   listLabs,
+  listMarkers,
   uploadDocument,
   type ConfirmExamItem,
   type ExamItemSuggestion,
@@ -107,6 +109,66 @@ function suggestionToReview(s: ExamItemSuggestion): ReviewItem {
     material: s.material ?? null,
     rawText: s.raw_text ?? null,
   }
+}
+
+type MarkerOption = { id: string; label: string }
+
+/**
+ * Busca de marcador no catálogo para itens sem match: mostra os candidatos
+ * fuzzy quando vazio e busca no servidor conforme o usuário digita — antes só
+ * dava para aceitar o "mais próximo" ou criar marcador novo.
+ */
+function MarkerSearchField({
+  candidates,
+  onSelect,
+}: {
+  candidates: MarkerOption[]
+  onSelect: (opt: MarkerOption) => void
+}) {
+  const [input, setInput] = useState('')
+  const query = input.trim()
+  const { data, isFetching } = useQuery({
+    queryKey: healthKeys.markers({ query, ctx: 'exam-import' }),
+    queryFn: () => listMarkers({ query, limit: 10 }),
+    enabled: query.length >= 2,
+    staleTime: 30_000,
+  })
+
+  const options = useMemo<MarkerOption[]>(() => {
+    const fromSearch = (data?.items ?? []).map((m) => ({
+      id: m.id,
+      label: m.canonical_unit ? `${m.canonical_name} (${m.canonical_unit})` : m.canonical_name,
+    }))
+    const seen = new Set(fromSearch.map((o) => o.id))
+    return [...fromSearch, ...candidates.filter((c) => !seen.has(c.id))]
+  }, [data, candidates])
+
+  return (
+    <Autocomplete
+      size="small"
+      options={options}
+      // Filtragem é do servidor; filtrar de novo no cliente esconderia
+      // resultados cujo alias casa mas o nome canônico não.
+      filterOptions={(x) => x}
+      value={null}
+      inputValue={input}
+      onInputChange={(_, v) => setInput(v)}
+      onChange={(_, opt) => {
+        if (opt) onSelect(opt)
+      }}
+      loading={isFetching}
+      isOptionEqualToValue={(a, b) => a.id === b.id}
+      noOptionsText={query.length < 2 ? 'Digite para buscar no catálogo' : 'Nada encontrado'}
+      sx={{ maxWidth: 320 }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          variant="standard"
+          placeholder={candidates.length > 0 ? 'Buscar no catálogo (ou escolha um parecido)…' : 'Buscar no catálogo…'}
+        />
+      )}
+    />
+  )
 }
 
 export function ImportExamResultDialog({
@@ -500,34 +562,17 @@ export function ImportExamResultDialog({
                                 <Chip label="novo" size="small" color="warning" variant="outlined" />
                               </Box>
                             )}
-                            {it.candidates.length > 0 && it.markerMode === 'new' && (
-                              <TextField
-                                select
-                                variant="standard"
-                                size="small"
-                                value=""
-                                onChange={(e) => {
-                                  const c = it.candidates.find((x) => x.id === e.target.value)
-                                  if (c) {
-                                    setItem(idx, {
-                                      markerMode: 'matched',
-                                      markerId: c.id,
-                                      markerName: c.label,
-                                    })
-                                  }
-                                }}
-                                SelectProps={{ displayEmpty: true }}
-                                sx={{ maxWidth: 320 }}
-                              >
-                                <MenuItem value="" disabled>
-                                  Parecidos no catálogo…
-                                </MenuItem>
-                                {it.candidates.map((c) => (
-                                  <MenuItem key={c.id} value={c.id}>
-                                    {c.label}
-                                  </MenuItem>
-                                ))}
-                              </TextField>
+                            {it.markerMode === 'new' && (
+                              <MarkerSearchField
+                                candidates={it.candidates}
+                                onSelect={(c) =>
+                                  setItem(idx, {
+                                    markerMode: 'matched',
+                                    markerId: c.id,
+                                    markerName: c.label,
+                                  })
+                                }
+                              />
                             )}
                             {it.markerMode === 'matched' && (
                               <Typography
