@@ -45,6 +45,7 @@ import {
 } from '../api'
 import { errorMessage, healthKeys } from '../constants'
 import { LoadingState } from './StateViews'
+import { resultNumber, TierFit } from './TierFit'
 
 const STEPS = ['Enviar arquivo', 'Ler exame', 'Revisar', 'Confirmar']
 
@@ -117,57 +118,6 @@ function suggestionToReview(s: ExamItemSuggestion): ReviewItem {
     markerRefText: s.marker_ref_text ?? null,
     markerRefTiers: s.marker_ref_tiers ?? [],
   }
-}
-
-/** Formata uma meta condicional: "Risco baixo (<130)". */
-function tierLabel(t: RefTier): string {
-  if (t.min != null && t.max != null) return `${t.label} (${t.min}–${t.max})`
-  if (t.max != null) return `${t.label} (<${t.max})`
-  if (t.min != null) return `${t.label} (>${t.min})`
-  return t.label
-}
-
-/** Valor atende a meta? Metas "inferior a X" usam < estrito. */
-function tierMeets(value: number, t: RefTier): boolean {
-  if (t.min != null && value <= t.min) return false
-  if (t.max != null && value >= t.max) return false
-  return true
-}
-
-/**
- * Enquadramento INFORMATIVO por metas condicionais (ex.: LDL por risco
- * cardiovascular): lista o que o valor atende/não atende, sem afirmar qual é a
- * categoria do paciente (isso é estratificação clínica do médico).
- */
-function TierFit({
-  value,
-  tiers,
-  memberRisk,
-}: {
-  value: number
-  tiers: RefTier[]
-  memberRisk?: string | null
-}) {
-  // Destaca a categoria cadastrada do membro (estratificada pelo médico).
-  const mark = (t: RefTier) => (memberRisk && t.key === memberRisk ? `${tierLabel(t)} ★` : tierLabel(t))
-  const meets = tiers.filter((t) => tierMeets(value, t)).map(mark)
-  const fails = tiers.filter((t) => !tierMeets(value, t)).map(mark)
-  return (
-    <Typography variant="caption" color="text.secondary">
-      {meets.length > 0 && (
-        <>
-          Atende: <Box component="span" sx={{ color: 'success.main' }}>{meets.join(', ')}</Box>
-        </>
-      )}
-      {meets.length > 0 && fails.length > 0 && ' · '}
-      {fails.length > 0 && (
-        <>
-          Não atende: <Box component="span" sx={{ color: 'warning.main' }}>{fails.join(', ')}</Box>
-        </>
-      )}
-      {memberRisk && tiers.some((t) => t.key === memberRisk) && ' · ★ = categoria do membro'}
-    </Typography>
-  )
 }
 
 type MarkerOption = { id: string; label: string }
@@ -648,14 +598,9 @@ export function ImportExamResultDialog({
                                 }
                               />
                             )}
-                            {it.markerRefTiers.length > 0 &&
-                              Number.isFinite(parseFloat(it.resultValue.replace(',', '.'))) && (
-                                <TierFit
-                                  value={parseFloat(it.resultValue.replace(',', '.'))}
-                                  tiers={it.markerRefTiers}
-                                  memberRisk={members.find((m) => m.id === memberId)?.cardiovascular_risk}
-                                />
-                              )}
+                            {it.markerRefTiers.length > 0 && resultNumber(it.resultValue) != null && (
+                              <TierFit value={resultNumber(it.resultValue) as number} tiers={it.markerRefTiers} />
+                            )}
                             {it.markerMode === 'matched' && (
                               <Typography
                                 variant="caption"
