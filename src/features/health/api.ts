@@ -86,6 +86,9 @@ export type ComparabilityClass = string
 
 export type MarkerAlias = { alias: string; normalized_alias: string }
 
+/** Meta condicional de referência do catálogo (ex.: LDL por risco cardiovascular). */
+export type RefTier = { label: string; min?: number | null; max?: number | null }
+
 export type Marker = {
   id: string
   scope?: string
@@ -93,6 +96,7 @@ export type Marker = {
   category: string
   comparability_class: ComparabilityClass
   canonical_unit?: string | null
+  default_ref_tiers?: RefTier[] | null
   aliases?: MarkerAlias[]
   created_at?: string
   updated_at?: string
@@ -808,6 +812,9 @@ export type ExamItemSuggestion = {
   marker_name?: string | null
   candidates?: MarkerCandidateSuggestion[]
   marker_is_new?: boolean
+  /** Curadoria do marcador casado: texto e metas condicionais (ex.: LDL por risco). */
+  marker_ref_text?: string | null
+  marker_ref_tiers?: RefTier[] | null
 }
 
 export type ExamSuggestion = {
