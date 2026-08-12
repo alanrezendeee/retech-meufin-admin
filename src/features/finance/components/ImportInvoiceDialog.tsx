@@ -9,6 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   Divider,
   MenuItem,
   Step,
@@ -23,6 +24,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -244,8 +246,15 @@ export function ImportInvoiceDialog({
           }}
         />
       )}
-      <Dialog open={open} onClose={pending ? undefined : onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 800 }}>Importar fatura (PDF)</DialogTitle>
+      <Dialog open={open} maxWidth="md" fullWidth>
+      {/* Fecha SÓ pelo botão: a extração custa tokens de LLM e clique fora /
+          Esc acidental descartaria a revisão inteira. */}
+      <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        Importar fatura (PDF)
+        <IconButton aria-label="Fechar" onClick={onClose} disabled={pending} edge="end">
+          <CloseRoundedIcon />
+        </IconButton>
+      </DialogTitle>
       <DialogContent>
         <Stepper activeStep={step} sx={{ mt: 1, mb: 3 }}>
           {STEPS.map((label) => (
