@@ -1,15 +1,27 @@
 import { useMemo, useState } from 'react'
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   alpha,
+  Autocomplete,
   Box,
+  Button,
   Card,
   CardContent,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
+  IconButton,
   MenuItem,
   Stack,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material'
@@ -17,6 +29,9 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import BiotechRoundedIcon from '@mui/icons-material/BiotechRounded'
 import PendingActionsRoundedIcon from '@mui/icons-material/PendingActionsRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
+import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded'
+import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded'
 import { useQuery } from '@tanstack/react-query'
 import {
   CartesianGrid,
@@ -29,17 +44,286 @@ import {
   YAxis,
 } from 'recharts'
 import {
+  getDashboardPanels,
   getHealthDashboard,
-  getMarkerEvolution,
   listFamilyMembers,
-  listMarkers,
   type EvolutionMode,
+  type EvolutionPoint,
+  type PanelMarker,
 } from '../api'
-import { errorMessage, healthKeys } from '../constants'
+import { errorMessage, healthKeys, MARKER_CATEGORY_LABEL } from '../constants'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { lp } from '@/theme/tokens'
 import { formatDateBR } from '@/utils/dates'
+
+// ---------------------------------------------------------------------------
+// Painéis: título por categoria do catálogo
+// ---------------------------------------------------------------------------
+
+const PANEL_TITLE: Record<string, string> = {
+  hematologia: 'Painel Hematológico',
+  bioquimica: 'Painel Metabólico',
+  lipidico: 'Painel Lipídico',
+  hepatico: 'Painel Hepático',
+  renal: 'Painel Renal',
+  eletrolitos: 'Painel de Eletrólitos e Minerais',
+  hormonios: 'Painel Hormonal',
+  vitaminas: 'Painel de Vitaminas',
+  inflamacao: 'Painel de Inflamação',
+  coagulacao: 'Painel de Coagulação',
+  sorologia: 'Sorologias',
+  urina: 'Painel de Urina',
+  espermograma: 'Espermograma',
+  outros: 'Outros marcadores',
+}
+
+function panelTitle(category: string): string {
+  return PANEL_TITLE[category] ?? MARKER_CATEGORY_LABEL[category] ?? `Painel ${category}`
+}
+
+// ---------------------------------------------------------------------------
+// Preferências do usuário (ordem, colapsados, densidade) em localStorage
+// ---------------------------------------------------------------------------
+
+type Density = 'compact' | 'comfortable'
+type PanelPrefs = { order: string[]; collapsed: string[]; density: Density }
+
+const PREFS_KEY = 'meufin-health-panels-prefs'
+
+function loadPrefs(): PanelPrefs {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY)
+    if (raw) return { order: [], collapsed: [], density: 'compact', ...JSON.parse(raw) }
+  } catch {
+    // prefs corrompidas: recomeça do default
+  }
+  return { order: [], collapsed: [], density: 'compact' }
+}
+
+function savePrefs(p: PanelPrefs) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(p))
+  } catch {
+    // storage cheio/indisponível: preferências viram só de sessão
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Situação do último ponto
+// ---------------------------------------------------------------------------
+
+const INTERP_CHIP: Record<string, { label: string; color: 'success' | 'warning' | 'error' }> = {
+  normal: { label: 'na faixa', color: 'success' },
+  low: { label: 'abaixo', color: 'warning' },
+  high: { label: 'acima', color: 'warning' },
+  critical: { label: 'crítico', color: 'error' },
+}
+
+function lastPoint(pm: PanelMarker): EvolutionPoint | null {
+  return pm.points.length > 0 ? pm.points[pm.points.length - 1] : null
+}
+
+// ---------------------------------------------------------------------------
+// Gráfico (compartilhado entre mini e dialog)
+// ---------------------------------------------------------------------------
+
+function EvolutionLineChart({
+  points,
+  mode,
+  unit,
+  mini,
+}: {
+  points: EvolutionPoint[]
+  mode: EvolutionMode
+  unit?: string | null
+  mini?: boolean
+}) {
+  const theme = useTheme()
+  const data = useMemo(
+    () =>
+      points.map((p) => ({
+        date: p.exam_date,
+        value: p.value,
+        normalized: p.normalized ?? null,
+        refMin: p.reference_min ?? null,
+        refMax: p.reference_max ?? null,
+      })),
+    [points]
+  )
+  const refBand = useMemo(() => {
+    const withRef = data.find((d) => d.refMin != null && d.refMax != null)
+    return withRef ? { min: withRef.refMin as number, max: withRef.refMax as number } : null
+  }, [data])
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart
+        data={data}
+        margin={mini ? { top: 4, right: 4, bottom: 0, left: 4 } : { top: 8, right: 24, bottom: 8, left: 0 }}
+      >
+        {!mini && <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />}
+        <XAxis
+          dataKey="date"
+          hide={mini}
+          tickFormatter={formatDateBR}
+          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+          stroke={theme.palette.divider}
+        />
+        <YAxis
+          hide={mini}
+          domain={mode === 'normalized' ? [-1.5, 1.5] : ['auto', 'auto']}
+          tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
+          stroke={theme.palette.divider}
+        />
+        <ReTooltip
+          labelFormatter={(v) => formatDateBR(String(v))}
+          contentStyle={{
+            background: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: 8,
+            fontSize: 12,
+          }}
+        />
+        {mode === 'normalized' ? (
+          <>
+            <ReferenceArea y1={-1} y2={1} fill={alpha(theme.palette.success.main, 0.12)} stroke="none" />
+            <Line
+              type="monotone"
+              dataKey="normalized"
+              name="Normalizado"
+              stroke={lp.neon}
+              strokeWidth={2}
+              dot={{ r: mini ? 2 : 3 }}
+              connectNulls
+            />
+          </>
+        ) : (
+          <>
+            {refBand && (
+              <ReferenceArea
+                y1={refBand.min}
+                y2={refBand.max}
+                fill={alpha(theme.palette.success.main, 0.12)}
+                stroke="none"
+              />
+            )}
+            <Line
+              type="monotone"
+              dataKey="value"
+              name={unit ? `Valor (${unit})` : 'Valor'}
+              stroke={lp.neon}
+              strokeWidth={2}
+              dot={{ r: mini ? 2 : 3 }}
+              connectNulls
+            />
+          </>
+        )}
+      </LineChart>
+    </ResponsiveContainer>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Mini-gráfico de um marcador
+// ---------------------------------------------------------------------------
+
+function MiniMarkerCard({
+  pm,
+  density,
+  onOpen,
+}: {
+  pm: PanelMarker
+  density: Density
+  onOpen: () => void
+}) {
+  const last = lastPoint(pm)
+  const chip = last?.interpretation ? INTERP_CHIP[last.interpretation] : null
+  return (
+    <Card
+      variant="outlined"
+      sx={{
+        cursor: 'pointer',
+        transition: 'border-color 0.15s',
+        '&:hover': { borderColor: 'primary.main' },
+      }}
+      onClick={onOpen}
+    >
+      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+          <Typography variant="body2" fontWeight={700} noWrap title={pm.marker.canonical_name}>
+            {pm.marker.canonical_name}
+          </Typography>
+          {chip && <Chip size="small" variant="outlined" color={chip.color} label={chip.label} />}
+        </Stack>
+        <Typography variant="caption" color="text.secondary">
+          {last?.value != null ? `${String(last.value).replace('.', ',')} ${last.unit ?? pm.marker.canonical_unit ?? ''}` : '—'}
+          {last && ` · ${formatDateBR(last.exam_date)}`}
+        </Typography>
+        <Box sx={{ height: density === 'compact' ? 72 : 140, mt: 0.5 }}>
+          <EvolutionLineChart
+            points={pm.points}
+            mode={pm.default_mode}
+            unit={pm.marker.canonical_unit}
+            mini
+          />
+        </Box>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dialog com o gráfico grande (dados já carregados; sem nova chamada)
+// ---------------------------------------------------------------------------
+
+function MarkerChartDialog({ pm, onClose }: { pm: PanelMarker | null; onClose: () => void }) {
+  const [mode, setMode] = useState<EvolutionMode | null>(null)
+  const effectiveMode: EvolutionMode = mode ?? pm?.default_mode ?? 'absolute'
+  return (
+    <Dialog open={Boolean(pm)} onClose={onClose} maxWidth="md" fullWidth>
+      {pm && (
+        <>
+          <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {pm.marker.canonical_name}
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={effectiveMode}
+              onChange={(_, v) => v && setMode(v)}
+            >
+              <ToggleButton value="absolute">Absoluto</ToggleButton>
+              <ToggleButton value="normalized">Normalizado</ToggleButton>
+            </ToggleButtonGroup>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ height: 360 }}>
+              <EvolutionLineChart
+                points={pm.points}
+                mode={effectiveMode}
+                unit={pm.marker.canonical_unit}
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              {effectiveMode === 'normalized'
+                ? 'Modo normalizado: faixa verde −1..+1 representa o intervalo de referência.'
+                : 'Modo absoluto: faixa verde representa o intervalo de referência do exame.'}
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={onClose} color="inherit">
+              Fechar
+            </Button>
+          </DialogActions>
+        </>
+      )}
+    </Dialog>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Cards de contagem (mantidos da v1)
+// ---------------------------------------------------------------------------
 
 function StatCard({
   title,
@@ -85,108 +369,117 @@ function StatCard({
   )
 }
 
-function EvolutionChart() {
-  const theme = useTheme()
-  const [markerId, setMarkerId] = useState('')
-  const [familyMemberId, setFamilyMemberId] = useState('')
-  const [mode, setMode] = useState<EvolutionMode | null>(null)
+// ---------------------------------------------------------------------------
+// Página
+// ---------------------------------------------------------------------------
 
-  const { data: members } = useQuery({
+export default function HealthDashboardPage() {
+  const [prefs, setPrefs] = useState<PanelPrefs>(loadPrefs)
+  const [familyMemberId, setFamilyMemberId] = useState('')
+  const [openMarker, setOpenMarker] = useState<PanelMarker | null>(null)
+  // Marcadores "nunca realizados" que o usuário pediu para ver, por categoria.
+  const [peek, setPeek] = useState<Record<string, string[]>>({})
+
+  const updatePrefs = (patch: Partial<PanelPrefs>) =>
+    setPrefs((prev) => {
+      const next = { ...prev, ...patch }
+      savePrefs(next)
+      return next
+    })
+
+  const counts = useQuery({ queryKey: healthKeys.dashboard(), queryFn: getHealthDashboard })
+  const { data: members = [] } = useQuery({
     queryKey: healthKeys.familyMembers(),
     queryFn: listFamilyMembers,
   })
-
-  const markerParams = useMemo(() => ({ limit: 100, offset: 0 }), [])
-  const { data: markersData } = useQuery({
-    queryKey: healthKeys.markers(markerParams),
-    queryFn: () => listMarkers(markerParams),
-  })
-  const markers = markersData?.items ?? []
-
-  const evoParams = useMemo(
-    () => ({ family_member_id: familyMemberId || undefined }),
-    [familyMemberId]
-  )
-
-  const {
-    data: evolution,
-    isLoading,
-    isError,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: healthKeys.evolution(markerId, evoParams),
-    queryFn: () => getMarkerEvolution(markerId, evoParams),
-    enabled: Boolean(markerId),
+  const panelsQuery = useQuery({
+    queryKey: [...healthKeys.dashboard(), 'panels', familyMemberId] as const,
+    queryFn: () => getDashboardPanels({ family_member_id: familyMemberId || undefined }),
   })
 
-  // Modo efetivo: override do usuário tem prioridade; senão usa o default_mode
-  // que a API retorna para o marcador. Ao trocar de marcador o override é
-  // resetado (setMode(null)) — sem necessidade de efeito.
-  const effectiveMode: EvolutionMode = mode ?? evolution?.default_mode ?? 'absolute'
+  const allPanels = useMemo(() => panelsQuery.data?.panels ?? [], [panelsQuery.data])
 
-  const chartData = useMemo(() => {
-    if (!evolution) return []
-    return evolution.points.map((p) => ({
-      date: p.exam_date,
-      value: p.value,
-      normalized: p.normalized ?? null,
-      refMin: p.reference_min ?? null,
-      refMax: p.reference_max ?? null,
-    }))
-  }, [evolution])
+  // Painéis com dados, na ordem da API reordenada pela preferência do usuário.
+  const panels = useMemo(() => {
+    const withData = allPanels.filter((p) => p.markers.length > 0)
+    if (prefs.order.length === 0) return withData
+    const rank = new Map(prefs.order.map((c, i) => [c, i]))
+    return [...withData].sort((a, b) => {
+      const ra = rank.has(a.category) ? (rank.get(a.category) as number) : Number.MAX_SAFE_INTEGER
+      const rb = rank.has(b.category) ? (rank.get(b.category) as number) : Number.MAX_SAFE_INTEGER
+      return ra - rb
+    })
+  }, [allPanels, prefs.order])
 
-  const refBand = useMemo(() => {
-    const withRef = chartData.find((d) => d.refMin != null && d.refMax != null)
-    return withRef ? { min: withRef.refMin as number, max: withRef.refMax as number } : null
-  }, [chartData])
+  const emptyPanels = useMemo(() => allPanels.filter((p) => p.markers.length === 0), [allPanels])
+
+  const movePanel = (category: string, delta: -1 | 1) => {
+    const order = panels.map((p) => p.category)
+    const idx = order.indexOf(category)
+    const target = idx + delta
+    if (idx < 0 || target < 0 || target >= order.length) return
+    ;[order[idx], order[target]] = [order[target], order[idx]]
+    updatePrefs({ order })
+  }
+
+  const toggleCollapsed = (category: string) => {
+    const set = new Set(prefs.collapsed)
+    if (set.has(category)) set.delete(category)
+    else set.add(category)
+    updatePrefs({ collapsed: [...set] })
+  }
+
+  const gridSize =
+    prefs.density === 'compact' ? { xs: 12, sm: 6, md: 4, lg: 3 } : { xs: 12, sm: 6, md: 6, lg: 4 }
 
   return (
-    <Card>
-      <CardContent>
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          justifyContent="space-between"
-          alignItems={{ xs: 'stretch', md: 'center' }}
-          spacing={2}
-          sx={{ mb: 2 }}
-        >
-          <Typography variant="h6" fontWeight={800} sx={{ fontFamily: (t) => t.typography.h6.fontFamily }}>
-            Evolução por marcador
-          </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center">
-            <TextField
-              select
-              size="small"
-              label="Marcador"
-              value={markerId}
-              onChange={(e) => {
-                setMarkerId(e.target.value)
-                setMode(null)
-              }}
-              sx={{ minWidth: 200 }}
-            >
-              <MenuItem value="">
-                <em>Selecione…</em>
-              </MenuItem>
-              {markers.map((m) => (
-                <MenuItem key={m.id} value={m.id}>
-                  {m.canonical_name}
-                </MenuItem>
-              ))}
-            </TextField>
+    <>
+      <PageHeader
+        title="Dashboard Saúde"
+        subtitle="Painéis por categoria com a evolução de todos os marcadores com resultado."
+      />
+
+      <Grid container spacing={2.5}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard title="Membros" value={counts.data?.family_members ?? 0} icon={GroupsRoundedIcon} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard title="Resultados" value={counts.data?.exam_results ?? 0} icon={DescriptionRoundedIcon} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard
+            title="Marcadores (tenant)"
+            value={counts.data?.tenant_markers ?? 0}
+            icon={BiotechRoundedIcon}
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard
+            title="Documentos p/ revisar"
+            value={counts.data?.documents_pending_review ?? 0}
+            icon={PendingActionsRoundedIcon}
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1.5}
+            justifyContent="flex-end"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+          >
             <TextField
               select
               size="small"
               label="Membro"
               value={familyMemberId}
               onChange={(e) => setFamilyMemberId(e.target.value)}
-              sx={{ minWidth: 180 }}
+              sx={{ minWidth: 200 }}
             >
               <MenuItem value="">
                 <em>Todos</em>
               </MenuItem>
-              {(members ?? []).map((m) => (
+              {members.map((m) => (
                 <MenuItem key={m.id} value={m.id}>
                   {m.full_name}
                 </MenuItem>
@@ -195,167 +488,139 @@ function EvolutionChart() {
             <ToggleButtonGroup
               size="small"
               exclusive
-              value={effectiveMode}
-              onChange={(_, v) => v && setMode(v)}
+              value={prefs.density}
+              onChange={(_, v) => v && updatePrefs({ density: v })}
             >
-              <ToggleButton value="absolute">Absoluto</ToggleButton>
-              <ToggleButton value="normalized">Normalizado</ToggleButton>
+              <ToggleButton value="compact">Compacto</ToggleButton>
+              <ToggleButton value="comfortable">Confortável</ToggleButton>
             </ToggleButtonGroup>
           </Stack>
-        </Stack>
-
-        {!markerId ? (
-          <EmptyState
-            icon={<BiotechRoundedIcon />}
-            title="Selecione um marcador"
-            description="Escolha um marcador (e opcionalmente um membro) para ver a evolução ao longo do tempo."
-          />
-        ) : isLoading ? (
-          <LoadingState label="Carregando evolução…" />
-        ) : isError ? (
-          <ErrorState message={errorMessage(error)} onRetry={refetch} />
-        ) : chartData.length === 0 ? (
-          <EmptyState
-            title="Sem pontos para exibir"
-            description="Ainda não há resultados suficientes deste marcador para montar o gráfico."
-          />
-        ) : (
-          <>
-            <Box sx={{ height: 360 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 8, right: 24, bottom: 8, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={formatDateBR}
-                    tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-                    stroke={theme.palette.divider}
-                  />
-                  {effectiveMode === 'normalized' ? (
-                    <YAxis
-                      domain={[-1.5, 1.5]}
-                      tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-                      stroke={theme.palette.divider}
-                    />
-                  ) : (
-                    <YAxis
-                      domain={['auto', 'auto']}
-                      tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
-                      stroke={theme.palette.divider}
-                    />
-                  )}
-                  <ReTooltip
-                    labelFormatter={(v) => formatDateBR(String(v))}
-                    contentStyle={{
-                      background: theme.palette.background.paper,
-                      border: `1px solid ${theme.palette.divider}`,
-                      borderRadius: 8,
-                    }}
-                  />
-
-                  {effectiveMode === 'normalized' ? (
-                    <>
-                      <ReferenceArea
-                        y1={-1}
-                        y2={1}
-                        fill={alpha(theme.palette.success.main, 0.12)}
-                        stroke="none"
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="normalized"
-                        name="Normalizado"
-                        stroke={lp.neon}
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        connectNulls
-                      />
-                    </>
-                  ) : (
-                    <>
-                      {refBand && (
-                        <ReferenceArea
-                          y1={refBand.min}
-                          y2={refBand.max}
-                          fill={alpha(theme.palette.success.main, 0.12)}
-                          stroke="none"
-                        />
-                      )}
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        name={
-                          evolution?.marker.canonical_unit
-                            ? `Valor (${evolution.marker.canonical_unit})`
-                            : 'Valor'
-                        }
-                        stroke={lp.neon}
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        connectNulls
-                      />
-                    </>
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              {effectiveMode === 'normalized'
-                ? 'Modo normalizado: faixa verde −1..+1 representa o intervalo de referência.'
-                : 'Modo absoluto: faixa verde representa o intervalo de referência do exame.'}
-            </Typography>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-export default function HealthDashboardPage() {
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: healthKeys.dashboard(),
-    queryFn: getHealthDashboard,
-  })
-
-  return (
-    <>
-      <PageHeader
-        title="Dashboard Saúde"
-        subtitle="Visão geral da saúde familiar e evolução dos marcadores."
-      />
-
-      {isLoading ? (
-        <LoadingState />
-      ) : isError ? (
-        <ErrorState message={errorMessage(error)} onRetry={refetch} />
-      ) : (
-        <Grid container spacing={2.5}>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard title="Membros" value={data?.family_members ?? 0} icon={GroupsRoundedIcon} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard title="Resultados" value={data?.exam_results ?? 0} icon={DescriptionRoundedIcon} />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard
-              title="Marcadores (tenant)"
-              value={data?.tenant_markers ?? 0}
-              icon={BiotechRoundedIcon}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <StatCard
-              title="Documentos p/ revisar"
-              value={data?.documents_pending_review ?? 0}
-              icon={PendingActionsRoundedIcon}
-            />
-          </Grid>
-
-          <Grid size={{ xs: 12 }}>
-            <EvolutionChart />
-          </Grid>
         </Grid>
-      )}
+
+        <Grid size={{ xs: 12 }}>
+          {panelsQuery.isLoading ? (
+            <LoadingState label="Montando painéis…" />
+          ) : panelsQuery.isError ? (
+            <ErrorState message={errorMessage(panelsQuery.error)} onRetry={panelsQuery.refetch} />
+          ) : panels.length === 0 ? (
+            <EmptyState
+              icon={<BiotechRoundedIcon />}
+              title="Nenhum resultado ainda"
+              description="Importe ou lance resultados de exames para ver os painéis de evolução."
+            />
+          ) : (
+            <Stack spacing={1.5}>
+              {panels.map((panel, idx) => {
+                const expanded = !prefs.collapsed.includes(panel.category)
+                const peeked = panel.missing.filter((m) => (peek[panel.category] ?? []).includes(m.id))
+                return (
+                  <Accordion
+                    key={panel.category}
+                    expanded={expanded}
+                    onChange={() => toggleCollapsed(panel.category)}
+                    disableGutters
+                  >
+                    <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />}>
+                      <Stack
+                        direction="row"
+                        spacing={1}
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{ flex: 1, pr: 1 }}
+                      >
+                        <Typography fontWeight={800}>
+                          {panelTitle(panel.category)}{' '}
+                          <Typography component="span" color="text.secondary">
+                            ({panel.markers.length})
+                          </Typography>
+                        </Typography>
+                        <Stack direction="row" spacing={0.5} onClick={(e) => e.stopPropagation()}>
+                          <Tooltip title="Subir painel">
+                            <span>
+                              <IconButton size="small" disabled={idx === 0} onClick={() => movePanel(panel.category, -1)}>
+                                <ArrowUpwardRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Descer painel">
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={idx === panels.length - 1}
+                                onClick={() => movePanel(panel.category, 1)}
+                              >
+                                <ArrowDownwardRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </Stack>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Grid container spacing={1.5}>
+                        {panel.markers.map((pm) => (
+                          <Grid key={pm.marker.id} size={gridSize}>
+                            <MiniMarkerCard pm={pm} density={prefs.density} onOpen={() => setOpenMarker(pm)} />
+                          </Grid>
+                        ))}
+                        {peeked.map((m) => (
+                          <Grid key={m.id} size={gridSize}>
+                            <Card variant="outlined" sx={{ height: '100%', borderStyle: 'dashed' }}>
+                              <CardContent sx={{ p: 1.5 }}>
+                                <Typography variant="body2" fontWeight={700} noWrap>
+                                  {m.canonical_name}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  Nunca realizado — nenhum resultado registrado para este marcador.
+                                </Typography>
+                              </CardContent>
+                            </Card>
+                          </Grid>
+                        ))}
+                      </Grid>
+                      {panel.missing.length > 0 && (
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={1.5}
+                          alignItems={{ xs: 'stretch', sm: 'center' }}
+                          sx={{ mt: 2 }}
+                        >
+                          <Autocomplete
+                            multiple
+                            size="small"
+                            options={panel.missing}
+                            getOptionLabel={(m) => m.canonical_name}
+                            value={peeked}
+                            onChange={(_, v) =>
+                              setPeek((prev) => ({ ...prev, [panel.category]: v.map((m) => m.id) }))
+                            }
+                            isOptionEqualToValue={(a, b) => a.id === b.id}
+                            sx={{ minWidth: 280 }}
+                            renderInput={(params) => (
+                              <TextField {...params} label="Ver marcadores sem resultado…" />
+                            )}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {panel.missing.length} marcador(es) deste painel nunca tiveram resultado.
+                          </Typography>
+                        </Stack>
+                      )}
+                    </AccordionDetails>
+                  </Accordion>
+                )
+              })}
+              {emptyPanels.length > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+                  Sem resultados ainda:{' '}
+                  {emptyPanels.map((p) => panelTitle(p.category)).join(', ')}.
+                </Typography>
+              )}
+            </Stack>
+          )}
+        </Grid>
+      </Grid>
+
+      <MarkerChartDialog pm={openMarker} onClose={() => setOpenMarker(null)} />
     </>
   )
 }

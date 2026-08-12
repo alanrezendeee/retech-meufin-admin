@@ -226,6 +226,25 @@ export type EvolutionPoint = {
   normalized?: number | null
 }
 
+/** Marcador com histórico dentro de um painel (GET /dashboard/panels). */
+export type PanelMarker = {
+  marker: {
+    id: string
+    canonical_name: string
+    canonical_unit?: string | null
+    comparability_class: ComparabilityClass
+    category: string
+  }
+  default_mode: EvolutionMode
+  points: EvolutionPoint[]
+}
+
+export type HealthPanel = {
+  category: string
+  markers: PanelMarker[]
+  missing: { id: string; canonical_name: string; canonical_unit?: string | null; category: string }[]
+}
+
 export type MarkerEvolution = {
   marker: {
     id: string
@@ -752,6 +771,15 @@ export type MarkerEvolutionParams = {
   family_member_id?: string
   from?: string
   to?: string
+}
+
+export async function getDashboardPanels(params: { family_member_id?: string } = {}): Promise<{
+  panels: HealthPanel[]
+}> {
+  const { data } = await meufinClient.get<{ panels: HealthPanel[] }>(`${BASE}/dashboard/panels`, {
+    params,
+  })
+  return data
 }
 
 export async function getMarkerEvolution(
