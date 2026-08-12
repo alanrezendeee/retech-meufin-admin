@@ -13,6 +13,7 @@ import {
   Stack,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
   useTheme,
 } from '@mui/material'
@@ -21,11 +22,13 @@ import {
   Line,
   LineChart,
   ReferenceArea,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip as ReTooltip,
   XAxis,
   YAxis,
 } from 'recharts'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import type { EvolutionMode, EvolutionPoint, PanelMarker } from '../api'
 import { MARKER_CATEGORY_LABEL } from '../constants'
 import { lp } from '@/theme/tokens'
@@ -98,9 +101,12 @@ export function EvolutionLineChart({
       })),
     [points]
   )
+  // Faixa de referência: completa (min+max) vira área; teto/piso único (ex.:
+  // TGO < 50) vira linha tracejada — antes esses casos não mostravam nada.
   const refBand = useMemo(() => {
-    const withRef = data.find((d) => d.refMin != null && d.refMax != null)
-    return withRef ? { min: withRef.refMin as number, max: withRef.refMax as number } : null
+    const withRef = data.find((d) => d.refMin != null || d.refMax != null)
+    if (!withRef) return null
+    return { min: withRef.refMin, max: withRef.refMax }
   }, [data])
 
   return (
@@ -120,6 +126,7 @@ export function EvolutionLineChart({
         <YAxis
           hide={mini}
           domain={mode === 'normalized' ? [-1.5, 1.5] : ['auto', 'auto']}
+          tickFormatter={(v: number) => String(Math.round(v * 100) / 100)}
           tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
           stroke={theme.palette.divider}
         />
@@ -147,12 +154,34 @@ export function EvolutionLineChart({
           </>
         ) : (
           <>
-            {refBand && (
+            {refBand && refBand.min != null && refBand.max != null && (
+              // extendDomain: sem isso o recharts DESCARTA a faixa quando ela
+              // ultrapassa o domínio calculado só pelos valores (bug da faixa
+              // verde sumida).
               <ReferenceArea
                 y1={refBand.min}
                 y2={refBand.max}
+                ifOverflow="extendDomain"
                 fill={alpha(theme.palette.success.main, 0.12)}
                 stroke="none"
+              />
+            )}
+            {refBand && refBand.min != null && refBand.max == null && (
+              <ReferenceLine
+                y={refBand.min}
+                ifOverflow="extendDomain"
+                stroke={theme.palette.success.main}
+                strokeDasharray="6 4"
+                label={mini ? undefined : { value: `mín ${refBand.min}`, fill: theme.palette.text.secondary, fontSize: 11, position: 'insideBottomRight' }}
+              />
+            )}
+            {refBand && refBand.max != null && refBand.min == null && (
+              <ReferenceLine
+                y={refBand.max}
+                ifOverflow="extendDomain"
+                stroke={theme.palette.success.main}
+                strokeDasharray="6 4"
+                label={mini ? undefined : { value: `máx ${refBand.max}`, fill: theme.palette.text.secondary, fontSize: 11, position: 'insideTopRight' }}
               />
             )}
             <Line
@@ -233,15 +262,40 @@ export function MarkerChartDialog({ pm, onClose }: { pm: PanelMarker | null; onC
         <>
           <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {pm.marker.canonical_name}
-            <ToggleButtonGroup
-              size="small"
-              exclusive
-              value={effectiveMode}
-              onChange={(_, v) => v && setMode(v)}
-            >
-              <ToggleButton value="absolute">Absoluto</ToggleButton>
-              <ToggleButton value="normalized">Normalizado</ToggleButton>
-            </ToggleButtonGroup>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={effectiveMode}
+                onChange={(_, v) => v && setMode(v)}
+              >
+                <ToggleButton value="absolute">Absoluto</ToggleButton>
+                <ToggleButton value="normalized">Normalizado</ToggleButton>
+              </ToggleButtonGroup>
+              <Tooltip
+                arrow
+                title={
+                  <Box sx={{ p: 0.5, maxWidth: 340 }}>
+                    <Typography variant="caption" component="div" sx={{ mb: 0.5 }}>
+                      <strong>Normalizado</strong> mostra a posição do valor dentro da faixa de
+                      referência de cada exame: 0 = centro da faixa, −1 e +1 = limites
+                      inferior/superior; além de ±1 = fora da referência.
+                    </Typography>
+                    <Typography variant="caption" component="div" sx={{ mb: 0.5 }}>
+                      Cálculo: (valor − centro da faixa) ÷ (metade da largura da faixa).
+                    </Typography>
+                    <Typography variant="caption" component="div">
+                      Existe porque laboratórios e métodos diferentes usam faixas e unidades
+                      diferentes — normalizar torna a evolução comparável ao longo do tempo,
+                      mesmo quando a referência muda entre exames. É o modo padrão para
+                      marcadores dependentes de método.
+                    </Typography>
+                  </Box>
+                }
+              >
+                <InfoOutlinedIcon fontSize="small" sx={{ color: 'text.secondary', cursor: 'help' }} />
+              </Tooltip>
+            </Stack>
           </DialogTitle>
           <DialogContent>
             <Box sx={{ height: 360 }}>
