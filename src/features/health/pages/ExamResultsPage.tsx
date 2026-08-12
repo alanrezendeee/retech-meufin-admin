@@ -50,6 +50,7 @@ import { MarkerAutocomplete } from '../components/MarkerAutocomplete'
 import { ImportExamResultDialog } from '../components/ImportExamResultDialog'
 import { ExamResultDetailDialog } from '../components/ExamResultDetailDialog'
 import { useToast } from '@/providers/ToastProvider'
+import { formatDateBR } from '@/utils/dates'
 
 type DraftItem = {
   key: string
@@ -514,7 +515,7 @@ export default function ExamResultsPage() {
                 {results.map((r) => (
                   <TableRow key={r.id} hover>
                     <TableCell sx={{ fontWeight: 600 }}>{memberName(r.family_member_id)}</TableCell>
-                    <TableCell>{r.exam_date}</TableCell>
+                    <TableCell>{formatDateBR(r.exam_date)}</TableCell>
                     <TableCell>{r.items?.length ?? 0}</TableCell>
                     <TableCell>
                       <Chip size="small" label={r.status} variant="outlined" />
@@ -531,7 +532,7 @@ export default function ExamResultsPage() {
                           onClick={() =>
                             setDetail({
                               id: r.id,
-                              title: `${memberName(r.family_member_id)} — ${r.exam_date}`,
+                              title: `${memberName(r.family_member_id)} — ${formatDateBR(r.exam_date)}`,
                             })
                           }
                         >
