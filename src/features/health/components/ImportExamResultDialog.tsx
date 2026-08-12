@@ -12,6 +12,7 @@ import {
   DialogTitle,
   Divider,
   FormControlLabel,
+  IconButton,
   MenuItem,
   Step,
   StepLabel,
@@ -29,6 +30,7 @@ import {
 } from '@mui/material'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   confirmExamDocument,
@@ -359,8 +361,15 @@ export function ImportExamResultDialog({
     )
 
   return (
-    <Dialog open={open} onClose={pending ? undefined : onClose} maxWidth="lg" fullWidth>
-      <DialogTitle sx={{ fontWeight: 800 }}>Importar exame (PDF)</DialogTitle>
+    // Fecha SÓ pelo botão: a extração custa tokens de LLM e clique fora /
+    // Esc acidental descartaria a revisão inteira.
+    <Dialog open={open} maxWidth="lg" fullWidth>
+      <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        Importar exame (PDF)
+        <IconButton aria-label="Fechar" onClick={onClose} disabled={pending} edge="end">
+          <CloseRoundedIcon />
+        </IconButton>
+      </DialogTitle>
       <DialogContent>
         <Stepper activeStep={step} sx={{ mt: 1, mb: 3 }}>
           {STEPS.map((label) => (
