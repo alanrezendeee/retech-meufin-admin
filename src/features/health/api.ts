@@ -256,6 +256,72 @@ export type MarkerEvolution = {
   points: EvolutionPoint[]
 }
 
+// ---------------------------------------------------------------------------
+// Share links (link público temporário para o médico)
+// ---------------------------------------------------------------------------
+
+export type ShareLinkStatus = 'active' | 'expired' | 'revoked'
+
+export type ShareLink = {
+  id: string
+  url: string
+  scope: string
+  family_member_id: string
+  title?: string | null
+  status: ShareLinkStatus
+  expires_at: string
+  view_count: number
+  last_viewed_at?: string | null
+  created_at: string
+}
+
+export type CreateShareLinkInput = {
+  family_member_id: string
+  title?: string
+  expires_in_hours: number
+}
+
+export const SHARE_TTL_OPTIONS = [
+  { value: 1, label: '1 hora' },
+  { value: 6, label: '6 horas' },
+  { value: 12, label: '12 horas' },
+  { value: 24, label: '24 horas' },
+  { value: 48, label: '48 horas' },
+  { value: 72, label: '3 dias' },
+  { value: 168, label: '7 dias' },
+] as const
+
+export async function createShareLink(input: CreateShareLinkInput): Promise<ShareLink> {
+  const { data } = await meufinClient.post<ShareLink>(`${BASE}/share-links`, input)
+  return data
+}
+
+export async function listShareLinks(): Promise<ShareLink[]> {
+  const { data } = await meufinClient.get<{ items: ShareLink[] }>(`${BASE}/share-links`)
+  return data.items
+}
+
+export async function revokeShareLink(id: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/share-links/${id}`)
+}
+
+export type SharedPanelsResponse = {
+  link: { title?: string | null; scope: string; member_name: string; expires_at: string }
+  panels: { category: string; markers: PanelMarker[] }[]
+}
+
+/**
+ * Acesso PÚBLICO (página do médico): sem Bearer — fetch direto, fora do
+ * meufinClient, para não vazar token de sessão nem exigir login.
+ */
+export async function getSharedPanels(token: string): Promise<SharedPanelsResponse> {
+  const base = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001'
+  const res = await fetch(`${base}/api/v1/public/health/${encodeURIComponent(token)}`)
+  if (res.status === 410) throw new Error('LINK_EXPIRED')
+  if (!res.ok) throw new Error(`shared_panels_${res.status}`)
+  return (await res.json()) as SharedPanelsResponse
+}
+
 // Documents
 export type HealthDocument = {
   id: string
