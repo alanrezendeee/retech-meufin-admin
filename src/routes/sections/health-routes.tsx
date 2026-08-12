@@ -7,6 +7,7 @@ import MarkersPage from '@/features/health/pages/MarkersPage'
 import ExamResultsPage from '@/features/health/pages/ExamResultsPage'
 import AppointmentsPage from '@/features/health/pages/AppointmentsPage'
 import HealthPlansPage from '@/features/health/pages/HealthPlansPage'
+import HealthDocumentsPage from '@/features/health/pages/HealthDocumentsPage'
 
 function guarded(subject: string, node: ReactNode): ReactNode {
   return (
@@ -28,4 +29,5 @@ export const healthRoutes: { path: string; element: ReactNode }[] = [
   { path: 'saude/planos', element: guarded('health.plans', <HealthPlansPage />) },
   { path: 'saude/exames', element: guarded('health.markers', <MarkersPage />) },
   { path: 'saude/resultados', element: guarded('health.results', <ExamResultsPage />) },
+  { path: 'saude/documentos', element: guarded('health.documents', <HealthDocumentsPage />) },
 ]
