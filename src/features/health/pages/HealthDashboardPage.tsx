@@ -39,6 +39,7 @@ import { errorMessage, healthKeys } from '../constants'
 import { PageHeader } from '../components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../components/StateViews'
 import { lp } from '@/theme/tokens'
+import { formatDateBR } from '@/utils/dates'
 
 function StatCard({
   title,
@@ -226,6 +227,7 @@ function EvolutionChart() {
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis
                     dataKey="date"
+                    tickFormatter={formatDateBR}
                     tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
                     stroke={theme.palette.divider}
                   />
@@ -243,6 +245,7 @@ function EvolutionChart() {
                     />
                   )}
                   <ReTooltip
+                    labelFormatter={(v) => formatDateBR(String(v))}
                     contentStyle={{
                       background: theme.palette.background.paper,
                       border: `1px solid ${theme.palette.divider}`,
