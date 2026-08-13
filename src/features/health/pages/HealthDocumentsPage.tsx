@@ -39,11 +39,14 @@ import { TablePaginationBR } from '@/components/tables/TablePaginationBR'
 import { useToast } from '@/providers/ToastProvider'
 import { formatDateTimeBR } from '@/utils/dates'
 
+// Tipos VÁLIDOS no backend (dom.ValidDocumentType) — chave fora da lista
+// derruba o upload com "document_type inválido".
 const DOC_TYPE_LABEL: Record<string, string> = {
   exam_result: 'Resultado de exame',
   exam_request: 'Solicitação',
-  imaging: 'Exame de imagem',
-  report: 'Laudo',
+  image_report: 'Exame de imagem',
+  medical_report: 'Laudo médico',
+  prescription: 'Receita',
   other: 'Outro',
 }
 
@@ -72,7 +75,7 @@ export default function HealthDocumentsPage() {
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(20)
   const [toDelete, setToDelete] = useState<HealthDocument | null>(null)
-  const [uploadType, setUploadType] = useState('imaging')
+  const [uploadType, setUploadType] = useState('image_report')
   const fileInput = useRef<HTMLInputElement>(null)
 
   const { data: members = [] } = useQuery({

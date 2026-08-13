@@ -145,6 +145,8 @@ export type ExamResultItem = {
   raw_text?: string | null
   /** Curadoria do marcador, anexada pelo GET por id. */
   marker_name?: string | null
+  marker_ref_min?: number | null
+  marker_ref_max?: number | null
   marker_ref_text?: string | null
   marker_ref_tiers?: RefTier[] | null
 }
