@@ -118,6 +118,8 @@ export type Entry = {
   cancel_reason?: string | null
   /** Vínculo com um evento de renegociação (origem encerrada ou parcela nova). */
   renegotiation_id?: string | null
+  /** Acordo que ENCERROU este lançamento (cancelado por renegociação). */
+  settled_by_renegotiation_id?: string | null
   /** Preenchido quando este lançamento é o saldo não pago de um pagamento parcial. */
   residual_of_id?: string | null
   /** Data em que a compra foi realizada (itens de fatura); vencimento é sempre o da fatura. */
@@ -740,6 +742,9 @@ export type Renegotiation = {
   adjustment_cents: number
   origin_count: number
   new_count: number
+  /** Parcelamento renegociado e grupo da série nova — encadeiam acordos sucessivos. */
+  origin_group_id?: string | null
+  new_group_id?: string | null
   notes?: string | null
   created_at?: string
 }
@@ -793,6 +798,69 @@ export type RenegotiationDetail = {
   origins: Entry[]
   /** Parcelas criadas pelo acordo. */
   created: Entry[]
+  /** Parcelas (e residuais) do acordo antigo quitadas ANTES da repactuação. */
+  paid_before: Entry[]
+  paid_before_count: number
+  paid_before_cents: number
+  /** Vizinhos na cadeia: acordo que criou a origem / acordo que encerrou a série nova. */
+  previous_renegotiation_id?: string | null
+  next_renegotiation_id?: string | null
+  root_group_id?: string | null
+}
+
+/** Uma etapa da dívida: o parcelamento original ou a série criada por um acordo. */
+export type DebtStage = {
+  index: number
+  group_id: string
+  description: string
+  /** Acordo que criou a etapa (null na original). */
+  renegotiation: Renegotiation | null
+  /** Acordo que encerrou a etapa (null na vigente). */
+  settled_by: Renegotiation | null
+  installment_total: number
+  total_cents: number
+  first_due_date?: string | null
+  last_due_date?: string | null
+  paid_count: number
+  paid_cents: number
+  /** Canceladas por renegociação: saldo levado ao acordo seguinte. */
+  carried_count: number
+  carried_cents: number
+  cancelled_count: number
+  cancelled_cents: number
+  open_count: number
+  open_cents: number
+  overdue_count: number
+  overdue_cents: number
+  /** Série inteira + residuais, por vencimento. */
+  entries: Entry[]
+}
+
+/** História completa de uma dívida através das renegociações, com balanço. */
+export type DebtLineage = {
+  root_group_id: string
+  current_group_id: string
+  description: string
+  stages: DebtStage[]
+  original_cents: number
+  interest_cents: number
+  discount_cents: number
+  /** original + encargos − descontos. */
+  current_total_cents: number
+  paid_cents: number
+  paid_count: number
+  open_cents: number
+  open_count: number
+  overdue_cents: number
+  overdue_count: number
+  renegotiation_count: number
+  settled: boolean
+}
+
+/** Linhagem a partir de QUALQUER grupo da cadeia (original ou de um acordo). */
+export async function getDebtLineage(groupId: string): Promise<DebtLineage> {
+  const { data } = await meufinClient.get<DebtLineage>(`${BASE}/debts/${groupId}`)
+  return data
 }
 
 export async function getRenegotiationDetail(id: string): Promise<RenegotiationDetail> {
