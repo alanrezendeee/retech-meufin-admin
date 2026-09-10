@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   Stack,
   Table,
   TableBody,
@@ -17,8 +18,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material'
+import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded'
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded'
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded'
 import SavingsRoundedIcon from '@mui/icons-material/SavingsRounded'
@@ -31,6 +34,7 @@ import {
   type Renegotiation,
 } from '../api'
 import { errorMessage, financeKeys } from '../constants'
+import { DebtLineageDialog } from '../components/DebtLineageDialog'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
@@ -98,9 +102,11 @@ function EntriesTable({ title, entries }: { title: string; entries: Entry[] }) {
 function RenegotiationDetailDialog({
   renegotiation,
   onClose,
+  onOpenLineage,
 }: {
   renegotiation: Renegotiation
   onClose: () => void
+  onOpenLineage: (groupId: string) => void
 }) {
   const detailQ = useQuery({
     queryKey: [...financeKeys.renegotiations(), renegotiation.id] as const,
@@ -144,13 +150,39 @@ function RenegotiationDetailDialog({
           {detailQ.isError && <ErrorState message={errorMessage(detailQ.error)} />}
           {d && (
             <>
+              {d.paid_before_count > 0 ? (
+                <EntriesTable
+                  title={`Pagas antes do acordo (${d.paid_before_count} · ${formatCents(d.paid_before_cents)})`}
+                  entries={d.paid_before}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Nenhuma parcela do acordo anterior tinha sido paga antes desta renegociação.
+                </Typography>
+              )}
               <EntriesTable title="Cobranças encerradas pelo acordo" entries={d.origins} />
               <EntriesTable title="Parcelas criadas" entries={d.created} />
+              {(d.previous_renegotiation_id || d.next_renegotiation_id) && (
+                <Typography variant="caption" color="text.secondary">
+                  {d.previous_renegotiation_id && 'Este acordo repactuou um acordo anterior. '}
+                  {d.next_renegotiation_id && 'Este acordo já foi repactuado por um acordo posterior. '}
+                  O histórico completo da dívida está na linhagem.
+                </Typography>
+              )}
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
+        {(d?.root_group_id || renegotiation.origin_group_id) && (
+          <Button
+            startIcon={<AccountTreeRoundedIcon />}
+            onClick={() => onOpenLineage((d?.root_group_id ?? renegotiation.origin_group_id) as string)}
+            sx={{ mr: 'auto' }}
+          >
+            Histórico da dívida
+          </Button>
+        )}
         <Button onClick={onClose} color="inherit">
           Fechar
         </Button>
@@ -161,6 +193,7 @@ function RenegotiationDetailDialog({
 
 export default function RenegociacoesPage() {
   const [selected, setSelected] = useState<Renegotiation | null>(null)
+  const [lineageGroup, setLineageGroup] = useState<string | null>(null)
 
   const listQ = useQuery({
     queryKey: financeKeys.renegotiations(),
@@ -273,6 +306,7 @@ export default function RenegociacoesPage() {
                     <TableCell align="right">Novo acordo</TableCell>
                     <TableCell>Ajuste</TableCell>
                     <TableCell align="right">Cobranças</TableCell>
+                    <TableCell align="right" sx={{ width: 64 }} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -293,6 +327,21 @@ export default function RenegociacoesPage() {
                       <TableCell align="right">
                         {r.origin_count} → {r.new_count}
                       </TableCell>
+                      <TableCell align="right">
+                        {r.origin_group_id && (
+                          <Tooltip title="Histórico da dívida">
+                            <IconButton
+                              size="small"
+                              onClick={(ev) => {
+                                ev.stopPropagation()
+                                setLineageGroup(r.origin_group_id as string)
+                              }}
+                            >
+                              <AccountTreeRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -310,8 +359,17 @@ export default function RenegociacoesPage() {
       )}
 
       {selected && (
-        <RenegotiationDetailDialog renegotiation={selected} onClose={() => setSelected(null)} />
+        <RenegotiationDetailDialog
+          renegotiation={selected}
+          onClose={() => setSelected(null)}
+          onOpenLineage={(g) => {
+            setSelected(null)
+            setLineageGroup(g)
+          }}
+        />
       )}
+
+      {lineageGroup && <DebtLineageDialog groupId={lineageGroup} onClose={() => setLineageGroup(null)} />}
     </>
   )
 }

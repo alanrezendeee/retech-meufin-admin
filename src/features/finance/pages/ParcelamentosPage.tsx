@@ -25,6 +25,8 @@ import {
 } from '@mui/material'
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded'
+import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded'
+import { DebtLineageDialog } from '../components/DebtLineageDialog'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import { RenameInstallmentGroupDialog } from '../components/RenameInstallmentGroupDialog'
 import { RenegotiateDialog } from '../components/RenegotiateDialog'
@@ -128,6 +130,7 @@ export default function ParcelamentosPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [toRenegotiate, setToRenegotiate] = useState<string | null>(null)
+  const [lineageGroup, setLineageGroup] = useState<string | null>(null)
   const [toRename, setToRename] = useState<InstallmentGroup | null>(null)
 
   const projectionQuery = useQuery({
@@ -515,6 +518,14 @@ export default function ParcelamentosPage() {
                                       <HandshakeRoundedIcon fontSize="small" />
                                     </IconButton>
                                   </Tooltip>
+                                  <Tooltip title="Histórico da dívida">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setLineageGroup(g.group_id as string)}
+                                    >
+                                      <AccountTreeRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
                                 </>
                               )}
                             </TableCell>
@@ -540,6 +551,8 @@ export default function ParcelamentosPage() {
       {toRename && (
         <RenameInstallmentGroupDialog group={toRename} onClose={() => setToRename(null)} />
       )}
+
+      {lineageGroup && <DebtLineageDialog groupId={lineageGroup} onClose={() => setLineageGroup(null)} />}
     </>
   )
 }

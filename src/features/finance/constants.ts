@@ -215,6 +215,7 @@ export const financeKeys = {
   discountReasons: () => [...financeKeys.all, 'discount-reasons'] as const,
   cancelReasons: () => [...financeKeys.all, 'cancel-reasons'] as const,
   renegotiations: () => [...financeKeys.all, 'renegotiations'] as const,
+  debtLineage: (groupId: string) => [...financeKeys.all, 'debt-lineage', groupId] as const,
   renegotiationPreview: (groupId: string) =>
     [...financeKeys.all, 'renegotiation-preview', groupId] as const,
   cardBrands: () => [...financeKeys.all, 'card-brands'] as const,
