@@ -87,6 +87,7 @@ export type IncomeType =
   | 'ferias_13'
   | 'beneficio'
   | 'reembolso'
+  | 'venda_bem'
   | 'outro'
 export type Recurrence = 'none' | 'weekly' | 'monthly' | 'yearly'
 
@@ -127,6 +128,9 @@ export type Entry = {
   /** Cupom/nota fiscal vinculado (detalhamento item a item). */
   fiscal_document_id?: string | null
   supplier_id?: string | null
+  /** Bem que o lançamento paga/vende (parcela de financiamento → veículo). */
+  asset_type?: AssetType | null
+  asset_id?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -730,22 +734,54 @@ export type RenegotiationPreview = {
   next_due_date?: string | null
   suggested_due_date: string
   typical_amount_cents: number
+  /** Bem vinculado ao contrato e categoria das parcelas (herdados pelos desfechos). */
+  asset_type?: AssetType | null
+  asset_id?: string | null
+  category?: string | null
 }
+
+/**
+ * Desfecho do evento de dívida:
+ *  - renegociacao: série antiga → série nova
+ *  - quitacao: série antiga → um lançamento realizado de quitação
+ *  - troca_bem: quitação (paga pela concessionária) + venda do usado + série nova no bem novo
+ */
+export type RenegotiationKind = 'renegociacao' | 'quitacao' | 'troca_bem'
+export type Payer = 'proprio' | 'terceiro'
 
 export type Renegotiation = {
   id: string
+  kind: RenegotiationKind
   date: string
   description: string
   settled_amount_cents: number
   new_amount_cents: number
-  /** new - settled. Positivo = encargo/juros; negativo = desconto. */
+  /**
+   * Renegociação: new − settled. Quitação/troca: payoff − settled.
+   * Positivo = encargo/juros; negativo = desconto.
+   */
   adjustment_cents: number
   origin_count: number
   new_count: number
-  /** Parcelamento renegociado e grupo da série nova — encadeiam acordos sucessivos. */
+  /** Parcelamento encerrado e grupo da série nova — encadeiam eventos sucessivos. */
   origin_group_id?: string | null
   new_group_id?: string | null
   notes?: string | null
+  // --- quitação / troca ---
+  payoff_cents?: number | null
+  payer?: Payer | null
+  payoff_entry_id?: string | null
+  asset_type?: AssetType | null
+  /** Bem do contrato encerrado (na troca: o usado). */
+  asset_id?: string | null
+  /** Troca: o bem novo. */
+  new_asset_id?: string | null
+  trade_in_cents?: number | null
+  trade_in_entry_id?: string | null
+  cash_downpayment_cents?: number | null
+  downpayment_entry_id?: string | null
+  /** trade_in − payoff + cash. Negativo = o usado valia menos que a dívida. */
+  net_downpayment_cents?: number
   created_at?: string
 }
 
@@ -815,8 +851,12 @@ export type DebtStage = {
   description: string
   /** Acordo que criou a etapa (null na original). */
   renegotiation: Renegotiation | null
-  /** Acordo que encerrou a etapa (null na vigente). */
+  /** Evento que encerrou a etapa (null na vigente): renegociação, quitação ou troca. */
   settled_by: Renegotiation | null
+  /** Lançamento de quitação, quando settled_by é quitação/troca. Já conta como pago. */
+  payoff_entry?: Entry | null
+  asset_type?: AssetType | null
+  asset_id?: string | null
   installment_total: number
   total_cents: number
   first_due_date?: string | null
@@ -855,6 +895,16 @@ export type DebtLineage = {
   overdue_count: number
   renegotiation_count: number
   settled: boolean
+  /** Quitação/troca que encerrou a etapa vigente. */
+  closed_by?: Renegotiation | null
+  /** Contrato do bem novo nascido da troca que encerrou esta dívida (outra linhagem). */
+  successor_group_id?: string | null
+  /** Troca que criou o parcelamento raiz desta dívida. */
+  origin_event?: Renegotiation | null
+  /** Contrato do bem antigo (quando esta dívida nasceu de uma troca). */
+  predecessor_group_id?: string | null
+  asset_type?: AssetType | null
+  asset_id?: string | null
 }
 
 /** Linhagem a partir de QUALQUER grupo da cadeia (original ou de um acordo). */
@@ -871,6 +921,107 @@ export async function getRenegotiationDetail(id: string): Promise<RenegotiationD
 export async function listRenegotiations(): Promise<Renegotiation[]> {
   const { data } = await meufinClient.get<Paginated<Renegotiation>>(`${BASE}/renegotiations`)
   return data.items
+}
+
+// ---------------------------------------------------------------------------
+// Quitação antecipada e troca de bem financiado
+// ---------------------------------------------------------------------------
+
+export type PayoffPayload = {
+  date?: string
+  payoff_cents: number
+  /** proprio (caixa do usuário) | terceiro (concessionária/comprador; sem caixa). */
+  payer: Payer
+  payment_method?: PaymentMethod
+  payment_account_id?: string | null
+  description?: string
+  notes?: string | null
+  asset_type?: AssetType | null
+  asset_id?: string | null
+}
+
+/** Quita o contrato: encerra as cobranças em aberto e registra um lançamento realizado. */
+export async function createPayoff(
+  groupId: string,
+  payload: PayoffPayload
+): Promise<{ event: Renegotiation; payoff_entry: Entry }> {
+  const { data } = await meufinClient.post<{ event: Renegotiation; payoff_entry: Entry }>(
+    `${BASE}/debts/${groupId}/payoff`,
+    payload
+  )
+  return data
+}
+
+export type NewContractPayload = {
+  installment_count: number
+  installment_cents: number
+  first_due_date: string
+  description?: string
+  category?: string | null
+  supplier_id?: string | null
+  family_member_id?: string | null
+}
+
+export type AssetSwapPayload = {
+  date?: string
+  asset_type?: AssetType
+  old_asset_id: string
+  new_asset_id: string
+  old_asset_label?: string
+  new_asset_label?: string
+  /** Contrato antigo (opcional: o usado pode já estar quitado). */
+  old_group_id?: string | null
+  payoff_cents?: number
+  payer?: Payer
+  payoff_payment_method?: PaymentMethod
+  payoff_payment_account_id?: string | null
+  trade_in_cents: number
+  cash_downpayment_cents?: number
+  cash_payment_method?: PaymentMethod
+  cash_payment_account_id?: string | null
+  new_asset_price_cents?: number | null
+  /** Financiamento novo (opcional: compra à vista). */
+  new_contract?: NewContractPayload | null
+  description?: string
+  notes?: string | null
+}
+
+export type AssetSwapResult = {
+  event: Renegotiation
+  created: Entry[]
+  payoff_entry?: Entry
+  trade_in_entry?: Entry
+  downpayment_entry?: Entry
+}
+
+/** Troca de bem financiado: quitação + venda do usado + entrada + financiamento novo, num evento. */
+export async function createAssetSwap(payload: AssetSwapPayload): Promise<AssetSwapResult> {
+  const { data } = await meufinClient.post<AssetSwapResult>(`${BASE}/asset-swaps`, payload)
+  return data
+}
+
+export type AssetDebts = {
+  /** Contratos que financiam o bem, cada um com a própria linhagem. */
+  debts: DebtLineage[]
+  /** Eventos em que o bem aparece (como antigo ou como novo). */
+  events: Renegotiation[]
+}
+
+/** Vincula todas as parcelas do parcelamento a um bem (null desvincula). */
+export async function linkInstallmentGroupAsset(
+  groupId: string,
+  payload: { asset_type: AssetType | null; asset_id: string | null }
+): Promise<{ entries_updated: number }> {
+  const { data } = await meufinClient.put<{ entries_updated: number }>(
+    `${BASE}/installments/${groupId}/asset`,
+    payload
+  )
+  return data
+}
+
+export async function getAssetDebts(assetType: AssetType, assetId: string): Promise<AssetDebts> {
+  const { data } = await meufinClient.get<AssetDebts>(`${BASE}/assets/${assetType}/${assetId}/debts`)
+  return data
 }
 
 /**
@@ -1177,6 +1328,10 @@ export type PaymentMethod =
   | 'boleto'
   | 'dinheiro'
   | 'cartao_credito'
+  /** Sem caixa: compensado com outro valor (quitação abatida do usado numa troca). */
+  | 'compensacao'
+
+export type AssetType = 'vehicle' | 'property'
 
 export type SettleEntryInput = {
   paid_at?: string | null // "YYYY-MM-DD" ou RFC3339; default: agora
