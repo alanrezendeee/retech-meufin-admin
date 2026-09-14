@@ -30,6 +30,10 @@ import { DebtLineageDialog } from '../components/DebtLineageDialog'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import { RenameInstallmentGroupDialog } from '../components/RenameInstallmentGroupDialog'
 import { RenegotiateDialog } from '../components/RenegotiateDialog'
+import { PayoffDialog } from '../components/PayoffDialog'
+import { AssetSwapDialog } from '../components/AssetSwapDialog'
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded'
 import CreditCardRoundedIcon from '@mui/icons-material/CreditCardRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded'
@@ -130,6 +134,8 @@ export default function ParcelamentosPage() {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   const [toRenegotiate, setToRenegotiate] = useState<string | null>(null)
+  const [toPayoff, setToPayoff] = useState<string | null>(null)
+  const [toSwap, setToSwap] = useState<string | null>(null)
   const [lineageGroup, setLineageGroup] = useState<string | null>(null)
   const [toRename, setToRename] = useState<InstallmentGroup | null>(null)
 
@@ -518,6 +524,22 @@ export default function ParcelamentosPage() {
                                       <HandshakeRoundedIcon fontSize="small" />
                                     </IconButton>
                                   </Tooltip>
+                                  <Tooltip title="Quitar contrato (antecipado)">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setToPayoff(g.group_id as string)}
+                                    >
+                                      <CheckCircleRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Troca de veículo (dado como entrada)">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setToSwap(g.group_id as string)}
+                                    >
+                                      <SwapHorizRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
                                   <Tooltip title="Histórico da dívida">
                                     <IconButton
                                       size="small"
@@ -551,6 +573,10 @@ export default function ParcelamentosPage() {
       {toRename && (
         <RenameInstallmentGroupDialog group={toRename} onClose={() => setToRename(null)} />
       )}
+
+      {toPayoff && <PayoffDialog groupId={toPayoff} onClose={() => setToPayoff(null)} />}
+
+      {toSwap && <AssetSwapDialog initialOldGroupId={toSwap} onClose={() => setToSwap(null)} />}
 
       {lineageGroup && <DebtLineageDialog groupId={lineageGroup} onClose={() => setLineageGroup(null)} />}
     </>

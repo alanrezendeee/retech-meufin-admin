@@ -106,6 +106,9 @@ import {
   VEHICLE_STATUS_LABEL,
 } from '../constants'
 import { listSuppliers, type Supplier } from '@/features/finance/api'
+import { AssetSwapDialog } from '@/features/finance/components/AssetSwapDialog'
+import { VehicleFinanceTab } from '../components/VehicleFinanceTab'
+import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { ErrorState, LoadingState, EmptyState } from '@/features/health/components/StateViews'
 import { useToast } from '@/providers/ToastProvider'
@@ -1710,6 +1713,7 @@ export default function VehicleDetailPage() {
   const navigate = useNavigate()
   const [tab, setTab] = useState(0)
   const [odometerOpen, setOdometerOpen] = useState(false)
+  const [swapOpen, setSwapOpen] = useState(false)
 
   const { data: vehicle, isLoading, isError, error, refetch } = useQuery({
     queryKey: vehicleKeys.detail(vehicleId!),
@@ -1760,6 +1764,19 @@ export default function VehicleDetailPage() {
         </Box>
 
         <Stack direction="row" spacing={1} alignItems="center">
+          {vehicle.status === 'active' && (
+            <Tooltip title="Registrar a troca: quita o financiamento, marca como vendido e cria o contrato do carro novo">
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<SwapHorizRoundedIcon />}
+                onClick={() => setSwapOpen(true)}
+                sx={{ mr: 1 }}
+              >
+                Troquei este veículo
+              </Button>
+            </Tooltip>
+          )}
           <Box sx={{ textAlign: 'right' }}>
             <Typography variant="caption" color="text.secondary">
               Odômetro
@@ -1788,6 +1805,7 @@ export default function VehicleDetailPage() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
           <Tab label="Manutenções" />
+          <Tab label="Financiamento" />
           <Tab label="Agendamentos" />
           <Tab label="Analytics" />
           <Tab label="Alertas" />
@@ -1798,12 +1816,15 @@ export default function VehicleDetailPage() {
       </Box>
 
       {tab === 0 && <MaintenanceTab vehicleId={vehicle.id} currentKM={vehicle.current_odometer} />}
-      {tab === 1 && <SchedulesTab vehicleId={vehicle.id} />}
-      {tab === 2 && <AnalyticsTab vehicleId={vehicle.id} />}
-      {tab === 3 && <AlertsTab vehicleId={vehicle.id} />}
-      {tab === 4 && <DepreciationTab vehicleId={vehicle.id} />}
-      {tab === 5 && <FipeHistoryTab vehicleId={vehicle.id} />}
-      {tab === 6 && <PlansTab vehicleId={vehicle.id} />}
+      {tab === 1 && <VehicleFinanceTab vehicleId={vehicle.id} vehicleStatus={vehicle.status} />}
+      {tab === 2 && <SchedulesTab vehicleId={vehicle.id} />}
+      {tab === 3 && <AnalyticsTab vehicleId={vehicle.id} />}
+      {tab === 4 && <AlertsTab vehicleId={vehicle.id} />}
+      {tab === 5 && <DepreciationTab vehicleId={vehicle.id} />}
+      {tab === 6 && <FipeHistoryTab vehicleId={vehicle.id} />}
+      {tab === 7 && <PlansTab vehicleId={vehicle.id} />}
+
+      {swapOpen && <AssetSwapDialog initialOldVehicleId={vehicle.id} onClose={() => setSwapOpen(false)} />}
 
       <OdometerDialog
         open={odometerOpen}

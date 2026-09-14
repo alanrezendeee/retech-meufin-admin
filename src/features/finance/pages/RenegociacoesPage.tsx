@@ -33,7 +33,7 @@ import {
   type Entry,
   type Renegotiation,
 } from '../api'
-import { errorMessage, financeKeys } from '../constants'
+import { errorMessage, financeKeys, RENEGOTIATION_KIND_LABEL } from '../constants'
 import { DebtLineageDialog } from '../components/DebtLineageDialog'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
@@ -57,6 +57,11 @@ function AdjustmentChip({ cents }: { cents: number }) {
     return <Chip size="small" color="success" variant="outlined" label={`−${formatCents(-cents)} desconto`} />
   }
   return <Chip size="small" variant="outlined" label="sem ajuste" />
+}
+
+function KindChip({ kind }: { kind: Renegotiation['kind'] }) {
+  const color = kind === 'renegociacao' ? 'info' : kind === 'quitacao' ? 'success' : 'primary'
+  return <Chip size="small" color={color} variant="outlined" label={RENEGOTIATION_KIND_LABEL[kind] ?? kind} />
 }
 
 function EntriesTable({ title, entries }: { title: string; entries: Entry[] }) {
@@ -122,22 +127,72 @@ function RenegotiationDetailDialog({
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Saldo apurado
+            <KindChip kind={renegotiation.kind} />
+            {renegotiation.origin_count > 0 && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Saldo apurado
+                </Typography>
+                <Typography variant="h6">{formatCents(renegotiation.settled_amount_cents)}</Typography>
+              </Box>
+            )}
+            {renegotiation.origin_count > 0 && (
+              <Typography variant="h6" color="text.secondary">
+                →
               </Typography>
-              <Typography variant="h6">{formatCents(renegotiation.settled_amount_cents)}</Typography>
-            </Box>
-            <Typography variant="h6" color="text.secondary">
-              →
-            </Typography>
-            <Box>
-              <Typography variant="caption" color="text.secondary">
-                Novo acordo
-              </Typography>
-              <Typography variant="h6">{formatCents(renegotiation.new_amount_cents)}</Typography>
-            </Box>
-            <AdjustmentChip cents={renegotiation.adjustment_cents} />
+            )}
+            {renegotiation.kind === 'renegociacao' ? (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Novo acordo
+                </Typography>
+                <Typography variant="h6">{formatCents(renegotiation.new_amount_cents)}</Typography>
+              </Box>
+            ) : (
+              renegotiation.payoff_cents != null && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Quitação{renegotiation.payer === 'terceiro' ? ' (por terceiro)' : ''}
+                  </Typography>
+                  <Typography variant="h6">{formatCents(renegotiation.payoff_cents)}</Typography>
+                </Box>
+              )
+            )}
+            {renegotiation.origin_count > 0 && <AdjustmentChip cents={renegotiation.adjustment_cents} />}
+            {renegotiation.kind === 'troca_bem' && (
+              <>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Usado valeu
+                  </Typography>
+                  <Typography variant="h6">{formatCents(renegotiation.trade_in_cents ?? 0)}</Typography>
+                </Box>
+                {(renegotiation.cash_downpayment_cents ?? 0) > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Entrada em dinheiro
+                    </Typography>
+                    <Typography variant="h6">{formatCents(renegotiation.cash_downpayment_cents ?? 0)}</Typography>
+                  </Box>
+                )}
+                <Box>
+                  <Typography variant="caption" color="text.secondary">
+                    Entrada líquida
+                  </Typography>
+                  <Typography variant="h6" fontWeight={800}>
+                    {formatCents(renegotiation.net_downpayment_cents ?? 0)}
+                  </Typography>
+                </Box>
+                {renegotiation.new_count > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Financiamento novo
+                    </Typography>
+                    <Typography variant="h6">{formatCents(renegotiation.new_amount_cents)}</Typography>
+                  </Box>
+                )}
+              </>
+            )}
           </Box>
 
           {renegotiation.notes && (
@@ -152,16 +207,35 @@ function RenegotiationDetailDialog({
             <>
               {d.paid_before_count > 0 ? (
                 <EntriesTable
-                  title={`Pagas antes do acordo (${d.paid_before_count} · ${formatCents(d.paid_before_cents)})`}
+                  title={`Pagas antes do evento (${d.paid_before_count} · ${formatCents(d.paid_before_cents)})`}
                   entries={d.paid_before}
                 />
               ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Nenhuma parcela do acordo anterior tinha sido paga antes desta renegociação.
-                </Typography>
+                renegotiation.origin_count > 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    Nenhuma parcela do contrato anterior tinha sido paga antes deste evento.
+                  </Typography>
+                )
               )}
-              <EntriesTable title="Cobranças encerradas pelo acordo" entries={d.origins} />
-              <EntriesTable title="Parcelas criadas" entries={d.created} />
+              {d.origins.length > 0 && <EntriesTable title="Cobranças encerradas" entries={d.origins} />}
+              {renegotiation.kind === 'renegociacao' ? (
+                <EntriesTable title="Parcelas criadas" entries={d.created} />
+              ) : (
+                <>
+                  {d.created.some((e) => !e.installment_number) && (
+                    <EntriesTable
+                      title="Lançamentos do evento (quitação, venda, entrada)"
+                      entries={d.created.filter((e) => !e.installment_number)}
+                    />
+                  )}
+                  {d.created.some((e) => e.installment_number) && (
+                    <EntriesTable
+                      title="Parcelas do financiamento novo"
+                      entries={d.created.filter((e) => e.installment_number)}
+                    />
+                  )}
+                </>
+              )}
               {(d.previous_renegotiation_id || d.next_renegotiation_id) && (
                 <Typography variant="caption" color="text.secondary">
                   {d.previous_renegotiation_id && 'Este acordo repactuou um acordo anterior. '}
@@ -174,10 +248,14 @@ function RenegotiationDetailDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        {(d?.root_group_id || renegotiation.origin_group_id) && (
+        {(d?.root_group_id || renegotiation.origin_group_id || renegotiation.new_group_id) && (
           <Button
             startIcon={<AccountTreeRoundedIcon />}
-            onClick={() => onOpenLineage((d?.root_group_id ?? renegotiation.origin_group_id) as string)}
+            onClick={() =>
+              onOpenLineage(
+                (d?.root_group_id ?? renegotiation.origin_group_id ?? renegotiation.new_group_id) as string
+              )
+            }
             sx={{ mr: 'auto' }}
           >
             Histórico da dívida
@@ -216,8 +294,8 @@ export default function RenegociacoesPage() {
   return (
     <>
       <PageHeader
-        title="Renegociações"
-        subtitle="Acordos que substituíram dívidas em aberto — e quanto cada um custou (ou economizou)."
+        title="Renegociações e quitações"
+        subtitle="Acordos, quitações antecipadas e trocas de bem que encerraram dívidas em aberto — e quanto cada um custou (ou economizou)."
       />
 
       {listQ.isLoading && <LoadingState label="Carregando renegociações…" />}
@@ -226,7 +304,7 @@ export default function RenegociacoesPage() {
       {listQ.isSuccess && items.length === 0 && (
         <EmptyState
           title="Nenhuma renegociação registrada"
-          description="Renegocie uma dívida parcelada pela tela de Parcelamentos: o saldo em aberto é apurado e substituído por um novo acordo, preservando o histórico."
+          description="Renegocie, quite ou registre a troca de um bem financiado pela tela de Parcelamentos (ou pelo veículo, na Frota): o saldo em aberto é apurado e encerrado, preservando o histórico."
         />
       )}
 
@@ -239,13 +317,13 @@ export default function RenegociacoesPage() {
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Dívida renegociada
+                        Dívida encerrada
                       </Typography>
                       <Typography variant="h6" fontWeight={800}>
                         {formatCents(totals.settled)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {items.length} acordo(s)
+                        {items.length} evento(s)
                       </Typography>
                     </Box>
                     <HandshakeRoundedIcon color="info" />
@@ -301,9 +379,10 @@ export default function RenegociacoesPage() {
                 <TableHead>
                   <TableRow>
                     <TableCell sx={{ width: 110 }}>Data</TableCell>
+                    <TableCell sx={{ width: 150 }}>Tipo</TableCell>
                     <TableCell>Dívida</TableCell>
                     <TableCell align="right">Saldo apurado</TableCell>
-                    <TableCell align="right">Novo acordo</TableCell>
+                    <TableCell align="right">Desfecho</TableCell>
                     <TableCell>Ajuste</TableCell>
                     <TableCell align="right">Cobranças</TableCell>
                     <TableCell align="right" sx={{ width: 64 }} />
@@ -318,23 +397,39 @@ export default function RenegociacoesPage() {
                       onClick={() => setSelected(r)}
                     >
                       <TableCell>{formatDateBR(r.date)}</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>{r.description}</TableCell>
-                      <TableCell align="right">{formatCents(r.settled_amount_cents)}</TableCell>
-                      <TableCell align="right">{formatCents(r.new_amount_cents)}</TableCell>
                       <TableCell>
-                        <AdjustmentChip cents={r.adjustment_cents} />
+                        <KindChip kind={r.kind} />
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{r.description}</TableCell>
+                      <TableCell align="right">{r.origin_count > 0 ? formatCents(r.settled_amount_cents) : '—'}</TableCell>
+                      <TableCell align="right">
+                        {r.kind === 'renegociacao' ? (
+                          formatCents(r.new_amount_cents)
+                        ) : (
+                          <>
+                            {r.payoff_cents != null ? formatCents(r.payoff_cents) : '—'}
+                            {r.kind === 'troca_bem' && r.new_count > 0 && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                novo: {formatCents(r.new_amount_cents)}
+                              </Typography>
+                            )}
+                          </>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {r.origin_count > 0 ? <AdjustmentChip cents={r.adjustment_cents} /> : '—'}
                       </TableCell>
                       <TableCell align="right">
                         {r.origin_count} → {r.new_count}
                       </TableCell>
                       <TableCell align="right">
-                        {r.origin_group_id && (
+                        {(r.origin_group_id || r.new_group_id) && (
                           <Tooltip title="Histórico da dívida">
                             <IconButton
                               size="small"
                               onClick={(ev) => {
                                 ev.stopPropagation()
-                                setLineageGroup(r.origin_group_id as string)
+                                setLineageGroup((r.origin_group_id ?? r.new_group_id) as string)
                               }}
                             >
                               <AccountTreeRoundedIcon fontSize="small" />
@@ -350,10 +445,10 @@ export default function RenegociacoesPage() {
           </Card>
 
           <Typography variant="caption" color="text.secondary">
-            O ajuste está embutido nas parcelas do novo acordo — juros capitalizados são
-            reconhecidos ao longo do prazo, não no mês da assinatura. Esta tela existe para esse
-            custo nunca ficar invisível. Clique num acordo para ver as cobranças encerradas e as
-            parcelas criadas.
+            Na renegociação o ajuste está embutido nas parcelas do novo acordo — juros
+            capitalizados são reconhecidos ao longo do prazo. Na quitação e na troca, o desconto
+            fica no lançamento de quitação. Esta tela existe para esse custo (ou economia) nunca
+            ficar invisível. Clique num evento para ver o que foi encerrado e o que nasceu.
           </Typography>
         </Stack>
       )}

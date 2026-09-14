@@ -30,6 +30,7 @@ export const INCOME_TYPE_OPTIONS: Option<IncomeType>[] = [
   { value: 'ferias_13', label: '13º/Férias' },
   { value: 'beneficio', label: 'Benefício' },
   { value: 'reembolso', label: 'Reembolso' },
+  { value: 'venda_bem', label: 'Venda de bem (veículo, imóvel)' },
   { value: 'outro', label: 'Outro' },
 ]
 
@@ -60,6 +61,7 @@ export const INCOME_TYPE_SEMANTICS: Record<
   ferias_13: { nature: 'ativa', seasonal: true, regime: 'clt_fonte' },
   beneficio: { nature: 'passiva', seasonal: false, regime: 'isento' },
   reembolso: { nature: 'neutra', seasonal: true, regime: 'nao_tributavel' },
+  venda_bem: { nature: 'neutra', seasonal: true, regime: 'ganho_capital' },
   outro: { nature: 'ativa', seasonal: false, regime: 'indefinido' },
 }
 
@@ -218,6 +220,8 @@ export const financeKeys = {
   debtLineage: (groupId: string) => [...financeKeys.all, 'debt-lineage', groupId] as const,
   renegotiationPreview: (groupId: string) =>
     [...financeKeys.all, 'renegotiation-preview', groupId] as const,
+  assetDebts: (assetType: string, assetId: string) =>
+    [...financeKeys.all, 'asset-debts', assetType, assetId] as const,
   cardBrands: () => [...financeKeys.all, 'card-brands'] as const,
   dashboard: (params: Record<string, unknown>) => [...financeKeys.all, 'dashboard', params] as const,
   dashboardCashflow: (params: Record<string, unknown>) =>
@@ -268,10 +272,21 @@ export const PAYMENT_METHOD_OPTIONS: Option<import('./api').PaymentMethod>[] = [
   { value: 'cartao_credito', label: 'Cartão de crédito' },
 ]
 
-export const PAYMENT_METHOD_LABEL: Record<string, string> = PAYMENT_METHOD_OPTIONS.reduce(
-  (acc, o) => ({ ...acc, [o.value]: o.label }),
-  {} as Record<string, string>
-)
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  ...PAYMENT_METHOD_OPTIONS.reduce(
+    (acc, o) => ({ ...acc, [o.value]: o.label }),
+    {} as Record<string, string>
+  ),
+  // Só o sistema grava (quitação/venda numa troca); não entra no select.
+  compensacao: 'Compensação (sem caixa)',
+}
+
+/** Desfecho de um evento de dívida. */
+export const RENEGOTIATION_KIND_LABEL: Record<import('./api').RenegotiationKind, string> = {
+  renegociacao: 'Renegociação',
+  quitacao: 'Quitação antecipada',
+  troca_bem: 'Troca de bem',
+}
 
 /** Formas que apontam para uma conta (as demais: dinheiro=nada, cartao_credito=cartão). */
 export const ACCOUNT_PAYMENT_METHODS = ['pix', 'debito', 'transferencia', 'boleto'] as const
