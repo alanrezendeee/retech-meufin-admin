@@ -30,6 +30,7 @@ import {
   getInstallmentsProjection,
   getRenegotiationPreview,
   listAccounts,
+  listSuppliers,
   reaisToCents,
   type Payer,
   type PaymentMethod,
@@ -123,6 +124,7 @@ export function AssetSwapDialog({
   const [firstDue, setFirstDue] = useState(addMonthsClamped(todayISO(), 1))
   const [contractDesc, setContractDesc] = useState('')
   const [category, setCategory] = useState('')
+  const [supplierId, setSupplierId] = useState('')
   const [notes, setNotes] = useState('')
 
   const vehiclesQ = useQuery({
@@ -172,6 +174,11 @@ export function AssetSwapDialog({
   const openTotal = oldGroupId ? (preview?.open_total_cents ?? 0) : 0
 
   const { data: accounts } = useQuery({ queryKey: financeKeys.accounts(), queryFn: listAccounts })
+  const { data: suppliers } = useQuery({ queryKey: financeKeys.suppliers(), queryFn: listSuppliers })
+  const supplierOptions = (suppliers ?? [])
+    .filter((sp) => sp.active)
+    .map((sp) => ({ value: sp.id, label: sp.name }))
+  const newSupplier = (suppliers ?? []).find((sp) => sp.id === supplierId)
   const accountOptions = (accounts ?? [])
     .filter((a) => a.active)
     .map((a) => ({ value: a.id, label: a.name, description: a.bank_name ?? undefined }))
@@ -223,6 +230,7 @@ export function AssetSwapDialog({
               first_due_date: firstDue,
               description: contractDesc.trim() || undefined,
               category: category || null,
+              supplier_id: supplierId || null,
             }
           : null,
         notes: notes.trim() || undefined,
@@ -547,6 +555,15 @@ export function AssetSwapDialog({
                     />
                   </Box>
                 </Box>
+                {/* Trocou de carro, quase sempre trocou de banco: o credor do
+                    financiamento novo é escolhido aqui, não herdado. */}
+                <AutocompleteField
+                  label="Banco / credor do financiamento novo"
+                  emptyLabel={oldGroupId ? 'Mesmo do contrato antigo' : 'Não informar'}
+                  value={supplierId}
+                  onChange={setSupplierId}
+                  options={supplierOptions}
+                />
                 {newTotal > 0 && (
                   <Alert severity="info" sx={{ py: 0.5 }}>
                     Financiamento novo: <strong>{formatCents(newTotal)}</strong> em {count}× de{' '}
@@ -609,7 +626,11 @@ export function AssetSwapDialog({
                 <Row label="Entrada líquida" value={formatCents(netDown)} strong />
                 <Divider sx={{ my: 0.5 }} />
                 {financed ? (
-                  <Row label="Financiamento novo" value={`${count}× ${formatCents(installmentCents)} = ${formatCents(newTotal)}`} strong />
+                  <Row
+                    label={`Financiamento novo${newSupplier ? ` · ${newSupplier.name}` : ''}`}
+                    value={`${count}× ${formatCents(installmentCents)} = ${formatCents(newTotal)}`}
+                    strong
+                  />
                 ) : (
                   <Row label="Financiamento novo" value="À vista (sem parcelas)" />
                 )}
