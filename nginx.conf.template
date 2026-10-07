@@ -32,8 +32,10 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $proxy_host;
         proxy_ssl_server_name on;
+        # Repassa o X-Forwarded-For do edge (Railway) SEM anexar o IP do edge:
+        # a API usa o último hop para rate limit por IP e precisa do cliente real.
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $http_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
         proxy_set_header X-Forwarded-Host $host;
         proxy_read_timeout 120s;
