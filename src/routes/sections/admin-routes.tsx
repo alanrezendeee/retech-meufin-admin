@@ -14,7 +14,7 @@ function guarded(subjects: string | string[], node: ReactNode): ReactNode {
 
 /**
  * Rotas do módulo de Administração (IAM), montadas como filhas de `/dashboard`
- * em App.tsx. Consomem a retechauth-api (VITE_AUTH_BASE_URL).
+ * em App.tsx. Consomem a retechauth-api via proxy IAM da meufin-api (/api/v1/iam).
  */
 export const adminRoutes: { path: string; element: ReactNode }[] = [
   { path: 'admin/usuarios', element: guarded('admin.users', <UsersPage />) },

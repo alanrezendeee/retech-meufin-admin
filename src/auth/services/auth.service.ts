@@ -1,11 +1,10 @@
 import axios, { type AxiosInstance } from 'axios'
 import type { LoginCredentials, User } from '@/types/auth'
-import { RETECH_FIN_APPLICATION_CODE } from '@/constants/app'
 import { mockAbilitiesForEmail, mockUserForEmail } from '@/auth/context/jwt/mock-auth'
-import { setMeufinAccessToken } from '@/lib/api/meufin-client'
+import { apiBaseURL, attachUnauthorizedInterceptor, meufinClient } from '@/lib/api/meufin-client'
 import { toUserMessage } from '@/lib/errors'
 
-/** Formato CASL retornado por GET /v1/me (retechauth-api). */
+/** Formato CASL retornado por GET /v1/me (retechauth-api), repassado pela meufin-api. */
 export type CASLAbility = {
   action: string
   subject: string
@@ -29,40 +28,26 @@ export type MeResponse = {
   abilities: CASLAbility[]
 }
 
+/** Resultado do login já normalizado para o app. Não há tokens: a sessão vive em cookie HttpOnly. */
 export type AuthLoginResult = {
   user: User
-  accessToken: string
-  refreshToken: string
   abilities: CASLAbility[]
 }
 
-const authBaseURL = () => import.meta.env.VITE_AUTH_BASE_URL ?? 'http://localhost:8000'
-const pathAuthenticate = () => import.meta.env.VITE_AUTH_ENDPOINT_AUTHENTICATE ?? '/v1/authenticate'
-const pathMe = () => import.meta.env.VITE_AUTH_ENDPOINT_ME ?? '/v1/me'
-
-function createAuthClient(): AxiosInstance {
-  return axios.create({
-    baseURL: authBaseURL(),
-    headers: { 'Content-Type': 'application/json' },
-  })
-}
+const AUTH_BASE = '/api/v1/auth'
 
 /**
- * Cliente HTTP da retechauth-api. O Bearer (token master) é injetado via
- * `setAuthAccessToken`. Exportado para uso nas features de administração (IAM),
- * que consomem os mesmos endpoints de gestão sob VITE_AUTH_BASE_URL.
+ * Cliente das telas de administração (IAM: usuários, roles, permissions).
+ * Fala com a meufin-api em /api/v1/iam/*, que repassa ao retechauth-api
+ * injetando o token da sessão no servidor — o browser nunca vê o JWT.
+ * Os paths continuam os do auth (`/v1/users`, `/v1/roles`, ...).
  */
-export const authClient = createAuthClient()
-
-export function setAuthAccessToken(token: string | null): void {
-  if (token) {
-    authClient.defaults.headers.common.Authorization = `Bearer ${token}`
-  } else {
-    delete authClient.defaults.headers.common.Authorization
-  }
-  // Propaga o mesmo token para o cliente da meufin-api (mesmo SSO).
-  setMeufinAccessToken(token)
-}
+export const authClient: AxiosInstance = axios.create({
+  baseURL: `${apiBaseURL()}/api/v1/iam`,
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+})
+attachUnauthorizedInterceptor(authClient)
 
 function mapMeUserToUser(u: MeResponse['user']): User {
   return {
@@ -77,65 +62,101 @@ function getErrorMessage(err: unknown): string {
 }
 
 async function fetchMe(): Promise<MeResponse> {
-  const { data } = await authClient.get<MeResponse>(pathMe())
+  const { data } = await meufinClient.get<MeResponse>(`${AUTH_BASE}/me`)
   return data
 }
 
+// ---------------------------------------------------------------------------
+// Mock (VITE_AUTH_USE_MOCK=true): sem API. Só o e-mail fica em sessionStorage
+// (morre ao fechar a aba); nunca há token envolvido.
+// ---------------------------------------------------------------------------
+const MOCK_KEY = 'meufin-admin-mock-user'
+const isMock = () => import.meta.env.VITE_AUTH_USE_MOCK === 'true'
 const mockDelay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+function readMockEmail(): string | null {
+  try {
+    return sessionStorage.getItem(MOCK_KEY)
+  } catch {
+    return null
+  }
+}
+
+function mockResult(email: string): AuthLoginResult | null {
+  const user = mockUserForEmail(email)
+  if (!user) {
+    return null
+  }
+  return { user, abilities: [...mockAbilitiesForEmail(email)] }
+}
 
 export const authService = {
   /**
-   * POST /v1/authenticate no host do retechauth-api; em seguida GET /v1/me com o access_token.
+   * POST /api/v1/auth/login (emite o cookie de sessão) e, em seguida,
+   * GET /api/v1/auth/me para usuário + abilities.
    */
   async login(credentials: LoginCredentials): Promise<AuthLoginResult> {
-    if (import.meta.env.VITE_AUTH_USE_MOCK === 'true') {
+    if (isMock()) {
       await mockDelay(600)
-      const user = mockUserForEmail(credentials.email)
-      if (!user) {
+      const result = mockResult(credentials.email)
+      if (!result) {
         throw new Error('Usuário não encontrado')
       }
       if (credentials.email === 'demo@retechfin.com' && credentials.password !== 'demo123') {
         throw new Error('Senha incorreta')
       }
-      const abilities = mockAbilitiesForEmail(credentials.email)
-      const accessToken = `mock_access_${user.id}`
-      const refreshToken = `mock_refresh_${user.id}`
-      setAuthAccessToken(accessToken)
-      return { user, accessToken, refreshToken, abilities }
+      try {
+        sessionStorage.setItem(MOCK_KEY, credentials.email)
+      } catch {
+        /* sessionStorage indisponível: sessão mock só em memória */
+      }
+      return result
     }
 
-    const { data: authData } = await authClient.post<{
-      access_token: string
-      refresh_token: string
-      token_type?: string
-      expires_in?: number
-      user?: MeResponse['user']
-    }>(pathAuthenticate(), {
+    await meufinClient.post(`${AUTH_BASE}/login`, {
       email: credentials.email,
       password: credentials.password,
-      application_code: RETECH_FIN_APPLICATION_CODE,
     })
-
-    const accessToken = authData.access_token
-    const refreshToken = authData.refresh_token
-    setAuthAccessToken(accessToken)
 
     const me = await fetchMe()
     return {
       user: mapMeUserToUser(me.user),
-      accessToken,
-      refreshToken,
       abilities: me.abilities ?? [],
     }
   },
 
-  /** GET /v1/me com o token já configurado em setAuthAccessToken. */
-  async me(): Promise<MeResponse> {
-    return fetchMe()
+  /**
+   * Sessão atual (cookie). Lança (401) se não houver sessão válida.
+   * Em mock, devolve o usuário salvo na aba ou null.
+   */
+  async me(): Promise<AuthLoginResult | null> {
+    if (isMock()) {
+      const email = readMockEmail()
+      return email ? mockResult(email) : null
+    }
+    const me = await fetchMe()
+    return {
+      user: mapMeUserToUser(me.user),
+      abilities: me.abilities ?? [],
+    }
   },
 
+  /** POST /api/v1/auth/logout revoga a sessão no servidor e limpa o cookie. */
   async logout(): Promise<void> {
-    setAuthAccessToken(null)
+    if (isMock()) {
+      try {
+        sessionStorage.removeItem(MOCK_KEY)
+      } catch {
+        /* noop */
+      }
+      return
+    }
+    try {
+      await meufinClient.post(`${AUTH_BASE}/logout`)
+    } catch {
+      // Sem rede/API fora: o estado local é descartado mesmo assim; o cookie
+      // expira sozinho e a sessão é revogada no próximo logout bem-sucedido.
+    }
   },
 
   getErrorMessage,

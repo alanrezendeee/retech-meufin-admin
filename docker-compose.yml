@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
+      # Destino do proxy /api/ (meufin-api). host.docker.internal = API rodando no host.
+      - API_UPSTREAM=${API_UPSTREAM:-http://host.docker.internal:8002}
     networks:
       - retechfin-network
 
