@@ -53,6 +53,7 @@ import {
   listFiscalItems,
   reopenEntry,
   createEntry,
+  uploadEntryAttachment,
   formatCents,
   listEntries,
   listFamilyMembers,
@@ -102,6 +103,7 @@ import { useToast } from '@/providers/ToastProvider'
 import { PurchaseEditDialog } from '../components/PurchaseEditDialog'
 import { WaiveEntryDialog } from '../components/WaiveEntryDialog'
 import { EntryDetailDialog } from '../components/EntryDetailDialog'
+import { AttachmentDraftList, type AttachmentDraft } from '../components/EntryAttachments'
 import { CancelEntryDialog } from '../components/CancelEntryDialog'
 
 const now = new Date()
@@ -609,6 +611,10 @@ function EntryFormDialog({
   })
   const { activeCategories, groups } = useExpenseCategories()
   const [quickCategory, setQuickCategory] = useState(false)
+  // Anexos (boleto, QR Pix…) escolhidos antes do lançamento existir: sobem
+  // depois do create, só quando nasce um único lançamento (parcelas/recorrência
+  // têm boleto por ocorrência — anexa-se pelo detalhe de cada uma).
+  const [attachmentDrafts, setAttachmentDrafts] = useState<AttachmentDraft[]>([])
 
   const {
     control,
@@ -755,22 +761,47 @@ function EntryFormDialog({
           dueDatesUpdated: updated.series_due_dates_updated ?? 0,
           fieldsUpdated: updated.series_fields_updated ?? 0,
           newDueDay: Number(values.due_date.slice(8, 10)) || null,
+          attachmentsFailed: 0,
+          attachmentsSkipped: false,
         }
       }
       const res = await createEntry(base)
+      const created = res.total ?? res.items?.length ?? 1
+      // Anexos: só quando nasceu exatamente um lançamento. Falha de upload não
+      // desfaz a despesa; avisa e o usuário anexa pelo detalhe.
+      let attachmentsFailed = 0
+      const target = created === 1 ? res.items?.[0]?.id : undefined
+      if (target) {
+        for (const d of attachmentDrafts) {
+          try {
+            await uploadEntryAttachment(target, d)
+          } catch {
+            attachmentsFailed++
+          }
+        }
+      }
       return {
-        created: res.total ?? res.items?.length ?? 1,
+        created,
         appliedToFuture: false,
         dueDatesUpdated: 0,
         fieldsUpdated: 0,
         newDueDay: null,
+        attachmentsFailed,
+        attachmentsSkipped: !target && attachmentDrafts.length > 0,
       }
     },
-    onSuccess: ({ created, appliedToFuture, dueDatesUpdated, fieldsUpdated, newDueDay }) => {
+    onSuccess: (r) => {
+      const { created, appliedToFuture, dueDatesUpdated, fieldsUpdated, newDueDay } = r
       if (isEdit) {
         show(
           seriesToast('Despesa', appliedToFuture, dueDatesUpdated, fieldsUpdated, newDueDay, isInstallmentEntry),
         )
+      } else if (r.attachmentsFailed > 0) {
+        show(
+          `Despesa criada, mas ${r.attachmentsFailed} anexo(s) não foram enviados. Anexe pelo detalhe do lançamento.`,
+        )
+      } else if (r.attachmentsSkipped) {
+        show('Despesas criadas. Os anexos não foram enviados: em série, anexe pelo detalhe de cada parcela.')
       } else if (created <= 1) {
         show('Despesa criada com sucesso.')
       }
@@ -778,6 +809,7 @@ function EntryFormDialog({
       reset(emptyEntryForm())
       setEditorOpen(false)
       setInstallmentRows([])
+      setAttachmentDrafts([])
       onClose()
       if (!isEdit && created > 1) onCreatedRecurring(created)
     },
@@ -1249,6 +1281,23 @@ function EntryFormDialog({
               <TextField {...field} label="Observações" fullWidth multiline minRows={2} />
             )}
           />
+
+          {!isEdit && (
+            <>
+              <Divider />
+              <AttachmentDraftList
+                drafts={attachmentDrafts}
+                onChange={setAttachmentDrafts}
+                disabled={mutation.isPending}
+              />
+              {attachmentDrafts.length > 0 && (installments || recurrence !== 'none') && (
+                <Alert severity="warning">
+                  Em parcelamento ou recorrência os anexos não são enviados: cada parcela tem o seu
+                  boleto. Crie a série e anexe pelo detalhe de cada lançamento.
+                </Alert>
+              )}
+            </>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>

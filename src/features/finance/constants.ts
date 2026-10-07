@@ -214,6 +214,7 @@ export const financeKeys = {
   expenseCategories: () => [...financeKeys.all, 'expense-categories'] as const,
   suppliers: () => [...financeKeys.all, 'suppliers'] as const,
   receipts: (entryId: string) => [...financeKeys.all, 'receipts', entryId] as const,
+  attachments: (entryId: string) => [...financeKeys.all, 'attachments', entryId] as const,
   discountReasons: () => [...financeKeys.all, 'discount-reasons'] as const,
   cancelReasons: () => [...financeKeys.all, 'cancel-reasons'] as const,
   renegotiations: () => [...financeKeys.all, 'renegotiations'] as const,
@@ -271,6 +272,20 @@ export const PAYMENT_METHOD_OPTIONS: Option<import('./api').PaymentMethod>[] = [
   { value: 'dinheiro', label: 'Dinheiro' },
   { value: 'cartao_credito', label: 'Cartão de crédito' },
 ]
+
+export const ATTACHMENT_TYPE_OPTIONS: Option<import('./api').EntryAttachmentType>[] = [
+  { value: 'boleto', label: 'Boleto' },
+  { value: 'pix_qrcode', label: 'QR Code Pix' },
+  { value: 'nota_fiscal', label: 'Nota fiscal' },
+  { value: 'contrato', label: 'Contrato' },
+  { value: 'fatura', label: 'Fatura' },
+  { value: 'outro', label: 'Outro' },
+]
+
+export const ATTACHMENT_TYPE_LABEL: Record<string, string> = ATTACHMENT_TYPE_OPTIONS.reduce(
+  (acc, o) => ({ ...acc, [o.value]: o.label }),
+  {} as Record<string, string>
+)
 
 export const PAYMENT_METHOD_LABEL: Record<string, string> = {
   ...PAYMENT_METHOD_OPTIONS.reduce(
