@@ -20,6 +20,7 @@ import {
   PAYMENT_METHOD_LABEL,
 } from '../constants'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
+import { EntryReceiptsSection } from './EntryReceiptsSection'
 import { ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
 function formatDateBR(iso?: string | null): string {
@@ -171,6 +172,10 @@ export function EntryDetailDialog({ entry, onClose }: { entry: Entry; onClose: (
               )}
             </Box>
           )}
+
+          <Divider />
+
+          <EntryReceiptsSection entryId={entry.id} readOnly={entry.status === 'cancelada'} />
 
           <Divider />
 
