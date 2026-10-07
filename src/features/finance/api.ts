@@ -1388,6 +1388,80 @@ export async function deleteEntryReceipt(entryId: string, receiptId: string): Pr
 }
 
 // ---------------------------------------------------------------------------
+// Anexos de apoio ao lançamento (boleto, QR Code Pix, nota, contrato…).
+// Diferem do comprovante: ajudam a pagar, não provam o pagamento.
+// ---------------------------------------------------------------------------
+
+export type EntryAttachmentType =
+  | 'boleto'
+  | 'pix_qrcode'
+  | 'nota_fiscal'
+  | 'contrato'
+  | 'fatura'
+  | 'outro'
+
+export type EntryAttachment = {
+  id: string
+  entry_id?: string | null
+  file_name: string
+  original_file_name: string
+  mime_type: string
+  size_bytes: number
+  attachment_type?: EntryAttachmentType | null
+  /** Linha digitável (47/48 dígitos) ou Pix copia e cola. */
+  payment_code?: string | null
+  /** 'user' (digitado) | 'qrcode' (lido da imagem no servidor). */
+  payment_code_source?: 'user' | 'qrcode' | null
+  note?: string | null
+  created_at?: string
+}
+
+export type UploadEntryAttachmentInput = {
+  file: File
+  attachment_type: EntryAttachmentType
+  payment_code?: string
+  note?: string
+}
+
+export async function listEntryAttachments(entryId: string): Promise<EntryAttachment[]> {
+  const { data } = await meufinClient.get<Paginated<EntryAttachment>>(
+    `${BASE}/entries/${entryId}/attachments`
+  )
+  return data.items ?? []
+}
+
+export async function uploadEntryAttachment(
+  entryId: string,
+  input: UploadEntryAttachmentInput
+): Promise<EntryAttachment> {
+  const form = new FormData()
+  form.append('file', input.file)
+  form.append('attachment_type', input.attachment_type)
+  if (input.payment_code?.trim()) form.append('payment_code', input.payment_code.trim())
+  if (input.note?.trim()) form.append('note', input.note.trim())
+  const { data } = await meufinClient.post<EntryAttachment>(
+    `${BASE}/entries/${entryId}/attachments`,
+    form,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data
+}
+
+export async function entryAttachmentDownloadURL(
+  entryId: string,
+  attachmentId: string
+): Promise<string> {
+  const { data } = await meufinClient.get<{ url: string }>(
+    `${BASE}/entries/${entryId}/attachments/${attachmentId}/download-url`
+  )
+  return data.url
+}
+
+export async function deleteEntryAttachment(entryId: string, attachmentId: string): Promise<void> {
+  await meufinClient.delete(`${BASE}/entries/${entryId}/attachments/${attachmentId}`)
+}
+
+// ---------------------------------------------------------------------------
 // Dashboard financeira (agregados; valores em CENTAVOS)
 // ---------------------------------------------------------------------------
 

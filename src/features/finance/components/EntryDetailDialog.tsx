@@ -21,6 +21,7 @@ import {
 } from '../constants'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { EntryReceiptsSection } from './EntryReceiptsSection'
+import { EntryAttachmentsSection } from './EntryAttachments'
 import { ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
 function formatDateBR(iso?: string | null): string {
@@ -172,6 +173,10 @@ export function EntryDetailDialog({ entry, onClose }: { entry: Entry; onClose: (
               )}
             </Box>
           )}
+
+          <Divider />
+
+          <EntryAttachmentsSection entryId={entry.id} readOnly={entry.status === 'cancelada'} />
 
           <Divider />
 
