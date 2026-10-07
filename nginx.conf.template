@@ -27,8 +27,14 @@ server {
     # API same-origin: o browser só enxerga esta origem; o cookie de sessão
     # HttpOnly da API fica em admin.<dominio> sem CORS nem Domain.
     # API_UPSTREAM ex.: http://retech-meufin-api.railway.internal:8002
+    # DNS dinâmico: o IP privado da API muda a cada redeploy e o nginx cacheia a
+    # resolução feita no start (proxy_pass estático). Com resolver + variável, o
+    # nginx re-resolve a cada requisição. [fd12::10] é o DNS interno do Railway.
+    resolver [fd12::10] ipv6=on valid=1s;
+    set $api_upstream ${API_UPSTREAM};
+
     location /api/ {
-        proxy_pass ${API_UPSTREAM};
+        proxy_pass $api_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $proxy_host;
         proxy_ssl_server_name on;
