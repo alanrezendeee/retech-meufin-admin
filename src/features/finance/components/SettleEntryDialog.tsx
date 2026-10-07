@@ -36,6 +36,7 @@ import {
 import { MoneyField } from '@/components/fields/MoneyField'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { ErrorState } from '@/features/health/components/StateViews'
+import { RECEIPT_ACCEPT } from './EntryReceiptsSection'
 
 type FormValues = {
   paid_at: string // YYYY-MM-DD
@@ -91,23 +92,45 @@ export function SettleEntryDialog({
   const needsAccount = (ACCOUNT_PAYMENT_METHODS as readonly string[]).includes(method)
   const needsCard = method === 'cartao_credito'
 
+  // Liquidação já confirmada na API: um retry (após falha de upload) só
+  // reenvia os comprovantes pendentes, nunca liquida de novo.
+  const [settled, setSettled] = useState(false)
+
   const mutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      const settled = await settleEntry(entry.id, {
-        paid_at: values.paid_at || null,
-        paid_amount_cents: reaisToCents(values.paid_amount),
-        payment_method: values.payment_method,
-        account_id: needsAccount && values.account_id ? values.account_id : null,
-        card_id: needsCard && values.card_id ? values.card_id : null,
-        notes: values.notes.trim() || null,
-      })
-      for (const file of files) {
-        await uploadEntryReceipt(entry.id, file)
+      if (!settled) {
+        await settleEntry(entry.id, {
+          paid_at: values.paid_at || null,
+          paid_amount_cents: reaisToCents(values.paid_amount),
+          payment_method: values.payment_method,
+          account_id: needsAccount && values.account_id ? values.account_id : null,
+          card_id: needsCard && values.card_id ? values.card_id : null,
+          notes: values.notes.trim() || null,
+        })
+        setSettled(true)
       }
-      return settled
+      const failed: { file: File; reason: string }[] = []
+      for (const file of files) {
+        try {
+          await uploadEntryReceipt(entry.id, file)
+        } catch (err) {
+          failed.push({ file, reason: errorMessage(err) })
+        }
+      }
+      if (failed.length > 0) {
+        setFiles(failed.map((f) => f.file))
+        const detail = failed.map((f) => `${f.file.name}: ${f.reason}`).join('; ')
+        throw new Error(
+          `Pagamento registrado, mas ${failed.length} comprovante(s) não foram enviados (${detail}). ` +
+            'Tente novamente ou anexe depois pelo detalhe do lançamento.'
+        )
+      }
+    },
+    onSettled: () => {
+      // Mesmo com falha no upload, a liquidação pode ter sido gravada.
+      qc.invalidateQueries({ queryKey: financeKeys.all })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: financeKeys.all })
       onSettled?.()
       onClose()
     },
@@ -279,7 +302,7 @@ export function SettleEntryDialog({
                 type="file"
                 hidden
                 multiple
-                accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx"
+                accept={RECEIPT_ACCEPT}
                 onChange={(e) => {
                   const picked = Array.from(e.target.files ?? [])
                   if (picked.length) setFiles((prev) => [...prev, ...picked])
@@ -307,7 +330,15 @@ export function SettleEntryDialog({
           Cancelar
         </Button>
         <Button onClick={submit} variant="contained" disabled={mutation.isPending}>
-          {mutation.isPending ? 'Liquidando…' : isExpense ? 'Confirmar pagamento' : 'Confirmar recebimento'}
+          {mutation.isPending
+            ? settled
+              ? 'Enviando comprovantes…'
+              : 'Liquidando…'
+            : settled
+              ? 'Reenviar comprovantes'
+              : isExpense
+                ? 'Confirmar pagamento'
+                : 'Confirmar recebimento'}
         </Button>
       </DialogActions>
     </Dialog>
