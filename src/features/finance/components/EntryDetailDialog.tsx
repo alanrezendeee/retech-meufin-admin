@@ -176,7 +176,11 @@ export function EntryDetailDialog({ entry, onClose }: { entry: Entry; onClose: (
 
           <Divider />
 
-          <EntryAttachmentsSection entryId={entry.id} readOnly={entry.status === 'cancelada'} />
+          <EntryAttachmentsSection
+            entryId={entry.id}
+            readOnly={entry.status === 'cancelada'}
+            inSeries={Boolean(entry.recurrence_group_id)}
+          />
 
           <Divider />
 

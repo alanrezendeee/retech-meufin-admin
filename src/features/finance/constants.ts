@@ -282,6 +282,19 @@ export const ATTACHMENT_TYPE_OPTIONS: Option<import('./api').EntryAttachmentType
   { value: 'outro', label: 'Outro' },
 ]
 
+/**
+ * Tipos que fazem sentido em várias parcelas da mesma série (QR Pix da mesma
+ * chave, contrato da série). Boleto, nota e fatura são de uma ocorrência só.
+ */
+export const ATTACHMENT_REPLICABLE: ReadonlySet<import('./api').EntryAttachmentType> = new Set([
+  'pix_qrcode',
+  'contrato',
+])
+
+export function isAttachmentReplicable(t: import('./api').EntryAttachmentType): boolean {
+  return ATTACHMENT_REPLICABLE.has(t)
+}
+
 export const ATTACHMENT_TYPE_LABEL: Record<string, string> = ATTACHMENT_TYPE_OPTIONS.reduce(
   (acc, o) => ({ ...acc, [o.value]: o.label }),
   {} as Record<string, string>
