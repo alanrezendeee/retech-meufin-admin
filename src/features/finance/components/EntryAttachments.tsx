@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import {
+  Alert,
   Box,
   Button,
   Chip,
@@ -7,9 +8,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   IconButton,
   MenuItem,
   Stack,
+  Switch,
   TextField,
   Tooltip,
   Typography,
@@ -32,7 +35,13 @@ import {
   type EntryAttachment,
   type EntryAttachmentType,
 } from '../api'
-import { ATTACHMENT_TYPE_LABEL, ATTACHMENT_TYPE_OPTIONS, errorMessage, financeKeys } from '../constants'
+import {
+  ATTACHMENT_TYPE_LABEL,
+  ATTACHMENT_TYPE_OPTIONS,
+  errorMessage,
+  financeKeys,
+  isAttachmentReplicable,
+} from '../constants'
 import { ConfirmDialog } from '@/features/health/components/ConfirmDialog'
 import { ErrorState, LoadingState } from '@/features/health/components/StateViews'
 import { RECEIPT_ACCEPT } from './EntryReceiptsSection'
@@ -46,6 +55,33 @@ export type AttachmentDraft = {
 }
 
 const HAS_CODE: ReadonlySet<EntryAttachmentType> = new Set(['boleto', 'pix_qrcode'])
+
+/**
+ * Lê o campo 01 (Point of Initiation Method) do payload EMV do Pix:
+ * "12" = QR dinâmico (uso único, com validade). Espelha o servidor; serve
+ * só para avisar antes do upload.
+ */
+function isPixDynamic(payload: string): boolean {
+  const p = payload.trim()
+  for (let i = 0; i + 4 <= p.length; ) {
+    const tag = p.slice(i, i + 2)
+    const len = Number(p.slice(i + 2, i + 4))
+    if (!Number.isInteger(len) || len < 0 || i + 4 + len > p.length) return false
+    if (tag === '01') return p.slice(i + 4, i + 4 + len) === '12'
+    i += 4 + len
+  }
+  return false
+}
+
+/** Como o anexo se comporta numa série, para o texto de apoio dos forms. */
+function seriesHint(type: EntryAttachmentType, applyToFuture: boolean): string {
+  if (!isAttachmentReplicable(type)) {
+    return 'Fica só neste lançamento: cada parcela tem o seu.'
+  }
+  return applyToFuture
+    ? 'Será replicado às parcelas futuras previstas desta série.'
+    : 'Fica só neste lançamento (replicação às futuras desligada).'
+}
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -99,13 +135,19 @@ function DraftFields({
   draft,
   onChange,
   autoFocusType,
+  inSeries = false,
+  applyToFuture = false,
 }: {
   draft: AttachmentDraft
   onChange: (d: AttachmentDraft) => void
   autoFocusType?: boolean
+  /** Lançamento pertence a parcelamento/recorrência: mostra como o anexo se propaga. */
+  inSeries?: boolean
+  applyToFuture?: boolean
 }) {
   const showCode = HAS_CODE.has(draft.attachment_type)
   const isImage = draft.file.type.startsWith('image/')
+  const pixDynamic = draft.attachment_type === 'pix_qrcode' && isPixDynamic(draft.payment_code)
   return (
     <Stack spacing={1.5}>
       <TextField
@@ -139,6 +181,12 @@ function DraftFields({
           }
         />
       )}
+      {pixDynamic && (
+        <Alert severity="warning" sx={{ py: 0 }}>
+          QR Pix dinâmico: é de uso único e tem validade. Replicar às próximas parcelas pode deixar
+          um código vencido nelas.
+        </Alert>
+      )}
       <TextField
         size="small"
         label="Observação"
@@ -146,6 +194,11 @@ function DraftFields({
         onChange={(e) => onChange({ ...draft, note: e.target.value })}
         inputProps={{ maxLength: 500 }}
       />
+      {inSeries && (
+        <Typography variant="caption" color="text.secondary">
+          {seriesHint(draft.attachment_type, applyToFuture)}
+        </Typography>
+      )}
     </Stack>
   )
 }
@@ -173,10 +226,16 @@ export function AttachmentDraftList({
   drafts,
   onChange,
   disabled,
+  inSeries = false,
+  applyToFuture = false,
 }: {
   drafts: AttachmentDraft[]
   onChange: (drafts: AttachmentDraft[]) => void
   disabled?: boolean
+  /** Série (parcelas/recorrência): cada rascunho mostra se replica ou fica só aqui. */
+  inSeries?: boolean
+  /** Replicação ligada (no create de série é sempre; no edit segue "Aplicar às próximas"). */
+  applyToFuture?: boolean
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   return (
@@ -231,6 +290,8 @@ export function AttachmentDraftList({
           <DraftFields
             draft={d}
             onChange={(nd) => onChange(drafts.map((x, j) => (j === i ? nd : x)))}
+            inSeries={inSeries}
+            applyToFuture={applyToFuture}
           />
         </Box>
       ))}
@@ -242,18 +303,24 @@ export function AttachmentDraftList({
 function AddAttachmentDialog({
   entryId,
   file,
+  inSeries,
   onClose,
   onDone,
 }: {
   entryId: string
   file: File
+  inSeries: boolean
   onClose: () => void
-  onDone: () => void
+  onDone: (replicatedTo: number) => void
 }) {
   const [draft, setDraft] = useState<AttachmentDraft>(() => newDraft(file))
+  const [applyToFuture, setApplyToFuture] = useState(true)
+  const replicable = isAttachmentReplicable(draft.attachment_type)
+  const willReplicate = inSeries && replicable && applyToFuture
   const mutation = useMutation({
-    mutationFn: () => uploadEntryAttachment(entryId, draft),
-    onSuccess: onDone,
+    mutationFn: () =>
+      uploadEntryAttachment(entryId, { ...draft, apply_to: willReplicate ? 'future' : undefined }),
+    onSuccess: (a) => onDone(a.replicated_to ?? 0),
   })
   return (
     <Dialog open onClose={mutation.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
@@ -270,7 +337,24 @@ function AddAttachmentDialog({
               {formatSize(file.size)}
             </Typography>
           </Stack>
-          <DraftFields draft={draft} onChange={setDraft} autoFocusType />
+          <DraftFields
+            draft={draft}
+            onChange={setDraft}
+            autoFocusType
+            inSeries={inSeries}
+            applyToFuture={willReplicate}
+          />
+          {inSeries && replicable && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={applyToFuture}
+                  onChange={(e) => setApplyToFuture(e.target.checked)}
+                />
+              }
+              label="Aplicar às próximas parcelas"
+            />
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -278,7 +362,7 @@ function AddAttachmentDialog({
           Cancelar
         </Button>
         <Button onClick={() => mutation.mutate()} variant="contained" disabled={mutation.isPending}>
-          {mutation.isPending ? 'Enviando…' : 'Anexar'}
+          {mutation.isPending ? 'Enviando…' : willReplicate ? 'Anexar à série' : 'Anexar'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -293,10 +377,14 @@ function AddAttachmentDialog({
 export function EntryAttachmentsSection({
   entryId,
   readOnly = false,
+  inSeries = false,
 }: {
   entryId: string
   readOnly?: boolean
+  /** Lançamento em parcelamento/recorrência: habilita replicar às próximas. */
+  inSeries?: boolean
 }) {
+  const [replicatedMsg, setReplicatedMsg] = useState<string | null>(null)
   const qc = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [adding, setAdding] = useState<File | null>(null)
@@ -310,7 +398,8 @@ export function EntryAttachmentsSection({
   })
   const attachments = attachmentsQ.data ?? []
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.attachments(entryId) })
+  // Prefixo de todos os lançamentos: a replicação altera anexos de outras parcelas.
+  const invalidate = () => qc.invalidateQueries({ queryKey: [...financeKeys.all, 'attachments'] })
 
   const deleteMutation = useMutation({
     mutationFn: (a: EntryAttachment) => deleteEntryAttachment(entryId, a.id),
@@ -376,6 +465,11 @@ export function EntryAttachmentsSection({
       {attachmentsQ.isError && <ErrorState message={errorMessage(attachmentsQ.error)} />}
       {deleteMutation.isError && <ErrorState message={errorMessage(deleteMutation.error)} />}
       {openError && <ErrorState message={openError} />}
+      {replicatedMsg && (
+        <Alert severity="success" sx={{ mb: 1 }} onClose={() => setReplicatedMsg(null)}>
+          {replicatedMsg}
+        </Alert>
+      )}
 
       {attachmentsQ.isSuccess && attachments.length === 0 && (
         <Typography variant="body2" color="text.secondary">
@@ -403,6 +497,16 @@ export function EntryAttachmentsSection({
                     <Typography variant="body2" noWrap title={a.original_file_name}>
                       {a.original_file_name}
                     </Typography>
+                    {a.replicated_from_entry_id && (
+                      <Tooltip title="Cópia do anexo enviado em outra parcela desta série">
+                        <Chip size="small" variant="outlined" color="info" label="Da série" />
+                      </Tooltip>
+                    )}
+                    {a.pix_dynamic && (
+                      <Tooltip title="QR Pix dinâmico: uso único e com validade; pode estar vencido">
+                        <Chip size="small" variant="outlined" color="warning" label="Pode expirar" />
+                      </Tooltip>
+                    )}
                   </Box>
                   <Typography variant="caption" color="text.secondary">
                     {formatSize(a.size_bytes)}
@@ -474,9 +578,13 @@ export function EntryAttachmentsSection({
         <AddAttachmentDialog
           entryId={entryId}
           file={adding}
+          inSeries={inSeries}
           onClose={() => setAdding(null)}
-          onDone={() => {
+          onDone={(replicatedTo) => {
             setAdding(null)
+            setReplicatedMsg(
+              replicatedTo > 0 ? `Anexo replicado em ${replicatedTo} parcela(s) futura(s).` : null
+            )
             invalidate()
           }}
         />

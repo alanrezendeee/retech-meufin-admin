@@ -1413,6 +1413,12 @@ export type EntryAttachment = {
   /** 'user' (digitado) | 'qrcode' (lido da imagem no servidor). */
   payment_code_source?: 'user' | 'qrcode' | null
   note?: string | null
+  /** QR Pix dinâmico (campo EMV 01 = "12"): uso único, pode expirar. */
+  pix_dynamic?: boolean | null
+  /** Esta linha é cópia do anexo enviado naquele lançamento (replicação em série). */
+  replicated_from_entry_id?: string | null
+  /** Só na resposta do upload: parcelas futuras que receberam cópia. */
+  replicated_to?: number | null
   created_at?: string
 }
 
@@ -1421,6 +1427,12 @@ export type UploadEntryAttachmentInput = {
   attachment_type: EntryAttachmentType
   payment_code?: string
   note?: string
+  /**
+   * 'future' replica às parcelas futuras previstas da série. Só surte efeito
+   * em tipos replicáveis (QR Pix, contrato); boleto/nota/fatura/outro ficam
+   * só neste lançamento mesmo com a flag.
+   */
+  apply_to?: 'future'
 }
 
 export async function listEntryAttachments(entryId: string): Promise<EntryAttachment[]> {
@@ -1439,6 +1451,7 @@ export async function uploadEntryAttachment(
   form.append('attachment_type', input.attachment_type)
   if (input.payment_code?.trim()) form.append('payment_code', input.payment_code.trim())
   if (input.note?.trim()) form.append('note', input.note.trim())
+  if (input.apply_to) form.append('apply_to', input.apply_to)
   const { data } = await meufinClient.post<EntryAttachment>(
     `${BASE}/entries/${entryId}/attachments`,
     form,

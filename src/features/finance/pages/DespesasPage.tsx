@@ -104,6 +104,7 @@ import { PurchaseEditDialog } from '../components/PurchaseEditDialog'
 import { WaiveEntryDialog } from '../components/WaiveEntryDialog'
 import { EntryDetailDialog } from '../components/EntryDetailDialog'
 import { AttachmentDraftList, type AttachmentDraft } from '../components/EntryAttachments'
+import { isAttachmentReplicable } from '../constants'
 import { CancelEntryDialog } from '../components/CancelEntryDialog'
 
 const now = new Date()
@@ -611,10 +612,27 @@ function EntryFormDialog({
   })
   const { activeCategories, groups } = useExpenseCategories()
   const [quickCategory, setQuickCategory] = useState(false)
-  // Anexos (boleto, QR Pix…) escolhidos antes do lançamento existir: sobem
-  // depois do create, só quando nasce um único lançamento (parcelas/recorrência
-  // têm boleto por ocorrência — anexa-se pelo detalhe de cada uma).
+  // Anexos (boleto, QR Pix…) do form: sobem depois do create/update. Em série,
+  // QR Pix e contrato replicam às parcelas futuras (create: sempre; edit: se
+  // "Aplicar às próximas" estiver ligado); boleto/nota/fatura ficam só no
+  // lançamento alvo (1ª parcela no create) — cada parcela tem o seu.
   const [attachmentDrafts, setAttachmentDrafts] = useState<AttachmentDraft[]>([])
+
+  /** Sobe os rascunhos no lançamento alvo; devolve quantos falharam (não desfaz a despesa). */
+  const uploadDrafts = async (targetId: string, replicate: boolean): Promise<number> => {
+    let failed = 0
+    for (const d of attachmentDrafts) {
+      try {
+        await uploadEntryAttachment(targetId, {
+          ...d,
+          apply_to: replicate && isAttachmentReplicable(d.attachment_type) ? 'future' : undefined,
+        })
+      } catch {
+        failed++
+      }
+    }
+    return failed
+  }
 
   const {
     control,
@@ -755,31 +773,25 @@ function EntryFormDialog({
       if (isEdit) {
         if (values.apply_to_future) base.apply_to = 'future'
         const updated = await updateEntry(entry!.id, base)
+        const attachmentsFailed = await uploadDrafts(
+          entry!.id,
+          Boolean(entry!.recurrence_group_id) && values.apply_to_future,
+        )
         return {
           created: 0,
           appliedToFuture: values.apply_to_future,
           dueDatesUpdated: updated.series_due_dates_updated ?? 0,
           fieldsUpdated: updated.series_fields_updated ?? 0,
           newDueDay: Number(values.due_date.slice(8, 10)) || null,
-          attachmentsFailed: 0,
-          attachmentsSkipped: false,
+          attachmentsFailed,
         }
       }
       const res = await createEntry(base)
       const created = res.total ?? res.items?.length ?? 1
-      // Anexos: só quando nasceu exatamente um lançamento. Falha de upload não
-      // desfaz a despesa; avisa e o usuário anexa pelo detalhe.
-      let attachmentsFailed = 0
-      const target = created === 1 ? res.items?.[0]?.id : undefined
-      if (target) {
-        for (const d of attachmentDrafts) {
-          try {
-            await uploadEntryAttachment(target, d)
-          } catch {
-            attachmentsFailed++
-          }
-        }
-      }
+      // Alvo dos anexos: a 1ª parcela (menor vencimento). Em série, os
+      // replicáveis (QR Pix, contrato) se propagam às demais via apply_to.
+      const first = [...(res.items ?? [])].sort((a, b) => a.due_date.localeCompare(b.due_date))[0]
+      const attachmentsFailed = first ? await uploadDrafts(first.id, created > 1) : 0
       return {
         created,
         appliedToFuture: false,
@@ -787,21 +799,18 @@ function EntryFormDialog({
         fieldsUpdated: 0,
         newDueDay: null,
         attachmentsFailed,
-        attachmentsSkipped: !target && attachmentDrafts.length > 0,
       }
     },
     onSuccess: (r) => {
       const { created, appliedToFuture, dueDatesUpdated, fieldsUpdated, newDueDay } = r
-      if (isEdit) {
+      if (r.attachmentsFailed > 0) {
+        show(
+          `${isEdit ? 'Despesa salva' : 'Despesa criada'}, mas ${r.attachmentsFailed} anexo(s) não foram enviados. Anexe pelo detalhe do lançamento.`,
+        )
+      } else if (isEdit) {
         show(
           seriesToast('Despesa', appliedToFuture, dueDatesUpdated, fieldsUpdated, newDueDay, isInstallmentEntry),
         )
-      } else if (r.attachmentsFailed > 0) {
-        show(
-          `Despesa criada, mas ${r.attachmentsFailed} anexo(s) não foram enviados. Anexe pelo detalhe do lançamento.`,
-        )
-      } else if (r.attachmentsSkipped) {
-        show('Despesas criadas. Os anexos não foram enviados: em série, anexe pelo detalhe de cada parcela.')
       } else if (created <= 1) {
         show('Despesa criada com sucesso.')
       }
@@ -1282,21 +1291,19 @@ function EntryFormDialog({
             )}
           />
 
-          {!isEdit && (
-            <>
-              <Divider />
-              <AttachmentDraftList
-                drafts={attachmentDrafts}
-                onChange={setAttachmentDrafts}
-                disabled={mutation.isPending}
-              />
-              {attachmentDrafts.length > 0 && (installments || recurrence !== 'none') && (
-                <Alert severity="warning">
-                  Em parcelamento ou recorrência os anexos não são enviados: cada parcela tem o seu
-                  boleto. Crie a série e anexe pelo detalhe de cada lançamento.
-                </Alert>
-              )}
-            </>
+          <Divider />
+          <AttachmentDraftList
+            drafts={attachmentDrafts}
+            onChange={setAttachmentDrafts}
+            disabled={mutation.isPending}
+            inSeries={isEdit ? Boolean(entry?.recurrence_group_id) : installments || recurrence !== 'none'}
+            applyToFuture={isEdit ? applyToFuture : true}
+          />
+          {attachmentDrafts.length > 0 && !isEdit && (installments || recurrence !== 'none') && (
+            <Alert severity="info">
+              Os anexos entram na 1ª parcela. QR Code Pix e contrato são replicados para as
+              parcelas seguintes; boleto, nota e fatura ficam só na 1ª — cada parcela tem o seu.
+            </Alert>
           )}
         </Stack>
       </DialogContent>
