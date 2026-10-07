@@ -1,9 +1,9 @@
 import { authClient } from '@/lib/api/auth'
 
 /**
- * API de Administração (IAM) — consome a retechauth-api sob VITE_AUTH_BASE_URL.
- * O Bearer (token master) já é injetado no `authClient` via setAuthAccessToken.
- * Endpoints sob /v1/users, /v1/roles e /v1/permissions.
+ * API de Administração (IAM) — consome a retechauth-api ATRAVÉS da meufin-api
+ * (`/api/v1/iam/*`), que injeta o token da sessão no servidor. O browser não
+ * tem token. Endpoints sob /v1/users, /v1/roles e /v1/permissions.
  */
 
 // ---------------------------------------------------------------------------

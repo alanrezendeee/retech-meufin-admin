@@ -8,43 +8,21 @@ import {
   type ReactNode,
 } from 'react'
 import type { LoginCredentials, User } from '@/types/auth'
-import { authService, setAuthAccessToken } from '@/auth/services/auth.service'
+import { authService, type AuthLoginResult } from '@/auth/services/auth.service'
 import { signInWithPassword } from '@/auth/context/jwt/action'
 import { buildAbility, type AppAbility } from '@/auth/casl/ability'
 import { AbilityProvider } from '@/auth/casl/ability-context'
-import { mockAbilitiesForEmail } from '@/auth/context/jwt/mock-auth'
+import { UNAUTHORIZED_EVENT } from '@/lib/api/meufin-client'
 
-const SESSION_KEY = 'retechfin-admin-session'
-
-type SessionPayload = {
-  accessToken: string
-  refreshToken: string
-  user: User
-}
-
-function readSession(): SessionPayload | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY)
-    if (!raw) {
-      return null
-    }
-    const data = JSON.parse(raw) as SessionPayload
-    if (!data?.accessToken || !data?.user) {
-      return null
-    }
-    return data
-  } catch {
-    return null
-  }
-}
-
-function writeSession(payload: SessionPayload): void {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(payload))
-}
-
-function clearStoredSession(): void {
-  localStorage.removeItem(SESSION_KEY)
-}
+/**
+ * Sessão do admin.
+ *
+ * Não há token no browser: a API mantém a sessão em cookie HttpOnly
+ * (docs/auth-session-gateway.md na meufin-api). Aqui só vive o estado em
+ * memória (usuário + abilities), reidratado via GET /api/v1/auth/me a cada
+ * carga da página. Um 401 em qualquer chamada derruba o estado local
+ * (evento UNAUTHORIZED_EVENT) e o RequireAuth redireciona para /login.
+ */
 
 type AuthContextValue = {
   user: User | null
@@ -66,83 +44,61 @@ export function useAuth() {
   return ctx
 }
 
-function mapMeUser(u: { id: string; email: string; name: string }): User {
-  return { id: u.id, name: u.name, email: u.email }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [ability, setAbility] = useState<AppAbility | undefined>()
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
 
+  const applySession = useCallback((result: AuthLoginResult | null) => {
+    if (!result) {
+      setUser(null)
+      setAbility(undefined)
+      return
+    }
+    setUser(result.user)
+    setAbility(buildAbility(result.abilities))
+  }, [])
+
   const checkUserSession = useCallback(async () => {
-    const session = readSession()
-    if (!session?.accessToken) {
-      setAuthAccessToken(null)
-      setUser(null)
-      setAbility(undefined)
-      setIsInitialized(true)
-      return
-    }
-
-    setAuthAccessToken(session.accessToken)
-
-    if (import.meta.env.VITE_AUTH_USE_MOCK === 'true') {
-      setUser(session.user)
-      setAbility(buildAbility(mockAbilitiesForEmail(session.user.email)))
-      setIsInitialized(true)
-      return
-    }
-
     try {
-      const me = await authService.me()
-      const nextUser = mapMeUser(me.user)
-      setUser(nextUser)
-      setAbility(buildAbility(me.abilities ?? []))
-      writeSession({
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        user: nextUser,
-      })
+      applySession(await authService.me())
     } catch {
-      clearStoredSession()
-      setAuthAccessToken(null)
-      setUser(null)
-      setAbility(undefined)
+      // 401 (sem sessão) ou API fora: trata como deslogado.
+      applySession(null)
     } finally {
       setIsInitialized(true)
     }
-  }, [])
+  }, [applySession])
 
   useEffect(() => {
     void checkUserSession()
   }, [checkUserSession])
 
-  const login = useCallback(async (credentials: LoginCredentials) => {
-    setIsLoading(true)
-    try {
-      const result = await signInWithPassword(credentials)
-      writeSession({
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-        user: result.user,
-      })
-      setAuthAccessToken(result.accessToken)
-      setUser(result.user)
-      setAbility(buildAbility(result.abilities))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  // Sessão expirou/revogada no servidor (401 em qualquer chamada): limpa local.
+  useEffect(() => {
+    const onUnauthorized = () => applySession(null)
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+  }, [applySession])
+
+  const login = useCallback(
+    async (credentials: LoginCredentials) => {
+      setIsLoading(true)
+      try {
+        applySession(await signInWithPassword(credentials))
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [applySession]
+  )
 
   const logout = useCallback(async () => {
     await authService.logout()
-    clearStoredSession()
-    setUser(null)
-    setAbility(undefined)
+    applySession(null)
     setIsInitialized(true)
-  }, [])
+  }, [applySession])
 
   const value = useMemo<AuthContextValue>(
     () => ({

@@ -14,16 +14,8 @@ export interface LoginCredentials {
   password: string
 }
 
-/** Resposta de login já normalizada para o app (tokens + usuário). */
-export interface LoginResponse {
-  user: User
-  token: string
-  refreshToken?: string
-}
-
 export interface AuthState {
   user: User | null
-  token: string | null
   isAuthenticated: boolean
   isLoading: boolean
 }

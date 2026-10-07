@@ -62,14 +62,22 @@ O arquivo `nginx.conf` configura:
 
 ### Variáveis de Ambiente
 
-Para produção, configure as variáveis de ambiente no `.env`:
+Duas camadas:
 
 ```env
-VITE_API_URL=https://api.retechfin.com
-VITE_APP_NAME=ReTechFin Admin
+# BUILD (Vite, assadas no bundle — Railway: Service Variables declaradas como ARG no Dockerfile)
+VITE_AUTH_USE_MOCK=false
+VITE_API_BASE_URL=            # vazia = same-origin (recomendado)
+
+# RUNTIME (nginx): destino do proxy /api/ → meufin-api
+API_UPSTREAM=http://retech-meufin-api.railway.internal:8002
 ```
 
-**Nota**: Variáveis de ambiente do Vite precisam ser definidas no build, não em runtime.
+A autenticação é por cookie de sessão HttpOnly emitido pela meufin-api; o nginx serve a
+API em `/api/` na mesma origem do admin, então não há CORS nem token no browser.
+Detalhes: `docs/auth-session-gateway.md` na meufin-api.
+
+**Nota**: variáveis `VITE_*` precisam ser definidas no build; `API_UPSTREAM` é lida no start do container.
 
 ### Customizar Porta
 
