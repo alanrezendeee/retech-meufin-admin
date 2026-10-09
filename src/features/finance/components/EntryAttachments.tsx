@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   Alert,
   Box,
@@ -17,7 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded'
+import { AttachFileButton } from '@/components/common/AttachFileButton'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
@@ -238,34 +238,15 @@ export function AttachmentDraftList({
   /** Replicação ligada (no create de série é sempre; no edit segue "Aplicar às próximas"). */
   applyToFuture?: boolean
 }) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
   return (
     <Stack spacing={1}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <Typography variant="body2" fontWeight={600}>
-          Anexos (boleto, QR Pix, nota…) — opcional
-        </Typography>
-        <Button
-          size="small"
-          startIcon={<AttachFileRoundedIcon />}
-          onClick={() => fileInputRef.current?.click()}
-          disabled={disabled}
-        >
-          Anexar arquivo
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          hidden
-          multiple
-          accept={RECEIPT_ACCEPT}
-          onChange={(e) => {
-            const picked = Array.from(e.target.files ?? [])
-            e.target.value = ''
-            if (picked.length) onChange([...drafts, ...picked.map(newDraft)])
-          }}
-        />
-      </Stack>
+      <AttachFileButton
+        label="Anexar documento para pagar (boleto, QR Pix, nota…)"
+        multiple
+        accept={RECEIPT_ACCEPT}
+        disabled={disabled}
+        onFiles={(picked) => onChange([...drafts, ...picked.map(newDraft)])}
+      />
       {drafts.map((d, i) => (
         <Box
           key={`${d.file.name}-${i}`}
@@ -387,7 +368,6 @@ export function EntryAttachmentsSection({
 }) {
   const [replicatedMsg, setReplicatedMsg] = useState<string | null>(null)
   const qc = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [adding, setAdding] = useState<File | null>(null)
   const [toDelete, setToDelete] = useState<EntryAttachment | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
@@ -446,30 +426,16 @@ export function EntryAttachmentsSection({
             Boleto, QR Code Pix, nota, contrato, fatura — o que você usa para pagar.
           </Typography>
         </Box>
-        {!readOnly && (
-          <>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<AttachFileRoundedIcon />}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Anexar
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              hidden
-              accept={RECEIPT_ACCEPT}
-              onChange={(e) => {
-                const picked = e.target.files?.[0] ?? null
-                e.target.value = ''
-                if (picked) setAdding(picked)
-              }}
-            />
-          </>
-        )}
       </Box>
+      {!readOnly && (
+        <Box sx={{ mb: 1 }}>
+          <AttachFileButton
+            label="Anexar documento para pagar"
+            accept={RECEIPT_ACCEPT}
+            onFiles={(picked) => setAdding(picked[0])}
+          />
+        </Box>
+      )}
 
       {attachmentsQ.isLoading && <LoadingState label="Carregando anexos…" />}
       {attachmentsQ.isError && <ErrorState message={errorMessage(attachmentsQ.error)} />}
