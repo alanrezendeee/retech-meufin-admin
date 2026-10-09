@@ -26,6 +26,7 @@ import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import ImageRoundedIcon from '@mui/icons-material/ImageRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
+import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteEntryAttachment,
@@ -428,14 +429,23 @@ export function EntryAttachmentsSection({
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-          Anexos
-          {attachments.length > 0 && (
-            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>
-              ({attachments.length})
-            </Typography>
-          )}
-        </Typography>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.75 }}
+          >
+            <RequestQuoteRoundedIcon fontSize="small" color="action" />
+            Documentos para pagar
+            {attachments.length > 0 && (
+              <Typography component="span" variant="caption" color="text.secondary">
+                ({attachments.length})
+              </Typography>
+            )}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Boleto, QR Code Pix, nota, contrato, fatura — o que você usa para pagar.
+          </Typography>
+        </Box>
         {!readOnly && (
           <>
             <Button

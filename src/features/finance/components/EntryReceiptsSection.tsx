@@ -6,6 +6,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
 import ImageRoundedIcon from '@mui/icons-material/ImageRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteEntryReceipt,
@@ -100,14 +101,23 @@ export function EntryReceiptsSection({
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-          Comprovantes
-          {receipts.length > 0 && (
-            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>
-              ({receipts.length})
-            </Typography>
-          )}
-        </Typography>
+        <Box>
+          <Typography
+            variant="subtitle2"
+            sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.75 }}
+          >
+            <TaskAltRoundedIcon fontSize="small" color="success" />
+            Comprovantes de pagamento
+            {receipts.length > 0 && (
+              <Typography component="span" variant="caption" color="text.secondary">
+                ({receipts.length})
+              </Typography>
+            )}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Prova de que o pagamento foi feito — recibo, extrato, comprovante do banco.
+          </Typography>
+        </Box>
         {!readOnly && (
           <>
             <Button
