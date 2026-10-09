@@ -5,6 +5,11 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Stack,
   Table,
   TableBody,
@@ -22,11 +27,13 @@ import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded'
 import TodayRoundedIcon from '@mui/icons-material/TodayRounded'
 import UpcomingRoundedIcon from '@mui/icons-material/UpcomingRounded'
 import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
+import RequestQuoteRoundedIcon from '@mui/icons-material/RequestQuoteRounded'
 import { useQuery } from '@tanstack/react-query'
 import { formatCents, listEntries, type Entry, type EntryKind } from '../api'
 import { errorMessage, financeKeys, INCOME_TYPE_LABEL } from '../constants'
 import { useExpenseCategories } from '../hooks/useExpenseCategories'
 import { SettleEntryDialog } from '../components/SettleEntryDialog'
+import { EntryAttachmentsSection } from '../components/EntryAttachments'
 import { PageHeader } from '@/features/health/components/PageHeader'
 import { EmptyState, ErrorState, LoadingState } from '@/features/health/components/StateViews'
 
@@ -48,11 +55,13 @@ function EntriesTable({
   entries,
   kind,
   onSettle,
+  onDocuments,
   labelOf,
 }: {
   entries: Entry[]
   kind: EntryKind
   onSettle: (e: Entry) => void
+  onDocuments: (e: Entry) => void
   labelOf: (slug?: string | null) => string
 }) {
   return (
@@ -86,7 +95,17 @@ function EntriesTable({
               <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
                 {formatCents(e.amount_cents)}
               </TableCell>
-              <TableCell align="right">
+              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                <Tooltip title="Documentos para pagar (boleto, QR Pix, nota…)">
+                  <IconButton
+                    size="small"
+                    onClick={() => onDocuments(e)}
+                    aria-label="Documentos para pagar"
+                    sx={{ mr: 0.5 }}
+                  >
+                    <RequestQuoteRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title={kind === 'debit' ? 'Pagar (liquidar)' : 'Receber (liquidar)'}>
                   <Button
                     size="small"
@@ -115,6 +134,7 @@ function Section({
   kind,
   emptyText,
   onSettle,
+  onDocuments,
   labelOf,
 }: {
   title: string
@@ -125,6 +145,7 @@ function Section({
   kind: EntryKind
   emptyText: string
   onSettle: (e: Entry) => void
+  onDocuments: (e: Entry) => void
   labelOf: (slug?: string | null) => string
 }) {
   return (
@@ -151,7 +172,13 @@ function Section({
         )}
       </CardContent>
       {entries.length > 0 && (
-        <EntriesTable entries={entries} kind={kind} onSettle={onSettle} labelOf={labelOf} />
+        <EntriesTable
+          entries={entries}
+          kind={kind}
+          onSettle={onSettle}
+          onDocuments={onDocuments}
+          labelOf={labelOf}
+        />
       )}
     </Card>
   )
@@ -160,6 +187,7 @@ function Section({
 export default function ContasDoDiaPage() {
   const [kind, setKind] = useState<EntryKind>('debit')
   const [settling, setSettling] = useState<Entry | null>(null)
+  const [docsFor, setDocsFor] = useState<Entry | null>(null)
   const { labelOf } = useExpenseCategories()
 
   const today = useMemo(() => new Date(), [])
@@ -236,6 +264,7 @@ export default function ContasDoDiaPage() {
             kind={kind}
             emptyText="Nada em atraso. 👏"
             onSettle={setSettling}
+            onDocuments={setDocsFor}
             labelOf={labelOf}
           />
           <Section
@@ -247,6 +276,7 @@ export default function ContasDoDiaPage() {
             kind={kind}
             emptyText="Nada vencendo hoje."
             onSettle={setSettling}
+            onDocuments={setDocsFor}
             labelOf={labelOf}
           />
           <Section
@@ -258,12 +288,44 @@ export default function ContasDoDiaPage() {
             kind={kind}
             emptyText="Nada previsto para os próximos 7 dias."
             onSettle={setSettling}
+            onDocuments={setDocsFor}
             labelOf={labelOf}
           />
         </Stack>
       )}
 
       {settling && <SettleEntryDialog entry={settling} onClose={() => setSettling(null)} />}
+      {docsFor && (
+        <Dialog open onClose={() => setDocsFor(null)} maxWidth="sm" fullWidth>
+          <DialogTitle sx={{ fontWeight: 800 }}>
+            {docsFor.description}
+            <Typography variant="body2" color="text.secondary" component="div">
+              {formatCents(docsFor.amount_cents)} · vence {formatDueDate(docsFor.due_date)}
+            </Typography>
+          </DialogTitle>
+          <DialogContent>
+            <EntryAttachmentsSection
+              entryId={docsFor.id}
+              inSeries={Boolean(docsFor.recurrence_group_id)}
+            />
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setDocsFor(null)} color="inherit">
+              Fechar
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<TaskAltRoundedIcon />}
+              onClick={() => {
+                setSettling(docsFor)
+                setDocsFor(null)
+              }}
+            >
+              Liquidar
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   )
 }
