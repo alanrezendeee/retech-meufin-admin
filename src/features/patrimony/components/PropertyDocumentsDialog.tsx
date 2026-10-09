@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   Button,
   Chip,
@@ -19,7 +19,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import { AttachFileButton } from '@/components/common/AttachFileButton'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
@@ -63,7 +63,6 @@ export function PropertyDocumentsDialog({
   onClose: () => void
 }) {
   const qc = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [toDelete, setToDelete] = useState<PropertyDocument | null>(null)
 
@@ -138,24 +137,12 @@ export function PropertyDocumentsDialog({
               />
             </Stack>
 
+            <AttachFileButton
+              label="Escolher arquivo (PDF, imagem ou DOC)"
+              accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx"
+              onFiles={(picked) => setFile(picked[0] ?? null)}
+            />
             <Stack direction="row" spacing={2} alignItems="center">
-              <Button
-                variant="outlined"
-                startIcon={<UploadFileRoundedIcon />}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Escolher arquivo
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                hidden
-                accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx"
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] ?? null)
-                  e.target.value = ''
-                }}
-              />
               {file ? (
                 <Chip label={file.name} onDelete={() => setFile(null)} />
               ) : (

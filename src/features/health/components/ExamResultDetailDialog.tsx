@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
   Alert,
   Box,
@@ -21,7 +21,7 @@ import {
   Typography,
 } from '@mui/material'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import { AttachFileButton } from '@/components/common/AttachFileButton'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import LinkOffRoundedIcon from '@mui/icons-material/LinkOffRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -132,7 +132,6 @@ function ResultAttachments({
   familyMemberId?: string | null
 }) {
   const qc = useQueryClient()
-  const fileInput = useRef<HTMLInputElement>(null)
   const [toDetach, setToDetach] = useState<HealthDocument | null>(null)
   const key = ['health', 'result-attachments', resultId] as const
 
@@ -174,27 +173,15 @@ function ResultAttachments({
         <Typography variant="subtitle2" fontWeight={700}>
           Anexos ({docs.length})
         </Typography>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<UploadFileRoundedIcon />}
-          disabled={upload.isPending}
-          onClick={() => fileInput.current?.click()}
-        >
-          Anexar arquivo
-        </Button>
-        <input
-          ref={fileInput}
-          type="file"
-          hidden
-          accept="application/pdf,image/jpeg,image/png"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) upload.mutate(f)
-            e.target.value = ''
-          }}
-        />
       </Stack>
+      <Box sx={{ mb: 1 }}>
+        <AttachFileButton
+          label="Anexar laudo (PDF) ou imagem"
+          accept="application/pdf,image/jpeg,image/png"
+          loading={upload.isPending}
+          onFiles={(picked) => upload.mutate(picked[0])}
+        />
+      </Box>
       {upload.isError && <Alert severity="error">{errorMessage(upload.error)}</Alert>}
       {docs.length === 0 ? (
         <Typography variant="caption" color="text.secondary">

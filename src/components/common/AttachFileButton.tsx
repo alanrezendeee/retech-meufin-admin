@@ -15,6 +15,7 @@ export function AttachFileButton({
   disabled = false,
   loading = false,
   loadingLabel = 'Enviando…',
+  fullWidth = true,
 }: {
   label?: string
   onFiles: (files: File[]) => void
@@ -23,12 +24,14 @@ export function AttachFileButton({
   disabled?: boolean
   loading?: boolean
   loadingLabel?: string
+  /** false em toolbars, onde o botão convive com outros controles na mesma linha. */
+  fullWidth?: boolean
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   return (
     <>
       <Button
-        fullWidth
+        fullWidth={fullWidth}
         variant="text"
         startIcon={<AttachFileRoundedIcon />}
         onClick={() => inputRef.current?.click()}

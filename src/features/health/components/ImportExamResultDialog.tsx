@@ -28,7 +28,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import { AttachFileButton } from '@/components/common/AttachFileButton'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -399,23 +399,14 @@ export function ImportExamResultDialog({
               ))}
             </TextField>
 
-            <Button
-              component="label"
-              variant="outlined"
-              startIcon={<UploadFileRoundedIcon />}
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              {file ? file.name : 'Selecionar PDF ou imagem'}
-              <input
-                type="file"
-                hidden
-                accept={ACCEPTED}
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] ?? null)
-                  setDocumentId(null)
-                }}
-              />
-            </Button>
+            <AttachFileButton
+              label={file ? file.name : 'Selecionar PDF ou imagem'}
+              accept={ACCEPTED}
+              onFiles={(picked) => {
+                setFile(picked[0] ?? null)
+                setDocumentId(null)
+              }}
+            />
             <TextField
               type="password"
               label="Senha do PDF (se protegido)"

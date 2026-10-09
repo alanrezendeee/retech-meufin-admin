@@ -29,7 +29,7 @@ import {
   Typography,
 } from '@mui/material'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import { AttachFileButton } from '@/components/common/AttachFileButton'
 import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded'
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded'
 import QrCode2RoundedIcon from '@mui/icons-material/QrCode2Rounded'
@@ -310,22 +310,11 @@ export function ImportFiscalDialog({
             {uploadMutation.isError && (
               <Alert severity="error">{errorMessage(uploadMutation.error)}</Alert>
             )}
-            <Button
-              component="label"
-              variant="outlined"
-              startIcon={<UploadFileRoundedIcon />}
-              sx={{ py: 3, borderStyle: 'dashed' }}
-            >
-              {file ? file.name : 'Selecionar PDF ou imagem do cupom/nota'}
-              <input
-                hidden
-                type="file"
-                accept={ACCEPTED}
-                onChange={(e) => {
-                  void handleFileSelect(e.target.files?.[0] ?? null)
-                }}
-              />
-            </Button>
+            <AttachFileButton
+              label={file ? file.name : 'Selecionar PDF ou imagem do cupom/nota'}
+              accept={ACCEPTED}
+              onFiles={(picked) => void handleFileSelect(picked[0] ?? null)}
+            />
             <Typography variant="caption" color="text.secondary">
               Dica: a leitura do <strong>QR Code</strong> aqui no navegador funciona melhor com uma
               foto <strong>de perto, só do QR</strong> (enchendo a tela). Na foto do cupom inteiro
