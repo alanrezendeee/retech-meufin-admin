@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
-import { Box, Button, IconButton, Stack, Tooltip, Typography } from '@mui/material'
-import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded'
+import { useState } from 'react'
+import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material'
+import { AttachFileButton } from '@/components/common/AttachFileButton'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded'
@@ -53,7 +53,6 @@ export function EntryReceiptsSection({
   readOnly?: boolean
 }) {
   const qc = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [toDelete, setToDelete] = useState<EntryReceipt | null>(null)
   const [openingId, setOpeningId] = useState<string | null>(null)
   const [openError, setOpenError] = useState<string | null>(null)
@@ -118,32 +117,18 @@ export function EntryReceiptsSection({
             Prova de que o pagamento foi feito — recibo, extrato, comprovante do banco.
           </Typography>
         </Box>
-        {!readOnly && (
-          <>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<AttachFileRoundedIcon />}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadMutation.isPending}
-            >
-              {uploadMutation.isPending ? 'Enviando…' : 'Anexar'}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              hidden
-              multiple
-              accept={RECEIPT_ACCEPT}
-              onChange={(e) => {
-                const picked = Array.from(e.target.files ?? [])
-                e.target.value = ''
-                if (picked.length) uploadMutation.mutate(picked)
-              }}
-            />
-          </>
-        )}
       </Box>
+      {!readOnly && (
+        <Box sx={{ mb: 1 }}>
+          <AttachFileButton
+            label="Anexar comprovante de pagamento"
+            multiple
+            accept={RECEIPT_ACCEPT}
+            loading={uploadMutation.isPending}
+            onFiles={(picked) => uploadMutation.mutate(picked)}
+          />
+        </Box>
+      )}
 
       {receiptsQ.isLoading && <LoadingState label="Carregando comprovantes…" />}
       {receiptsQ.isError && <ErrorState message={errorMessage(receiptsQ.error)} />}
