@@ -1,8 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Alert,
   Box,
-  Button,
   Card,
   Chip,
   IconButton,
@@ -18,7 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
+import { AttachFileButton } from '@/components/common/AttachFileButton'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import FolderSharedRoundedIcon from '@mui/icons-material/FolderSharedRounded'
@@ -76,7 +75,6 @@ export default function HealthDocumentsPage() {
   const [pageSize, setPageSize] = useState(20)
   const [toDelete, setToDelete] = useState<HealthDocument | null>(null)
   const [uploadType, setUploadType] = useState('image_report')
-  const fileInput = useRef<HTMLInputElement>(null)
 
   const { data: members = [] } = useQuery({
     queryKey: healthKeys.familyMembers(),
@@ -193,24 +191,12 @@ export default function HealthDocumentsPage() {
               </MenuItem>
             ))}
           </TextField>
-          <Button
-            variant="contained"
-            startIcon={<UploadFileRoundedIcon />}
-            disabled={uploadMutation.isPending}
-            onClick={() => fileInput.current?.click()}
-          >
-            Enviar arquivo
-          </Button>
-          <input
-            ref={fileInput}
-            type="file"
-            hidden
+          <AttachFileButton
+            fullWidth={false}
+            label="Enviar arquivo"
             accept="application/pdf,image/jpeg,image/png"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) uploadMutation.mutate(f)
-              e.target.value = ''
-            }}
+            loading={uploadMutation.isPending}
+            onFiles={(picked) => uploadMutation.mutate(picked[0])}
           />
         </Stack>
         {uploadMutation.isError && (
