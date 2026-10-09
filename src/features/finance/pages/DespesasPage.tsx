@@ -106,6 +106,8 @@ import { EntryDetailDialog } from '../components/EntryDetailDialog'
 import { AttachmentDraftList, type AttachmentDraft } from '../components/EntryAttachments'
 import { isAttachmentReplicable } from '../constants'
 import { CancelEntryDialog } from '../components/CancelEntryDialog'
+import { ReceiptFilesPicker } from '../components/ReceiptFilesPicker'
+import { uploadReceiptsOrThrow } from '../receiptUpload'
 
 const now = new Date()
 
@@ -431,6 +433,10 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   })
+  const [files, setFiles] = useState<File[]>([])
+  // Confirmação já gravada na API: um retry (após falha de upload) só reenvia
+  // os comprovantes pendentes, nunca confirma de novo.
+  const [confirmed, setConfirmed] = useState(false)
 
   const reasonsQuery = useQuery({
     queryKey: financeKeys.discountReasons(),
@@ -454,28 +460,18 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
   const partialBlocked = residualCents > 0 && isInvoice
 
   const mutation = useMutation({
-    mutationFn: () => {
-      const payload: ConfirmEntryPayload = {}
-      if (paidDate) {
-        payload.paid_at = paidDate
+    mutationFn: async () => {
+      if (!confirmed) {
+        await confirmWithPayload()
+        setConfirmed(true)
       }
-      if (discountCents > 0) {
-        payload.discount_cents = discountCents
-        payload.discount_reason = reason
-      }
-      if (expectedCents === 0) {
-        // Isenção total: pago zero explícito, sem residual.
-        payload.paid_amount_cents = 0
-      } else if (paidProvided && paidCents < expectedCents) {
-        payload.paid_amount_cents = paidCents
-        if (residualDate && residualDate !== entry.due_date) {
-          payload.residual_due_date = residualDate
-        }
-      }
-      return confirmEntry(entry.id, payload)
+      await uploadReceiptsOrThrow(entry.id, files, setFiles)
+    },
+    onSettled: () => {
+      // Mesmo com falha no upload, a confirmação pode ter sido gravada.
+      qc.invalidateQueries({ queryKey: financeKeys.all })
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: financeKeys.all })
       if (expectedCents === 0) {
         show('Registrado: nada a pagar neste mês. A recorrência segue normalmente.')
       } else if (residualCents > 0) {
@@ -488,6 +484,27 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
       onClose()
     },
   })
+
+  function confirmWithPayload() {
+    const payload: ConfirmEntryPayload = {}
+    if (paidDate) {
+      payload.paid_at = paidDate
+    }
+    if (discountCents > 0) {
+      payload.discount_cents = discountCents
+      payload.discount_reason = reason
+    }
+    if (expectedCents === 0) {
+      // Isenção total: pago zero explícito, sem residual.
+      payload.paid_amount_cents = 0
+    } else if (paidProvided && paidCents < expectedCents) {
+      payload.paid_amount_cents = paidCents
+      if (residualDate && residualDate !== entry.due_date) {
+        payload.residual_due_date = residualDate
+      }
+    }
+    return confirmEntry(entry.id, payload)
+  }
 
   return (
     <Dialog open onClose={mutation.isPending ? undefined : onClose} maxWidth="xs" fullWidth>
@@ -568,6 +585,8 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
               Pagamento parcial de fatura de cartão ainda não é suportado.
             </Alert>
           )}
+          <Divider />
+          <ReceiptFilesPicker files={files} onChange={setFiles} disabled={mutation.isPending} />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -578,9 +597,17 @@ function ConfirmPaymentDialog({ entry, onClose }: { entry: Entry; onClose: () =>
           variant="contained"
           color="success"
           onClick={() => mutation.mutate()}
-          disabled={mutation.isPending || discountInvalid || paidInvalid || partialBlocked}
+          disabled={
+            mutation.isPending || (!confirmed && (discountInvalid || paidInvalid || partialBlocked))
+          }
         >
-          Confirmar pagamento
+          {mutation.isPending
+            ? confirmed
+              ? 'Enviando comprovantes…'
+              : 'Confirmando…'
+            : confirmed
+              ? 'Reenviar comprovantes'
+              : 'Confirmar pagamento'}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,8 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Alert,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -13,7 +12,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Controller, useForm, useWatch } from 'react-hook-form'
 import {
@@ -23,7 +21,6 @@ import {
   listCards,
   reaisToCents,
   settleEntry,
-  uploadEntryReceipt,
   type Entry,
   type PaymentMethod,
 } from '../api'
@@ -36,7 +33,8 @@ import {
 import { MoneyField } from '@/components/fields/MoneyField'
 import { AutocompleteField } from '@/components/fields/AutocompleteField'
 import { ErrorState } from '@/features/health/components/StateViews'
-import { RECEIPT_ACCEPT } from './EntryReceiptsSection'
+import { ReceiptFilesPicker } from './ReceiptFilesPicker'
+import { uploadReceiptsOrThrow } from '../receiptUpload'
 
 type FormValues = {
   paid_at: string // YYYY-MM-DD
@@ -65,7 +63,6 @@ export function SettleEntryDialog({
   onSettled?: () => void
 }) {
   const qc = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [files, setFiles] = useState<File[]>([])
   const isExpense = entry.kind === 'debit'
 
@@ -109,22 +106,7 @@ export function SettleEntryDialog({
         })
         setSettled(true)
       }
-      const failed: { file: File; reason: string }[] = []
-      for (const file of files) {
-        try {
-          await uploadEntryReceipt(entry.id, file)
-        } catch (err) {
-          failed.push({ file, reason: errorMessage(err) })
-        }
-      }
-      if (failed.length > 0) {
-        setFiles(failed.map((f) => f.file))
-        const detail = failed.map((f) => `${f.file.name}: ${f.reason}`).join('; ')
-        throw new Error(
-          `Pagamento registrado, mas ${failed.length} comprovante(s) não foram enviados (${detail}). ` +
-            'Tente novamente ou anexe depois pelo detalhe do lançamento.'
-        )
-      }
+      await uploadReceiptsOrThrow(entry.id, files, setFiles)
     },
     onSettled: () => {
       // Mesmo com falha no upload, a liquidação pode ter sido gravada.
@@ -285,44 +267,7 @@ export function SettleEntryDialog({
 
           <Divider />
 
-          <Stack spacing={1}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="body2" fontWeight={600}>
-                Comprovantes (opcional)
-              </Typography>
-              <Button
-                size="small"
-                startIcon={<AttachFileRoundedIcon />}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Anexar arquivo
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                hidden
-                multiple
-                accept={RECEIPT_ACCEPT}
-                onChange={(e) => {
-                  const picked = Array.from(e.target.files ?? [])
-                  if (picked.length) setFiles((prev) => [...prev, ...picked])
-                  e.target.value = ''
-                }}
-              />
-            </Stack>
-            {files.length > 0 && (
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                {files.map((f, i) => (
-                  <Chip
-                    key={`${f.name}-${i}`}
-                    label={f.name}
-                    size="small"
-                    onDelete={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
-                  />
-                ))}
-              </Stack>
-            )}
-          </Stack>
+          <ReceiptFilesPicker files={files} onChange={setFiles} disabled={mutation.isPending} />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
